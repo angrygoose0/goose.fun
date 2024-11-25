@@ -1,0 +1,10 @@
+/mnt/c/Users/quaacky/Desktop/keep.fun/meme/anchor/target/debug/deps/libsolana_frozen_abi-ffeb8cc03118338e.rmeta: /home/goose/.cargo/registry/src/index.crates.io-6f17d22bba15001f/solana-frozen-abi-1.18.19/src/lib.rs /home/goose/.cargo/registry/src/index.crates.io-6f17d22bba15001f/solana-frozen-abi-1.18.19/src/abi_digester.rs /home/goose/.cargo/registry/src/index.crates.io-6f17d22bba15001f/solana-frozen-abi-1.18.19/src/abi_example.rs /home/goose/.cargo/registry/src/index.crates.io-6f17d22bba15001f/solana-frozen-abi-1.18.19/src/hash.rs
+
+/mnt/c/Users/quaacky/Desktop/keep.fun/meme/anchor/target/debug/deps/libsolana_frozen_abi-ffeb8cc03118338e.rlib: /home/goose/.cargo/registry/src/index.crates.io-6f17d22bba15001f/solana-frozen-abi-1.18.19/src/lib.rs /home/goose/.cargo/registry/src/index.crates.io-6f17d22bba15001f/solana-frozen-abi-1.18.19/src/abi_digester.rs /home/goose/.cargo/registry/src/index.crates.io-6f17d22bba15001f/solana-frozen-abi-1.18.19/src/abi_example.rs /home/goose/.cargo/registry/src/index.crates.io-6f17d22bba15001f/solana-frozen-abi-1.18.19/src/hash.rs
+
+/mnt/c/Users/quaacky/Desktop/keep.fun/meme/anchor/target/debug/deps/solana_frozen_abi-ffeb8cc03118338e.d: /home/goose/.cargo/registry/src/index.crates.io-6f17d22bba15001f/solana-frozen-abi-1.18.19/src/lib.rs /home/goose/.cargo/registry/src/index.crates.io-6f17d22bba15001f/solana-frozen-abi-1.18.19/src/abi_digester.rs /home/goose/.cargo/registry/src/index.crates.io-6f17d22bba15001f/solana-frozen-abi-1.18.19/src/abi_example.rs /home/goose/.cargo/registry/src/index.crates.io-6f17d22bba15001f/solana-frozen-abi-1.18.19/src/hash.rs
+
+/home/goose/.cargo/registry/src/index.crates.io-6f17d22bba15001f/solana-frozen-abi-1.18.19/src/lib.rs:
+/home/goose/.cargo/registry/src/index.crates.io-6f17d22bba15001f/solana-frozen-abi-1.18.19/src/abi_digester.rs:
+/home/goose/.cargo/registry/src/index.crates.io-6f17d22bba15001f/solana-frozen-abi-1.18.19/src/abi_example.rs:
+/home/goose/.cargo/registry/src/index.crates.io-6f17d22bba15001f/solana-frozen-abi-1.18.19/src/hash.rs:
