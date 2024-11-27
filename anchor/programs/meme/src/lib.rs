@@ -29,21 +29,22 @@ pub mod meme {
             return Err(error!(CustomError::InvalidDecimals));
         }
 
-        let seeds = &["mint".as_bytes(), &[ctx.bumps.mint]];
+        // Clone the name and symbol for use in `seeds` to avoid moving them
+        let name_bytes = metadata.name.clone().into_bytes();
+        let symbol_bytes = metadata.symbol.clone().into_bytes();
+        let seeds = &[name_bytes.as_slice(), symbol_bytes.as_slice(), &[ctx.bumps.mint]];
         let signer = [&seeds[..]];
 
-        //initialize token mint address
+        // Initialize token mint address
         let token_data: DataV2 = DataV2 {
-            name: metadata.name,
-            symbol: metadata.symbol,
-            uri: metadata.uri,
+            name: metadata.name.clone(),  // Use cloned name
+            symbol: metadata.symbol.clone(), // Use cloned symbol
+            uri: metadata.uri.clone(),
             seller_fee_basis_points: 0,
             creators: None,
             collection: None,
             uses: None,
         };
-
-        
 
         let metadata_ctx = CpiContext::new_with_signer(
             ctx.accounts.token_metadata_program.to_account_info(),
@@ -81,8 +82,7 @@ pub mod meme {
             quantity,
         )?;
 
-
-        // create meme_entry account
+        // Create meme_entry account
         let meme_entry = &mut ctx.accounts.meme_entry;
         meme_entry.dev = ctx.accounts.payer.key();
         meme_entry.mint = ctx.accounts.mint.key();
@@ -94,7 +94,44 @@ pub mod meme {
         Ok(())
     }
 
-    pub fn update_meme_entry(
+    pub fn update_or_create_user_account(
+        ctx: Context<UpdateOrCreateUserAccount>,
+        want_to_lock: u64,
+        want_to_claim: u64,
+    ) -> Result<()> {
+        let user_account = &mut ctx.accounts.user_account;
+        let meme_entry = &ctx.accounts.meme_entry;
+
+        if user_account.is_initialized() {
+            // Update logic
+            user_account.locked_amount += want_to_lock;
+            user_account.claimmable = user_account.claimmable.saturating_add(want_to_claim);
+
+            // Ensure locked amount does not exceed the MemeEntryState locked amount
+            require!(
+                user_account.locked_amount <= meme_entry.locked_amount,
+                CustomError::ExceededLockedAmount
+            );
+        } else {
+            // Initialize new UserAccount
+            user_account.user = ctx.accounts.user.key();
+            user_account.meme_entry = MemeEntryState {
+                dev: meme_entry.dev,
+                mint: meme_entry.mint,
+                locked_amount: meme_entry.locked_amount,
+                unlocked_amount: meme_entry.unlocked_amount,
+                creation_time: meme_entry.creation_time,
+                bonded_time: meme_entry.bonded_time,
+            };
+            user_account.locked_amount = want_to_lock;
+            user_account.claimmable = want_to_claim;
+        }
+
+        Ok(())
+    }
+
+    pub fn update_meme_entry<'info>(
+        
         ctx: Context<UpdateMemeEntry>,
         _mint: Pubkey,
         locked_amount: u64,
@@ -109,10 +146,10 @@ pub mod meme {
         
         // for when i want to derive the treasury_token_account dynamically
         //let treasury_token_account = get_associated_token_address(&treasury, &ctx.accounts.mint.key());
-
-
         Ok(())
     }
+
+    
 
 }
 
@@ -141,7 +178,7 @@ pub struct CreateMemeToken<'info> {
 
     #[account(
         init,
-        seeds = [b"mint"],
+        seeds = [params.name.as_bytes(), params.symbol.as_bytes()],
         bump,
         payer = payer,
         mint::decimals = params.decimals,
@@ -175,6 +212,7 @@ pub struct CreateMemeToken<'info> {
     pub token_metadata_program: Program<'info, Metaplex>,
     pub associated_token_program: Program<'info, AssociatedToken>,
 }
+
 
 
 
@@ -215,4 +253,33 @@ pub struct MemeEntryState {
 pub enum CustomError {
     #[msg("Invalid decimals value.")]
     InvalidDecimals,
+}
+
+#[account]
+#[derive(InitSpace)]
+pub struct UserAccount {
+    pub user: Pubkey,
+    pub meme_entry: MemeEntryState,
+    pub locked_amount: u64,
+    pub claimmable: u64,
+}
+
+#[derive(Accounts)]
+pub struct UpdateOrCreateUserAccount<'info> {
+    #[account(
+        init_if_needed,
+        payer = user,
+        space = 8 + UserAccount::INIT_SPACE,
+        seeds = [b"user-account", user.key().as_ref()], // PDA seed
+        bump
+    )]
+    pub user_account: Account<'info, UserAccount>,
+
+    #[account(mut)]
+    pub user: Signer<'info>,
+
+    #[account(mut)]
+    pub meme_entry: Account<'info, MemeEntryState>, // Link to a MemeEntryState account
+
+    pub system_program: Program<'info, System>,
 }

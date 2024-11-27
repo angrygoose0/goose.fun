@@ -45,13 +45,12 @@ export type Meme = {
           "pda": {
             "seeds": [
               {
-                "kind": "const",
-                "value": [
-                  109,
-                  105,
-                  110,
-                  116
-                ]
+                "kind": "arg",
+                "path": "params.name"
+              },
+              {
+                "kind": "arg",
+                "path": "params.symbol"
               }
             ]
           }

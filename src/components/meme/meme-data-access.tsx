@@ -49,25 +49,44 @@ export function useMemeProgram() {
   const programId = useMemo(() => getMemeProgramId(cluster.network as Cluster), [cluster]);
   const program = getMemeProgram(provider);
 
-  // State to store paginated keys
+
+  enum SortBy {
+    CreationTime = "creationTime",
+    LockedAmount = "lockedAmount",
+  }
+  const [sortBy, setSortBy] = useState<SortBy>(SortBy.CreationTime); // Default sorting by creationTime
   const [paginatedKeys, setPaginatedKeys] = useState<PublicKey[]>([]);
+
+  const [currentPage, setCurrentPage] = useState(1); // Track current page
+  const pageSize = 5; // Number of accounts per page
 
   // Fetch and process accounts
   useEffect(() => {
     const fetchAndProcessAccounts = async () => {
       try {
+        const { offset, length } = (() => {
+          if (sortBy === SortBy.CreationTime) {
+            return { offset: 80, length: 8 }; // creation_time
+          } else if (sortBy === SortBy.LockedAmount) {
+            return { offset: 64, length: 8 }; // locked_amount
+          }
+          return { offset: 0, length: 0 }; // Default (handle edge case)
+        })();
+
+        // Calculate paginated slice based on currentPage and pageSize
+        const paginatedOffset = (currentPage - 1) * pageSize;
         const accounts = await connection.getProgramAccounts(programId, {
-          dataSlice: { offset: 80, length: 8 },
+          dataSlice: { offset: paginatedOffset + offset, length }, // Dynamic offset
         });
 
         const accountsArray: Array<ProgramAccount> = Array.from(accounts);
 
         accountsArray.sort((a, b) => {
           try {
-            const creationTimeA = a.account.data.readBigUInt64LE(0);
-            const creationTimeB = b.account.data.readBigUInt64LE(0);
+            const valueA = a.account.data.readBigUInt64LE(0); // Use offset 0 from the slice
+            const valueB = b.account.data.readBigUInt64LE(0);
 
-            return creationTimeB > creationTimeA ? -1 : 1; // Descending order
+            return valueB > valueA ? -1 : 1; // Descending order
           } catch (error) {
             console.error("Error sorting accounts: ", error);
             return 0;
@@ -75,23 +94,25 @@ export function useMemeProgram() {
         });
 
         const accountKeys = accountsArray.map((account) => account.pubkey);
-        setPaginatedKeys(accountKeys.slice(0, 10)); // Update state with first 10 keys
+        setPaginatedKeys(accountKeys.slice(0, pageSize)); // Update state with keys for the current page
       } catch (error) {
         console.error("Error fetching program accounts: ", error);
       }
     };
 
     fetchAndProcessAccounts();
-  }, [connection, programId]);
+  }, [connection, programId, sortBy, currentPage]); // Add currentPage as a dependency
+
+
 
   const getProgramAccount = useQuery({
     queryKey: ["get-program-account", { cluster }],
     queryFn: () => connection.getParsedAccountInfo(programId),
   });
 
-  const createMemeToken = useMutation<string, Error, { metadata: InitTokenParams, userPublicKey: PublicKey }>({
+  const createMemeToken = useMutation<string, Error, { metadata: InitTokenParams, publicKey: PublicKey }>({
     mutationKey: ["memeTokenEntry", "create", { cluster }],
-    mutationFn: async ({ metadata, userPublicKey }) => {
+    mutationFn: async ({ metadata, publicKey }) => {
       const hardCodedTreasury = new PublicKey("4ArWvAzbFV3JRbC3AepcyMKp5bvum18bBSFH3FgXZbXZ"); // Replace with the actual public key
 
       const tokenMetadata = {
@@ -102,7 +123,8 @@ export function useMemeProgram() {
       };
 
       const mintSeeds = [
-        Buffer.from("mint"),
+        Buffer.from(metadata.name),
+        Buffer.from(metadata.symbol)
       ];
 
       const mint = PublicKey.findProgramAddressSync(
@@ -117,7 +139,7 @@ export function useMemeProgram() {
       return program.methods
         .createMemeToken(tokenMetadata, hardCodedTreasury)
         .accounts({
-          payer: userPublicKey,
+          payer: publicKey,
           rent: SYSVAR_RENT_PUBKEY,
           metadata: metadataAddress,
           mint: mint,
