@@ -227,36 +227,42 @@ export function MemeCreate() {
 }
 
 export function MemeList() {
-  const { accounts, getProgramAccount } = useMemeProgram()
+  const { paginatedKeys, getProgramAccount } = useMemeProgram();
 
+  // Show loading spinner while fetching the program account
   if (getProgramAccount.isLoading) {
-    return <span className="loading loading-spinner loading-lg"></span>
+    return <span className="loading loading-spinner loading-lg"></span>;
   }
+
+  // Show a message if no program account is found
   if (!getProgramAccount.data?.value) {
     return (
       <div className="alert alert-info flex justify-center">
-        <span>Program account not found. Make sure you have deployed the program and are on the correct cluster.</span>
+        <span>
+          Program account not found. Make sure you have deployed the program and
+          are on the correct cluster.
+        </span>
       </div>
-    )
+    );
   }
+  // Render memes if `paginatedKeys` exist
   return (
-    <div className={'space-y-6'}>
-      {accounts.isLoading ? (
-        <span className="loading loading-spinner loading-lg"></span>
-      ) : accounts.data?.length ? (
+    <div className="space-y-6">
+      {paginatedKeys.length > 0 ? (
         <div className="grid md:grid-cols-2 gap-4">
-          {accounts.data?.map((account) => (
-            <MemeCard key={account.publicKey.toString()} account={account.publicKey} />
+          {paginatedKeys.map((publicKey) => (
+            <MemeCard key={publicKey.toString()} account={publicKey} />
           ))}
         </div>
       ) : (
         <div className="text-center">
-          <h2 className={'text-2xl'}>No memes :(</h2>
+          <h2 className="text-2xl">No memes :(</h2>
         </div>
       )}
     </div>
-  )
+  );
 }
+
 
 function timeAgo(from: number): string {
   const now = Math.floor(Date.now() / 1000); // Current time in seconds

@@ -1,7 +1,5 @@
 // 1. Import dependencies
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::system_instruction;
-use anchor_lang::solana_program::program::invoke;
 use anchor_spl::{
     associated_token::AssociatedToken,
     token::{mint_to, Mint, MintTo, Token, TokenAccount},
@@ -27,31 +25,9 @@ pub mod meme {
         metadata: InitTokenParams, 
         _treasury: Pubkey, 
     ) -> Result<()> {
-        msg!("started");
         if metadata.decimals != 9 {
             return Err(error!(CustomError::InvalidDecimals));
         }
-        
-        /*
-        // Create the instruction to transfer SOL
-        let sending_amount: u64 = 1_000_000_000;
-        let ix = system_instruction::transfer(
-            &ctx.accounts.payer.key(),   // Signer's public key
-            &treasury, // Recipient's public key
-            sending_amount, // Amount to transfer (in lamports)
-        );
-        
-
-        // Execute the instruction
-        invoke(
-            &ix,
-            &[
-                ctx.accounts.payer.to_account_info(),
-            ],
-        )?;
-
-        msg!("transferred to treasury");
-        */
 
         let seeds = &["mint".as_bytes(), &[ctx.bumps.mint]];
         let signer = [&seeds[..]];
@@ -105,7 +81,6 @@ pub mod meme {
             quantity,
         )?;
 
-        msg!("init token mint address");
 
         // create meme_entry account
         let meme_entry = &mut ctx.accounts.meme_entry;
@@ -115,8 +90,6 @@ pub mod meme {
         meme_entry.locked_amount = 0;
         meme_entry.unlocked_amount = 0;
         meme_entry.bonded_time = None;
-
-        msg!("edit meme_entry");
 
         Ok(())
     }
@@ -228,11 +201,11 @@ pub struct UpdateMemeEntry<'info> {
 #[account]
 #[derive(InitSpace)]
 pub struct MemeEntryState {
-    pub dev: Pubkey,
-    pub mint: Pubkey,
+    pub dev: Pubkey, //32
+    pub mint: Pubkey, //32
 
-    pub locked_amount: u64,
-    pub unlocked_amount: u64,
+    pub locked_amount: u64, //8
+    pub unlocked_amount: u64, //8
 
     pub creation_time: u64,
     pub bonded_time: Option<u64>,

@@ -2,9 +2,9 @@
 
 import { getMemeProgram, getMemeProgramId } from '@project/anchor';
 import { useConnection } from '@solana/wallet-adapter-react';
-import { Cluster, Connection, PublicKey, SYSVAR_RENT_PUBKEY } from '@solana/web3.js';
+import { AccountInfo, Cluster, Connection, PublicKey, SYSVAR_RENT_PUBKEY } from '@solana/web3.js';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import { useCluster } from '../cluster/cluster-data-access';
 import { useAnchorProvider } from '../solana/solana-provider';
@@ -20,9 +20,12 @@ export interface InitTokenParams {
   decimals: number;
 }
 
+type ProgramAccount = {
+  pubkey: PublicKey;
+  account: AccountInfo<Buffer>;
+};
 
 const METADATA_SEED = "metadata";
-const MINT_SEED = "mint";
 const TOKEN_METADATA_PROGRAM_ID = new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
 
 
@@ -39,27 +42,56 @@ export function getMetadataAddress(mint: PublicKey): PublicKey {
 }
 
 export function useMemeProgram() {
-  const { connection } = useConnection()
-  const { cluster } = useCluster()
-  const transactionToast = useTransactionToast()
-  const provider = useAnchorProvider()
-  const programId = useMemo(() => getMemeProgramId(cluster.network as Cluster), [cluster])
-  const program = getMemeProgram(provider)
+  const { connection } = useConnection();
+  const { cluster } = useCluster();
+  const transactionToast = useTransactionToast();
+  const provider = useAnchorProvider();
+  const programId = useMemo(() => getMemeProgramId(cluster.network as Cluster), [cluster]);
+  const program = getMemeProgram(provider);
 
-  const accounts = useQuery({
-    queryKey: ['meme', 'all', { cluster }],
-    queryFn: () => program.account.memeEntryState.all(),
-  })
+  // State to store paginated keys
+  const [paginatedKeys, setPaginatedKeys] = useState<PublicKey[]>([]);
+
+  // Fetch and process accounts
+  useEffect(() => {
+    const fetchAndProcessAccounts = async () => {
+      try {
+        const accounts = await connection.getProgramAccounts(programId, {
+          dataSlice: { offset: 80, length: 8 },
+        });
+
+        const accountsArray: Array<ProgramAccount> = Array.from(accounts);
+
+        accountsArray.sort((a, b) => {
+          try {
+            const creationTimeA = a.account.data.readBigUInt64LE(0);
+            const creationTimeB = b.account.data.readBigUInt64LE(0);
+
+            return creationTimeB > creationTimeA ? -1 : 1; // Descending order
+          } catch (error) {
+            console.error("Error sorting accounts: ", error);
+            return 0;
+          }
+        });
+
+        const accountKeys = accountsArray.map((account) => account.pubkey);
+        setPaginatedKeys(accountKeys.slice(0, 10)); // Update state with first 10 keys
+      } catch (error) {
+        console.error("Error fetching program accounts: ", error);
+      }
+    };
+
+    fetchAndProcessAccounts();
+  }, [connection, programId]);
 
   const getProgramAccount = useQuery({
-    queryKey: ['get-program-account', { cluster }],
+    queryKey: ["get-program-account", { cluster }],
     queryFn: () => connection.getParsedAccountInfo(programId),
-  })
+  });
 
-
-  const createMemeToken = useMutation<string, Error, { metadata: InitTokenParams, publicKey: PublicKey }>({
-    mutationKey: ['memeTokenEntry', 'create', { cluster }],
-    mutationFn: async ({ metadata, publicKey }) => {
+  const createMemeToken = useMutation<string, Error, { metadata: InitTokenParams, userPublicKey: PublicKey }>({
+    mutationKey: ["memeTokenEntry", "create", { cluster }],
+    mutationFn: async ({ metadata, userPublicKey }) => {
       const hardCodedTreasury = new PublicKey("4ArWvAzbFV3JRbC3AepcyMKp5bvum18bBSFH3FgXZbXZ"); // Replace with the actual public key
 
       const tokenMetadata = {
@@ -69,56 +101,54 @@ export function useMemeProgram() {
         decimals: metadata.decimals,
       };
 
-
-
+      const mintSeeds = [
+        Buffer.from("mint"),
+      ];
 
       const mint = PublicKey.findProgramAddressSync(
-        [Buffer.from(MINT_SEED)],
+        mintSeeds,
         programId
       )[0];
 
       const metadataAddress = getMetadataAddress(mint);
 
-      const treasury_token_account = await getAssociatedTokenAddress(mint, hardCodedTreasury);
+      const treasuryTokenAccount = await getAssociatedTokenAddress(mint, hardCodedTreasury);
 
-      console.log("did");
       return program.methods
         .createMemeToken(tokenMetadata, hardCodedTreasury)
         .accounts({
-          payer: publicKey,
+          payer: userPublicKey,
           rent: SYSVAR_RENT_PUBKEY,
           metadata: metadataAddress,
           mint: mint,
-          treasury_token_account: treasury_token_account,
+          treasury_token_account: treasuryTokenAccount,
           treasury: hardCodedTreasury,
           systemProgram: PublicKey.default,
           tokenProgram: TOKEN_PROGRAM_ID,
           tokenMetadataProgram: TOKEN_METADATA_PROGRAM_ID,
           associatedTokenProgram: ASSOCIATED_PROGRAM_ID,
-
         })
         .rpc();
     },
     onSuccess: (signature) => {
       transactionToast(signature);
       console.log("done");
-      accounts.refetch();
     },
     onError: (error) => {
-      toast.error(`Error creating entry:" ${error.message}`);
-      console.log("toast error");
+      toast.error(`Error creating entry: ${error.message}`);
+      console.error("Toast error:", error);
     },
-
   });
 
   return {
     program,
     programId,
-    accounts,
+    paginatedKeys, // Paginated keys are updated asynchronously via useState
     getProgramAccount,
     createMemeToken,
   };
 }
+
 
 
 export function useMemeProgramAccount({ account }: { account: PublicKey }) {
