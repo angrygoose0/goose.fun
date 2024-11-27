@@ -39,6 +39,15 @@
           "pda": {
             "seeds": [
               {
+                "kind": "const",
+                "value": [
+                  109,
+                  105,
+                  110,
+                  116
+                ]
+              },
+              {
                 "kind": "arg",
                 "path": "params.name"
               },
@@ -55,7 +64,7 @@
           "pda": {
             "seeds": [
               {
-                "kind": "arg",
+                "kind": "account",
                 "path": "treasury"
               },
               {
@@ -141,13 +150,45 @@
         },
         {
           "name": "treasury",
-          "writable": true
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  114,
+                  101,
+                  97,
+                  115,
+                  117,
+                  114,
+                  121
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "meme_entry",
           "writable": true,
           "pda": {
             "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  101,
+                  109,
+                  101,
+                  95,
+                  101,
+                  110,
+                  116,
+                  114,
+                  121
+                ]
+              },
               {
                 "kind": "account",
                 "path": "mint"
@@ -180,12 +221,54 @@
               "name": "InitTokenParams"
             }
           }
-        },
-        {
-          "name": "_treasury",
-          "type": "pubkey"
         }
       ]
+    },
+    {
+      "name": "create_treasury",
+      "discriminator": [
+        254,
+        98,
+        217,
+        51,
+        25,
+        88,
+        140,
+        45
+      ],
+      "accounts": [
+        {
+          "name": "treasury_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  114,
+                  101,
+                  97,
+                  115,
+                  117,
+                  114,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "signer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
     },
     {
       "name": "update_meme_entry",
@@ -206,6 +289,21 @@
           "pda": {
             "seeds": [
               {
+                "kind": "const",
+                "value": [
+                  109,
+                  101,
+                  109,
+                  101,
+                  95,
+                  101,
+                  110,
+                  116,
+                  114,
+                  121
+                ]
+              },
+              {
                 "kind": "arg",
                 "path": "mint"
               }
@@ -216,6 +314,27 @@
           "name": "signer",
           "writable": true,
           "signer": true
+        },
+        {
+          "name": "treasury",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  114,
+                  101,
+                  97,
+                  115,
+                  117,
+                  114,
+                  121
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "system_program",
@@ -238,8 +357,102 @@
         {
           "name": "bonded_time",
           "type": {
-            "option": "u64"
+            "option": "i64"
           }
+        }
+      ]
+    },
+    {
+      "name": "update_or_create_user_account",
+      "discriminator": [
+        197,
+        139,
+        2,
+        1,
+        154,
+        45,
+        100,
+        35
+      ],
+      "accounts": [
+        {
+          "name": "user_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  117,
+                  115,
+                  101,
+                  114,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "mint"
+              },
+              {
+                "kind": "account",
+                "path": "user"
+              }
+            ]
+          }
+        },
+        {
+          "name": "meme_entry",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  101,
+                  109,
+                  101,
+                  95,
+                  101,
+                  110,
+                  116,
+                  114,
+                  121
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "mint"
+              }
+            ]
+          }
+        },
+        {
+          "name": "user",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "i64"
+        },
+        {
+          "name": "mint",
+          "type": "pubkey"
         }
       ]
     }
@@ -257,6 +470,32 @@
         90,
         68
       ]
+    },
+    {
+      "name": "TreasuryAccount",
+      "discriminator": [
+        204,
+        140,
+        18,
+        173,
+        90,
+        152,
+        134,
+        123
+      ]
+    },
+    {
+      "name": "UserAccount",
+      "discriminator": [
+        211,
+        33,
+        136,
+        16,
+        186,
+        110,
+        242,
+        127
+      ]
     }
   ],
   "errors": [
@@ -264,6 +503,11 @@
       "code": 6000,
       "name": "InvalidDecimals",
       "msg": "Invalid decimals value."
+    },
+    {
+      "code": 6001,
+      "name": "MintMismatch",
+      "msg": "Mint is mismatched."
     }
   ],
   "types": [
@@ -314,13 +558,53 @@
           },
           {
             "name": "creation_time",
-            "type": "u64"
+            "type": "i64"
           },
           {
             "name": "bonded_time",
             "type": {
-              "option": "u64"
+              "option": "i64"
             }
+          }
+        ]
+      }
+    },
+    {
+      "name": "TreasuryAccount",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "treasury",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "UserAccount",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "user",
+            "type": "pubkey"
+          },
+          {
+            "name": "meme_entry",
+            "type": {
+              "defined": {
+                "name": "MemeEntryState"
+              }
+            }
+          },
+          {
+            "name": "locked_amount",
+            "type": "u64"
+          },
+          {
+            "name": "claimmable",
+            "type": "u64"
           }
         ]
       }

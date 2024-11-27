@@ -45,6 +45,15 @@ export type Meme = {
           "pda": {
             "seeds": [
               {
+                "kind": "const",
+                "value": [
+                  109,
+                  105,
+                  110,
+                  116
+                ]
+              },
+              {
                 "kind": "arg",
                 "path": "params.name"
               },
@@ -61,7 +70,7 @@ export type Meme = {
           "pda": {
             "seeds": [
               {
-                "kind": "arg",
+                "kind": "account",
                 "path": "treasury"
               },
               {
@@ -147,13 +156,45 @@ export type Meme = {
         },
         {
           "name": "treasury",
-          "writable": true
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  114,
+                  101,
+                  97,
+                  115,
+                  117,
+                  114,
+                  121
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "memeEntry",
           "writable": true,
           "pda": {
             "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  101,
+                  109,
+                  101,
+                  95,
+                  101,
+                  110,
+                  116,
+                  114,
+                  121
+                ]
+              },
               {
                 "kind": "account",
                 "path": "mint"
@@ -186,12 +227,54 @@ export type Meme = {
               "name": "initTokenParams"
             }
           }
-        },
-        {
-          "name": "treasury",
-          "type": "pubkey"
         }
       ]
+    },
+    {
+      "name": "createTreasury",
+      "discriminator": [
+        254,
+        98,
+        217,
+        51,
+        25,
+        88,
+        140,
+        45
+      ],
+      "accounts": [
+        {
+          "name": "treasuryAccount",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  114,
+                  101,
+                  97,
+                  115,
+                  117,
+                  114,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "signer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
     },
     {
       "name": "updateMemeEntry",
@@ -212,6 +295,21 @@ export type Meme = {
           "pda": {
             "seeds": [
               {
+                "kind": "const",
+                "value": [
+                  109,
+                  101,
+                  109,
+                  101,
+                  95,
+                  101,
+                  110,
+                  116,
+                  114,
+                  121
+                ]
+              },
+              {
                 "kind": "arg",
                 "path": "mint"
               }
@@ -222,6 +320,27 @@ export type Meme = {
           "name": "signer",
           "writable": true,
           "signer": true
+        },
+        {
+          "name": "treasury",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  114,
+                  101,
+                  97,
+                  115,
+                  117,
+                  114,
+                  121
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "systemProgram",
@@ -244,8 +363,102 @@ export type Meme = {
         {
           "name": "bondedTime",
           "type": {
-            "option": "u64"
+            "option": "i64"
           }
+        }
+      ]
+    },
+    {
+      "name": "updateOrCreateUserAccount",
+      "discriminator": [
+        197,
+        139,
+        2,
+        1,
+        154,
+        45,
+        100,
+        35
+      ],
+      "accounts": [
+        {
+          "name": "userAccount",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  117,
+                  115,
+                  101,
+                  114,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "mint"
+              },
+              {
+                "kind": "account",
+                "path": "user"
+              }
+            ]
+          }
+        },
+        {
+          "name": "memeEntry",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  101,
+                  109,
+                  101,
+                  95,
+                  101,
+                  110,
+                  116,
+                  114,
+                  121
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "mint"
+              }
+            ]
+          }
+        },
+        {
+          "name": "user",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "i64"
+        },
+        {
+          "name": "mint",
+          "type": "pubkey"
         }
       ]
     }
@@ -263,6 +476,32 @@ export type Meme = {
         90,
         68
       ]
+    },
+    {
+      "name": "treasuryAccount",
+      "discriminator": [
+        204,
+        140,
+        18,
+        173,
+        90,
+        152,
+        134,
+        123
+      ]
+    },
+    {
+      "name": "userAccount",
+      "discriminator": [
+        211,
+        33,
+        136,
+        16,
+        186,
+        110,
+        242,
+        127
+      ]
     }
   ],
   "errors": [
@@ -270,6 +509,11 @@ export type Meme = {
       "code": 6000,
       "name": "invalidDecimals",
       "msg": "Invalid decimals value."
+    },
+    {
+      "code": 6001,
+      "name": "mintMismatch",
+      "msg": "Mint is mismatched."
     }
   ],
   "types": [
@@ -320,13 +564,53 @@ export type Meme = {
           },
           {
             "name": "creationTime",
-            "type": "u64"
+            "type": "i64"
           },
           {
             "name": "bondedTime",
             "type": {
-              "option": "u64"
+              "option": "i64"
             }
+          }
+        ]
+      }
+    },
+    {
+      "name": "treasuryAccount",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "treasury",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "userAccount",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "user",
+            "type": "pubkey"
+          },
+          {
+            "name": "memeEntry",
+            "type": {
+              "defined": {
+                "name": "memeEntryState"
+              }
+            }
+          },
+          {
+            "name": "lockedAmount",
+            "type": "u64"
+          },
+          {
+            "name": "claimmable",
+            "type": "u64"
           }
         ]
       }

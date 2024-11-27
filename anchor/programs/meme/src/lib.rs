@@ -20,10 +20,17 @@ declare_id!("5BpjFeNvcyvFWYYQg1G8o2dYpwSbZzi8qbVPAfxPiFbP");
 pub mod meme {
     use super::*;
 
+    pub fn create_treasury(
+        ctx: Context<CreateTreasuryAccount>,
+    ) -> Result<()> {
+        let treasury_account = &mut ctx.accounts.treasury_account;
+        treasury_account.treasury = ctx.accounts.signer.key();
+        Ok(())
+    }
+
     pub fn create_meme_token(
         ctx: Context<CreateMemeToken>, 
         metadata: InitTokenParams, 
-        _treasury: Pubkey, 
     ) -> Result<()> {
         if metadata.decimals != 9 {
             return Err(error!(CustomError::InvalidDecimals));
@@ -32,7 +39,12 @@ pub mod meme {
         // Clone the name and symbol for use in `seeds` to avoid moving them
         let name_bytes = metadata.name.clone().into_bytes();
         let symbol_bytes = metadata.symbol.clone().into_bytes();
-        let seeds = &[name_bytes.as_slice(), symbol_bytes.as_slice(), &[ctx.bumps.mint]];
+        let seeds = &[
+            b"mint",
+            name_bytes.as_slice(),
+            symbol_bytes.as_slice(),
+            &[ctx.bumps.mint]
+        ];
         let signer = [&seeds[..]];
 
         // Initialize token mint address
@@ -86,7 +98,7 @@ pub mod meme {
         let meme_entry = &mut ctx.accounts.meme_entry;
         meme_entry.dev = ctx.accounts.payer.key();
         meme_entry.mint = ctx.accounts.mint.key();
-        meme_entry.creation_time = Clock::get()?.unix_timestamp as u64;
+        meme_entry.creation_time = Clock::get()?.unix_timestamp as i64;
         meme_entry.locked_amount = 0;
         meme_entry.unlocked_amount = 0;
         meme_entry.bonded_time = None;
@@ -96,36 +108,40 @@ pub mod meme {
 
     pub fn update_or_create_user_account(
         ctx: Context<UpdateOrCreateUserAccount>,
-        want_to_lock: u64,
-        want_to_claim: u64,
+        amount: i64, //amount in lamports.
+        mint: Pubkey,
     ) -> Result<()> {
+
         let user_account = &mut ctx.accounts.user_account;
         let meme_entry = &ctx.accounts.meme_entry;
 
-        if user_account.is_initialized() {
-            // Update logic
-            user_account.locked_amount += want_to_lock;
-            user_account.claimmable = user_account.claimmable.saturating_add(want_to_claim);
+        require!(meme_entry.mint == mint, CustomError::MintMismatch);
 
-            // Ensure locked amount does not exceed the MemeEntryState locked amount
-            require!(
-                user_account.locked_amount <= meme_entry.locked_amount,
-                CustomError::ExceededLockedAmount
-            );
+        user_account.user = ctx.accounts.user.key();
+        user_account.meme_entry = MemeEntryState {
+        dev: meme_entry.dev,
+        mint: meme_entry.mint,
+        locked_amount: meme_entry.locked_amount,
+        unlocked_amount: meme_entry.unlocked_amount,
+        creation_time: meme_entry.creation_time,
+        bonded_time: meme_entry.bonded_time,
+        };
+
+        // bonded or not
+        if let Some(bonded_time) = meme_entry.bonded_time {
+            // has bonded, so spl token
+            
         } else {
-            // Initialize new UserAccount
-            user_account.user = ctx.accounts.user.key();
-            user_account.meme_entry = MemeEntryState {
-                dev: meme_entry.dev,
-                mint: meme_entry.mint,
-                locked_amount: meme_entry.locked_amount,
-                unlocked_amount: meme_entry.unlocked_amount,
-                creation_time: meme_entry.creation_time,
-                bonded_time: meme_entry.bonded_time,
-            };
-            user_account.locked_amount = want_to_lock;
-            user_account.claimmable = want_to_claim;
+            //hasnt bonded, so sol.
+
+            // add to user_account.locked_amount after calculating the spl token price.
+
+            // remove if minus.
+            
         }
+
+
+
 
         Ok(())
     }
@@ -136,7 +152,7 @@ pub mod meme {
         _mint: Pubkey,
         locked_amount: u64,
         unlocked_amount: u64,
-        bonded_time: Option<u64>,
+        bonded_time: Option<i64>,
 
     ) -> Result<()> {
         let meme_entry = &mut ctx.accounts.meme_entry;
@@ -165,7 +181,6 @@ pub struct InitTokenParams {
 #[derive(Accounts)]
 #[instruction(
     params: InitTokenParams,
-    treasury: Pubkey,
 )]
 pub struct CreateMemeToken<'info> {
     #[account(mut)]
@@ -178,7 +193,7 @@ pub struct CreateMemeToken<'info> {
 
     #[account(
         init,
-        seeds = [params.name.as_bytes(), params.symbol.as_bytes()],
+        seeds = [b"mint", params.name.as_bytes(), params.symbol.as_bytes()],
         bump,
         payer = payer,
         mint::decimals = params.decimals,
@@ -194,18 +209,23 @@ pub struct CreateMemeToken<'info> {
     )]
     pub treasury_token_account: Account<'info, TokenAccount>,
 
-    /// CHECK: Treasury account provided from the frontend
-    #[account(mut)]
-    pub treasury: UncheckedAccount<'info>,
+    #[account(
+        mut,
+        seeds = [b"treasury"],
+        bump,
+    )]
+    pub treasury: Account<'info, TreasuryAccount>,
 
     #[account(
         init,
-        seeds = [mint.key().as_ref()],
+        seeds = [b"meme_entry", mint.key().as_ref()],
         bump,
         space = 8 + MemeEntryState::INIT_SPACE,
         payer = payer,
     )]
     pub meme_entry: Account<'info, MemeEntryState>,
+
+    
 
     pub system_program: Program<'info, System>, // System program
     pub token_program: Program<'info, Token>,
@@ -221,20 +241,33 @@ pub struct CreateMemeToken<'info> {
 pub struct UpdateMemeEntry<'info> {
     #[account(
         mut,
-        seeds = [mint.key().as_ref()],
+        seeds = [b"meme_entry", mint.key().as_ref()],
         bump,
-        realloc = 8 + MemeEntryState::INIT_SPACE,
-        realloc::payer = signer,
-        realloc::zero = true,
     )]
     pub meme_entry: Account<'info, MemeEntryState>,
 
     #[account(mut)]
     pub signer: Signer<'info>,
 
+    #[account(
+        mut,
+        seeds = [b"treasury"],
+        bump,
+    )]
+    pub treasury: Account<'info, TreasuryAccount>,
+
     pub system_program: Program<'info, System>,
 
 }
+
+#[error_code]
+pub enum CustomError {
+    #[msg("Invalid decimals value.")]
+    InvalidDecimals,
+    #[msg("Mint is mismatched.")]
+    MintMismatch,
+}
+
 
 #[account]
 #[derive(InitSpace)]
@@ -245,14 +278,8 @@ pub struct MemeEntryState {
     pub locked_amount: u64, //8
     pub unlocked_amount: u64, //8
 
-    pub creation_time: u64,
-    pub bonded_time: Option<u64>,
-}
-
-#[error_code]
-pub enum CustomError {
-    #[msg("Invalid decimals value.")]
-    InvalidDecimals,
+    pub creation_time: i64,
+    pub bonded_time: Option<i64>,
 }
 
 #[account]
@@ -264,22 +291,48 @@ pub struct UserAccount {
     pub claimmable: u64,
 }
 
+
+#[account]
+#[derive(InitSpace)]
+pub struct TreasuryAccount {
+    pub treasury: Pubkey,
+}
+
 #[derive(Accounts)]
+pub struct CreateTreasuryAccount<'info> {
+    #[account(
+        init_if_needed,
+        payer = signer,
+        space = 8 + TreasuryAccount::INIT_SPACE,
+        seeds = [b"treasury"], // PDA seed
+        bump,
+    )]
+    pub treasury_account: Account<'info, TreasuryAccount>,
+    #[account(mut)]
+    pub signer: Signer<'info>, // Payer of the account creation
+
+    pub system_program: Program<'info, System>,
+
+}
+
+#[derive(Accounts)]
+#[instruction(mint: Pubkey)]
 pub struct UpdateOrCreateUserAccount<'info> {
     #[account(
         init_if_needed,
         payer = user,
         space = 8 + UserAccount::INIT_SPACE,
-        seeds = [b"user-account", user.key().as_ref()], // PDA seed
-        bump
+        seeds = [b"user_account", mint.key().as_ref(), user.key().as_ref()], // PDA seed
+        bump,
     )]
     pub user_account: Account<'info, UserAccount>,
-
+    #[account(
+        mut,
+        seeds = [b"meme_entry", mint.key().as_ref()],
+        bump,
+    )]
+    pub meme_entry: Account<'info, MemeEntryState>,
     #[account(mut)]
     pub user: Signer<'info>,
-
-    #[account(mut)]
-    pub meme_entry: Account<'info, MemeEntryState>, // Link to a MemeEntryState account
-
     pub system_program: Program<'info, System>,
 }
