@@ -66,7 +66,7 @@ export function useMemeProgram() {
       try {
         const { offset, length } = (() => {
           if (sortBy === SortBy.CreationTime) {
-            return { offset: 80, length: 8 }; // creation_time
+            return { offset: 72, length: 8 }; // creation_time
           } else if (sortBy === SortBy.LockedAmount) {
             return { offset: 64, length: 8 }; // locked_amount
           }

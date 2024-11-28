@@ -1,5 +1,5 @@
-import DashboardFeature from '@/components/dashboard/dashboard-feature'
+import MemeFeature from '@/components/meme/meme-feature'
 
 export default function Page() {
-  return <DashboardFeature />
+  return <MemeFeature />
 }

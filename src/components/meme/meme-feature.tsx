@@ -5,7 +5,7 @@ import { WalletButton } from '../solana/solana-provider'
 import { AppHero, ellipsify } from '../ui/ui-layout'
 import { ExplorerLink } from '../cluster/cluster-ui'
 import { useMemeProgram } from './meme-data-access'
-import { MemeCreate, MemeList} from './meme-ui'
+import { MemeCreate, MemeList } from './meme-ui'
 
 export default function MemeFeature() {
   const { publicKey } = useWallet()
