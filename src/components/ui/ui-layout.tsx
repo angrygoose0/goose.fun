@@ -17,37 +17,74 @@ export function UiLayout({ children }: { children: ReactNode }) {
   return (
     <div className="h-full flex">
       {/* Sidebar (Vertical Navbar) */}
-      <div className="navbar bg-base-300 text-neutral-content flex flex-col space-y-4 p-4 w-64 min-h-screen">
+      <div
+        className="navbar bg-white text-black border-2 items-start border-black flex flex-col space-y-4 p-4"
+        style={{ width: '256px', minHeight: '100vh', position: 'fixed' }}
+      >
         <div className="flex-none">
           <Link className="btn btn-ghost normal-case text-xl" href="/">
             <img className="h-6" alt="Logo" src="/logo.png" />
           </Link>
         </div>
 
-        <div className="flex flex-wrap items-center gap-4 border p-4 rounded-lg bg-base-200">
-          {/* Market Cap Filter */}
-          <div className="flex flex-col space-y-1">
-            <label className="text-sm font-medium">Market Cap</label>
-            <input type="number" placeholder="Min" className="input input-sm" />
-            <input type="number" placeholder="Max" className="input input-sm mt-1" />
-          </div>
 
-          {/* Balance Filter */}
-          <div className="flex flex-col space-y-1">
-            <label className="text-sm font-medium">Balance</label>
-            <input type="number" placeholder="Min" className="input input-sm" />
-            <input type="number" placeholder="Max" className="input input-sm mt-1" />
-          </div>
-
-          {/* Example Additional Filter */}
-          <div className="flex flex-col space-y-1">
-            <label className="text-sm font-medium">Another Filter</label>
-            <input type="text" placeholder="Value" className="input input-sm" />
-          </div>
-
-          {/* Apply Button */}
-          <button className="btn btn-sm btn-primary mt-2">Apply Filters</button>
+        <p className="text-sm font-medium text-gray-700">Creation Time</p>
+        <div className="flex space-x-4">
+          <input
+            type="number"
+            className="w-1/2 border-2 border-gray-300 p-2 text-xs focus:outline-none focus:border-black"
+            placeholder="Min"
+          />
+          <input
+            type="number"
+            className="w-1/2 border-2 border-gray-300 p-2 text-xs focus:outline-none focus:border-black"
+            placeholder="Max"
+          />
         </div>
+        <p className="text-sm font-medium text-gray-700">Volume</p>
+        <div className="flex space-x-4">
+          <input
+            type="number"
+            className="w-1/2 border-2 border-gray-300 p-2 text-xs focus:outline-none focus:border-black"
+            placeholder="Min"
+          />
+          <input
+            type="number"
+            className="w-1/2 border-2 border-gray-300 p-2 text-xs focus:outline-none focus:border-black"
+            placeholder="Max"
+          />
+        </div>
+        <p className="text-sm font-medium text-gray-700">Featured</p>
+        <div className="flex space-x-4">
+          <input
+            type="number"
+            className="w-1/2 border-2 border-gray-300 p-2 text-xs focus:outline-none focus:border-black"
+            placeholder="Min"
+          />
+          <input
+            type="number"
+            className="w-1/2 border-2 border-gray-300 p-2 text-xs focus:outline-none focus:border-black"
+            placeholder="Max"
+          />
+        </div>
+
+        <div className="flex w-full py-4">
+          <button className="w-1/2 p-2 border-2 border-black text-sm font-medium text-black hover:bg-gray-200">
+            Apply
+          </button>
+          <button className="w-1/2 p-2 border-2 border-grey-500 text-sm font-medium text-black hover:bg-gray-200">
+            Reset
+          </button>
+        </div>
+
+
+
+
+
+
+
+
+
       </div>
 
       {/* Floating Buttons */}
@@ -58,7 +95,7 @@ export function UiLayout({ children }: { children: ReactNode }) {
       </div>
 
       {/* Main Content */}
-      <div className="flex flex-col flex-grow">
+      <div className="flex flex-col flex-grow overflow-auto" style={{ marginLeft: '256px' }}>
         {/* Hero Section */}
         <div className="hero py-[64px]">
           <div className="hero-content text-center">
@@ -66,17 +103,38 @@ export function UiLayout({ children }: { children: ReactNode }) {
               <h1 className="text-5xl font-bold">Goose.fun</h1>
               <p className="py-6">subtitle</p>
               {/* Search Bar */}
+
               <input
                 type="text"
-                placeholder="hi"
-                className="input input-bordered w-96"
+                className="w-96 border-2 border-black p-2 text-l focus:outline-none"
+                placeholder="Search"
               />
             </div>
           </div>
         </div>
 
-        <TokenCard name="goos" />
-        <TokenCard name="duck" />
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 p-6">
+          <TokenCard name="goos" />
+          <TokenCard name="duck" />
+          <TokenCard name="goos" />
+          <TokenCard name="duck" />
+          <TokenCard name="goos" />
+          <TokenCard name="duck" />
+          <TokenCard name="goos" />
+          <TokenCard name="duck" />
+          <TokenCard name="goos" />
+          <TokenCard name="duck" />
+          <TokenCard name="goos" />
+          <TokenCard name="duck" />
+          <TokenCard name="goos" />
+          <TokenCard name="duck" />
+          <TokenCard name="goos" />
+          <TokenCard name="duck" />
+          <TokenCard name="goos" />
+          <TokenCard name="duck" />
+
+        </div>
+
 
 
         {/* Dynamic Content */}

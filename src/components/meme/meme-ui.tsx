@@ -318,7 +318,18 @@ export function TokenCard({ name }: { name: string }) {
     };
     handleResize(); // Initialize on mount
     window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setIsVisible(true);
+      }
+    };
+
+    window.addEventListener("keydown", handleEscape);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      window.removeEventListener("keydown", handleEscape);
+    };
   }, []);
 
   const renderGridCards = () => {
@@ -330,7 +341,7 @@ export function TokenCard({ name }: { name: string }) {
           key="left-top"
           className="border-2 border-black bg-white p-6 shadow-lg flex flex-col text-black text-lg"
           style={{
-            gridRow: "1 / 3",
+            gridRow: "1 / 2",
             gridColumn: "1 / 2",
           }}
         >
@@ -338,7 +349,7 @@ export function TokenCard({ name }: { name: string }) {
           <div
             className="flex flex-col space-y-2 overflow-y-auto border-t py-4"
             style={{
-              maxHeight: "300px", // Adjust height as needed
+              maxHeight: "250px", // Adjust height as needed
             }}
           >
             {[
@@ -375,7 +386,7 @@ export function TokenCard({ name }: { name: string }) {
           key="left-bottom"
           className="border-2 border-black bg-white p-6 shadow-lg flex flex-col text-black text-lg"
           style={{
-            gridRow: "3 / 6",
+            gridRow: "2 / 6",
             gridColumn: "1 / 2",
           }}
         >
@@ -383,7 +394,7 @@ export function TokenCard({ name }: { name: string }) {
           <div
             className="flex flex-col space-y-2 overflow-y-auto border-t py-4"
             style={{
-              maxHeight: "300px", // Adjust height as needed
+              maxHeight: "1000px", // Adjust height as needed
             }}
           >
             {[
@@ -493,6 +504,48 @@ export function TokenCard({ name }: { name: string }) {
           </svg>
           <span className="text-sm ml-1">456</span>
         </div>
+        <div className="flex flex-col space-y-2 mt-4">
+          {/* Total GS */}
+          <div className="flex items-baseline space-x-2">
+            <div className="text-sm font-semibold text-black">50,000 GS</div>
+            <div className="text-sm text-gray-500">(Total)</div>
+          </div>
+
+          {/* Color-Coded Bar */}
+          <div className="mt-1 h-2 border-2 border-black bg-white relative">
+            {/* Locked Amount */}
+            <div
+              className="absolute top-0 left-0 h-full bg-gray-400"
+              style={{ width: "50%" }} // Adjust dynamically
+            ></div>
+            {/* Unlocked Amount */}
+            <div
+              className="absolute top-0 left-0 h-full bg-blue-500"
+              style={{ width: "30%", marginLeft: "50%" }} // Adjust dynamically
+            ></div>
+            {/* Claimable Amount */}
+            <div
+              className="absolute top-0 left-0 h-full bg-green-500"
+              style={{ width: "20%", marginLeft: "80%" }} // Adjust dynamically
+            ></div>
+          </div>
+
+          {/* Labels with Color Codes */}
+          <div className="flex justify-between text-xs mt-1">
+            <div className="flex items-center space-x-1">
+              <div className="h-2 w-2 bg-gray-400 rounded-full"></div>
+              <span className="text-gray-600">Locked: 25,000</span>
+            </div>
+            <div className="flex items-center space-x-1">
+              <div className="h-2 w-2 bg-blue-500 rounded-full"></div>
+              <span className="text-blue-600">Unlocked: 15,000</span>
+            </div>
+            <div className="flex items-center space-x-1">
+              <div className="h-2 w-2 bg-green-500 rounded-full"></div>
+              <span className="text-green-600">Claimable: 10,000</span>
+            </div>
+          </div>
+        </div>
       </div>
     );
     cards.push(
@@ -518,62 +571,43 @@ export function TokenCard({ name }: { name: string }) {
           key="right-top"
           className="border-2 border-black bg-white p-6 shadow-lg flex flex-col text-black text-lg"
           style={{
-            gridRow: "1 / 3",
+            gridRow: "1 / 2",
             gridColumn: "3 / 4",
           }}
         >
-
           <div className="flex mb-4">
             {/* Buy Placeholder */}
             <button
-              className="w-1/2 flex items-center justify-center px-4 py-2 text-sm font-medium border-2 border-black bg-white text-black hover:bg-gray-100"
+              className="w-1/4 flex items-center justify-center px-4 py-2 text-sm font-medium border-2 border-black bg-white text-black hover:bg-gray-100"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"
-                />
-              </svg>
+              <p>Buy</p>
             </button>
 
             {/* Sell Placeholder */}
             <button
-              className="w-1/2 flex items-center justify-center px-4 py-2 text-sm font-medium border-2 border-grey-500 bg-white text-black hover:bg-gray-100"
+              className="w-1/4 flex items-center justify-center px-4 py-2 text-sm font-medium border-2 border-grey-500 bg-white text-black hover:bg-gray-100"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M4 7V17M20 7V17M7 20L17 20M7 4L17 4M9 10L15 14M15 10L9 14"
-                />
-              </svg>
+              <p>Sell</p>
+            </button>
+            {/* Buy Placeholder */}
+            <button
+              className="w-1/4 flex items-center justify-center px-4 py-2 text-sm font-medium border-2 border-black bg-white text-black hover:bg-gray-100"
+            >
+              <p>Lock</p>
+            </button>
+
+            <button
+              className="w-1/4 flex items-center justify-center px-4 py-2 text-sm font-medium border-2 border-grey-500 bg-white text-black hover:bg-gray-100"
+            >Claim
             </button>
           </div>
 
           {/* SOL Balance */}
           <div className="mb-4">
-
             <div className="flex items-baseline space-x-2">
               <div className="text-sm font-semibold text-black">100 SOL</div>
               <div className="text-sm text-gray-500">~ $499</div>
             </div>
-
-
 
             <div className="mt-1 h-2 border-2 border-black bg-white relative">
               <div
@@ -583,15 +617,15 @@ export function TokenCard({ name }: { name: string }) {
             </div>
           </div>
 
+
+
           {/* GS Balance */}
           <div className="flex flex-col space-y-2 mb-4">
-            {/* Total GS */}
             <div className="flex items-baseline space-x-2">
               <div className="text-sm font-semibold text-black">50,000 GS</div>
               <div className="text-sm text-gray-500">(Total)</div>
             </div>
 
-            {/* Color-Coded Bar */}
             <div className="mt-1 h-2 border-2 border-black bg-white relative">
               {/* Locked Amount */}
               <div
@@ -625,41 +659,28 @@ export function TokenCard({ name }: { name: string }) {
                 <span className="text-green-600">Claimable: 10,000</span>
               </div>
             </div>
+
           </div>
+
 
           {/* Input with Icon */}
           <div className="relative flex items-center mb-2">
             <input
               type="number"
-              className="w-full border-2 border-gray-300 rounded-lg p-2 text-sm focus:outline-none focus:ring focus:border-blue-300"
+              className="w-full border-2 border-gray-200 p-2 text-sm focus:outline-none focus:border-black"
               placeholder="Enter amount"
             />
-            {/* Icon */}
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="absolute right-2 h-5 w-5 text-gray-400 pointer-events-none"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M12 8c1.104 0 2-.672 2-1.5S13.104 5 12 5 10 5.672 10 6.5 10.896 8 12 8zm0 4c1.104 0 2-.672 2-1.5S13.104 9 12 9s-2 .672-2 1.5.896 1.5 2 1.5zm0 4c1.104 0 2-.672 2-1.5s-.896-1.5-2-1.5-2 .672-2 1.5.896 1.5 2 1.5z"
-              />
-            </svg>
           </div>
+
           {/* Percentage Buttons */}
           <div className="flex space-x-2 mb-4">
-            <button className="px-3 py-0.5 border-2 border-black bg-white text-xs text-black hover:bg-gray-100">
+            <button className="px-3 py-0.5 border border-black bg-white text-xs text-black hover:bg-gray-100">
               50%
             </button>
-            <button className="px-3 py-0.5 border-2 border-black bg-white text-xs text-black hover:bg-gray-100">
+            <button className="px-3 py-0.5 border border-black bg-white text-xs text-black hover:bg-gray-100">
               100%
             </button>
           </div>
-
 
           {/* Transact Button */}
           <button className="w-full px-4 py-2 text-sm font-medium border-2 border-black bg-white text-black hover:bg-gray-100">
@@ -668,13 +689,12 @@ export function TokenCard({ name }: { name: string }) {
         </div>
       );
 
-
       cards.push(
         <div
           key="right-bottom"
           className="border-2 border-black bg-white p-6 shadow-lg flex flex-col text-black text-lg"
           style={{
-            gridRow: "3 / 6",
+            gridRow: "2 / 6",
             gridColumn: "3 / 4",
           }}
         >
@@ -683,7 +703,7 @@ export function TokenCard({ name }: { name: string }) {
           <div
             className="flex flex-col space-y-2 overflow-y-auto border-t border-b py-4"
             style={{
-              maxHeight: "300px", // Adjust height as needed
+              maxHeight: "1000px", // Adjust height as needed
             }}
           >
             {/* Placeholder messages */}
@@ -720,13 +740,13 @@ export function TokenCard({ name }: { name: string }) {
             }}
           >
             <input
-              type="text"
-              className="flex-grow border-2 border-gray-300 rounded-lg p-2 text-sm"
+              type="string"
+              className="w-full border-2 border-gray-200 p-2 text-sm focus:outline-none focus:border-black"
               placeholder="Type your message..."
             />
             <button
               type="submit"
-              className="ml-2 bg-blue-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-600"
+              className="ml-2 bg-white text-black px-4 py-2 border-2 border-black text-xs hover:bg-gray-200"
             >
               Send
             </button>
@@ -745,13 +765,12 @@ export function TokenCard({ name }: { name: string }) {
       {!isVisible && (
         <div
           className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-10"
-          onClick={() => setIsVisible(true)}
         >
           <div
             className={`absolute inset-0 grid "grid-cols-[1fr_3fr_1fr]"
-              } gap-10 p-20`}
+              } gap-10 p-20 z-20`}
             style={{
-              pointerEvents: "none",
+              pointerEvents: "auto",
               gridTemplateRows: "repeat(5, 1fr)",
             }}
           >
@@ -839,6 +858,49 @@ export function TokenCard({ name }: { name: string }) {
                 <rect width="24" height="24" fill="currentColor" />
               </svg>
               <span className="text-sm ml-1">456</span>
+            </div>
+            {/* GS Balance */}
+            <div className="flex flex-col space-y-2 mt-4">
+              {/* Total GS */}
+              <div className="flex items-baseline space-x-2">
+                <div className="text-sm font-semibold text-black">50,000 GS</div>
+                <div className="text-sm text-gray-500">(Total)</div>
+              </div>
+
+              {/* Color-Coded Bar */}
+              <div className="mt-1 h-2 border-2 border-black bg-white relative">
+                {/* Locked Amount */}
+                <div
+                  className="absolute top-0 left-0 h-full bg-gray-400"
+                  style={{ width: "50%" }} // Adjust dynamically
+                ></div>
+                {/* Unlocked Amount */}
+                <div
+                  className="absolute top-0 left-0 h-full bg-blue-500"
+                  style={{ width: "30%", marginLeft: "50%" }} // Adjust dynamically
+                ></div>
+                {/* Claimable Amount */}
+                <div
+                  className="absolute top-0 left-0 h-full bg-green-500"
+                  style={{ width: "20%", marginLeft: "80%" }} // Adjust dynamically
+                ></div>
+              </div>
+
+              {/* Labels with Color Codes */}
+              <div className="flex justify-between text-xs mt-1">
+                <div className="flex items-center space-x-1">
+                  <div className="h-2 w-2 bg-gray-400 rounded-full"></div>
+                  <span className="text-gray-600">Locked: 25,000</span>
+                </div>
+                <div className="flex items-center space-x-1">
+                  <div className="h-2 w-2 bg-blue-500 rounded-full"></div>
+                  <span className="text-blue-600">Unlocked: 15,000</span>
+                </div>
+                <div className="flex items-center space-x-1">
+                  <div className="h-2 w-2 bg-green-500 rounded-full"></div>
+                  <span className="text-green-600">Claimable: 10,000</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
