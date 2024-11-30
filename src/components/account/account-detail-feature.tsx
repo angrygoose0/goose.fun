@@ -6,7 +6,7 @@ import { useMemo } from 'react'
 import { useParams } from 'next/navigation'
 
 import { ExplorerLink } from '../cluster/cluster-ui'
-import { AppHero, ellipsify } from '../ui/ui-layout'
+import { ellipsify } from '../ui/ui-layout'
 import { AccountBalance, AccountButtons, AccountTokens, AccountTransactions } from './account-ui'
 
 export default function AccountDetailFeature() {
@@ -27,18 +27,15 @@ export default function AccountDetailFeature() {
 
   return (
     <div>
-      <AppHero
-        title={<AccountBalance address={address} />}
-        subtitle={
-          <div className="my-4">
-            <ExplorerLink path={`account/${address}`} label={ellipsify(address.toString())} />
-          </div>
-        }
-      >
+      title={<AccountBalance address={address} />}
+      subtitle={
         <div className="my-4">
-          <AccountButtons address={address} />
+          <ExplorerLink path={`account/${address}`} label={ellipsify(address.toString())} />
         </div>
-      </AppHero>
+      }
+      <div className="my-4">
+        <AccountButtons address={address} />
+      </div>
       <div className="space-y-8">
         <AccountTokens address={address} />
         <AccountTransactions address={address} />

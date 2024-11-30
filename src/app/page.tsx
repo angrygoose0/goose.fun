@@ -1,5 +1,12 @@
-import MemeFeature from '@/components/meme/meme-feature'
+import { MemeList } from '@/components/meme/meme-ui'
 
 export default function Page() {
-  return <MemeFeature />
+
+  return (
+    <div>
+      <p>hi</p>
+      <MemeList />
+      <p>hi</p>
+    </div>
+  );
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import { ChangeEvent, useCallback, useMemo, useState } from 'react'
+import { ChangeEvent, useCallback, useMemo, useState, useEffect } from 'react'
 import { useMemeProgram, useMemeProgramAccount, } from './meme-data-access'
 import { InputView } from "../input";
 import axios from "axios";
@@ -299,3 +299,550 @@ function MemeCard({ account }: { account: PublicKey }) {
     </div>
   );
 };
+
+
+
+
+
+
+export function TokenCard({ name }: { name: string }) {
+  const [isVisible, setIsVisible] = useState(true);
+  const [hideLeft, setHideLeft] = useState(false);
+  const [hideRight, setHideRight] = useState(false);
+
+  // Listen for window resize to determine layout
+  useEffect(() => {
+    const handleResize = () => {
+      setHideLeft(window.innerWidth < 1440);
+      setHideRight(window.innerWidth < 1024); // Adjust threshold as needed
+    };
+    handleResize(); // Initialize on mount
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  const renderGridCards = () => {
+    const cards = [];
+
+    if (!hideLeft) {
+      cards.push(
+        <div
+          key="left-top"
+          className="border-2 border-black bg-white p-6 shadow-lg flex flex-col text-black text-lg"
+          style={{
+            gridRow: "1 / 3",
+            gridColumn: "1 / 2",
+          }}
+        >
+          <h2 className="font-bold text-xl mb-4">Transactions</h2>
+          <div
+            className="flex flex-col space-y-2 overflow-y-auto border-t py-4"
+            style={{
+              maxHeight: "300px", // Adjust height as needed
+            }}
+          >
+            {[
+              { type: "Credit", amount: "$120.00", date: "2024-11-30", txn: "TXN12345" },
+              { type: "Debit", amount: "$50.00", date: "2024-11-29", txn: "TXN12346" },
+              { type: "Credit", amount: "$200.00", date: "2024-11-28", txn: "TXN12347" },
+              { type: "Debit", amount: "$30.00", date: "2024-11-27", txn: "TXN12348" },
+              { type: "Credit", amount: "$500.00", date: "2024-11-26", txn: "TXN12349" },
+              { type: "Debit", amount: "$20.00", date: "2024-11-25", txn: "TXN12350" },
+              { type: "Credit", amount: "$80.00", date: "2024-11-24", txn: "TXN12351" },
+              { type: "Debit", amount: "$15.00", date: "2024-11-23", txn: "TXN12352" },
+              { type: "Credit", amount: "$120.00", date: "2024-11-30", txn: "TXN12345" },
+              { type: "Credit", amount: "$120.00", date: "2024-11-30", txn: "TXN12345" },
+              { type: "Credit", amount: "$120.00", date: "2024-11-30", txn: "TXN12345" },
+              { type: "Credit", amount: "$120.00", date: "2024-11-30", txn: "TXN12345" },
+              { type: "Credit", amount: "$120.00", date: "2024-11-30", txn: "TXN12345" },
+
+            ].map((entry, index) => (
+              <div
+                key={index}
+                className="flex justify-between items-center border-b pb-2"
+              >
+                <div className="text-sm font-medium">{entry.type}</div>
+                <div className="text-sm">{entry.amount}</div>
+                <div className="text-sm text-gray-600">{entry.date}</div>
+                <div className="text-sm text-gray-400">{entry.txn}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+      cards.push(
+        <div
+          key="left-bottom"
+          className="border-2 border-black bg-white p-6 shadow-lg flex flex-col text-black text-lg"
+          style={{
+            gridRow: "3 / 6",
+            gridColumn: "1 / 2",
+          }}
+        >
+          <h2 className="font-bold text-xl mb-4">Holders</h2>
+          <div
+            className="flex flex-col space-y-2 overflow-y-auto border-t py-4"
+            style={{
+              maxHeight: "300px", // Adjust height as needed
+            }}
+          >
+            {[
+              { rank: 1, percentage: "40%", wallet: "0xA1B2...C3D4" },
+              { rank: 2, percentage: "30%", wallet: "0xE5F6...G7H8" },
+              { rank: 3, percentage: "20%", wallet: "0xI9J0...K1L2" },
+              { rank: 4, percentage: "5%", wallet: "0xM3N4...O5P6" },
+              { rank: 5, percentage: "5%", wallet: "0xQ7R8...S9T0" },
+              { rank: 1, percentage: "40%", wallet: "0xA1B2...C3D4" },
+              { rank: 2, percentage: "30%", wallet: "0xE5F6...G7H8" },
+              { rank: 3, percentage: "20%", wallet: "0xI9J0...K1L2" },
+              { rank: 4, percentage: "5%", wallet: "0xM3N4...O5P6" },
+              { rank: 5, percentage: "5%", wallet: "0xQ7R8...S9T0" },
+
+            ].map((holder, index) => (
+              <div
+                key={index}
+                className="flex justify-between items-center border-b pb-2"
+              >
+                <div className="text-sm font-medium"># {holder.rank}</div>
+                <div className="text-sm">{holder.percentage}</div>
+                <div className="text-sm text-gray-600">{holder.wallet}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    cards.push(
+      <div
+        key="middle-top"
+        className="relative border-2 border-black bg-white shadow-lg p-6"
+        style={{
+          gridRow: "1 / 2", // Adjust position for compact view
+          gridColumn: hideRight ? "1 / 4" : (hideLeft ? "1 / 3" : "2 / 3")
+        }}
+      >
+        <div className="absolute top-2 right-2 text-gray-500 text-xs">30s ago</div>
+        <div className="flex items-start mb-2">
+          <img
+            src="https://via.placeholder.com/80"
+            alt="Icon"
+            className="w-15 h-15 border border-black"
+          />
+          <div className="ml-4">
+            <h2 className="text-xl font-bold">
+              <span className="font-bold">User Name</span>
+              <span className="font-normal"> | goose</span>
+            </h2>
+            <p className="text-gray-700 text-sm mt-2">
+              This is a simple card with sharp edges, a black border, and a
+              progress bar.
+            </p>
+          </div>
+        </div>
+        <div className="flex space-x-2">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="currentColor"
+            viewBox="0 0 24 24"
+            className="w-5 h-5 text-gray-400"
+          >
+            <rect width="24" height="24" fill="currentColor" />
+          </svg>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="currentColor"
+            viewBox="0 0 24 24"
+            className="w-5 h-5 text-gray-400"
+          >
+            <rect width="24" height="24" fill="currentColor" />
+          </svg>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="currentColor"
+            viewBox="0 0 24 24"
+            className="w-5 h-5 text-gray-400"
+          >
+            <rect width="24" height="24" fill="currentColor" />
+          </svg>
+        </div>
+        <p className="text-gray-700 text-sm mt-4">50% | 20k</p>
+        <div className="mt-1 h-2 border-2 border-black bg-white relative">
+          <div
+            className="absolute top-0 left-0 h-full bg-black"
+            style={{ width: "66%" }}
+          ></div>
+        </div>
+        <div className="flex justify-start items-center text-gray-500 mt-2">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="currentColor"
+            viewBox="0 0 24 24"
+            className="w-4 h-4"
+          >
+            <rect width="24" height="24" fill="currentColor" />
+          </svg>
+          <span className="text-sm ml-1">123</span>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="currentColor"
+            viewBox="0 0 24 24"
+            className="w-4 h-4 ml-4"
+          >
+            <rect width="24" height="24" fill="currentColor" />
+          </svg>
+          <span className="text-sm ml-1">456</span>
+        </div>
+      </div>
+    );
+    cards.push(
+      <div
+        key="middle-bottom"
+        className="border-2 border-black bg-white shadow-lg p-4 flex items-center justify-center"
+        style={{
+          gridRow: "2 / 6", // Adjust position for compact view
+          gridColumn: hideRight ? "1 / 4" : (hideLeft ? "1 / 3" : "2 / 3")
+        }}
+      >
+        <img
+          src="https://via.placeholder.com/300x400"
+          alt="Large Placeholder"
+          className="w-full h-full object-cover border border-black"
+        />
+      </div>
+    );
+
+    if (!hideRight) {
+      cards.push(
+        <div
+          key="right-top"
+          className="border-2 border-black bg-white p-6 shadow-lg flex flex-col text-black text-lg"
+          style={{
+            gridRow: "1 / 3",
+            gridColumn: "3 / 4",
+          }}
+        >
+
+          <div className="flex mb-4">
+            {/* Buy Placeholder */}
+            <button
+              className="w-1/2 flex items-center justify-center px-4 py-2 text-sm font-medium border-2 border-black bg-white text-black hover:bg-gray-100"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"
+                />
+              </svg>
+            </button>
+
+            {/* Sell Placeholder */}
+            <button
+              className="w-1/2 flex items-center justify-center px-4 py-2 text-sm font-medium border-2 border-grey-500 bg-white text-black hover:bg-gray-100"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M4 7V17M20 7V17M7 20L17 20M7 4L17 4M9 10L15 14M15 10L9 14"
+                />
+              </svg>
+            </button>
+          </div>
+
+          {/* SOL Balance */}
+          <div className="mb-4">
+
+            <div className="flex items-baseline space-x-2">
+              <div className="text-sm font-semibold text-black">100 SOL</div>
+              <div className="text-sm text-gray-500">~ $499</div>
+            </div>
+
+
+
+            <div className="mt-1 h-2 border-2 border-black bg-white relative">
+              <div
+                className="absolute top-0 left-0 h-full bg-black"
+                style={{ width: "80%" }} // Example: SOL balance usage as 80%
+              ></div>
+            </div>
+          </div>
+
+          {/* GS Balance */}
+          <div className="flex flex-col space-y-2 mb-4">
+            {/* Total GS */}
+            <div className="flex items-baseline space-x-2">
+              <div className="text-sm font-semibold text-black">50,000 GS</div>
+              <div className="text-sm text-gray-500">(Total)</div>
+            </div>
+
+            {/* Color-Coded Bar */}
+            <div className="mt-1 h-2 border-2 border-black bg-white relative">
+              {/* Locked Amount */}
+              <div
+                className="absolute top-0 left-0 h-full bg-gray-400"
+                style={{ width: "50%" }} // Adjust dynamically
+              ></div>
+              {/* Unlocked Amount */}
+              <div
+                className="absolute top-0 left-0 h-full bg-blue-500"
+                style={{ width: "30%", marginLeft: "50%" }} // Adjust dynamically
+              ></div>
+              {/* Claimable Amount */}
+              <div
+                className="absolute top-0 left-0 h-full bg-green-500"
+                style={{ width: "20%", marginLeft: "80%" }} // Adjust dynamically
+              ></div>
+            </div>
+
+            {/* Labels with Color Codes */}
+            <div className="flex justify-between text-xs mt-1">
+              <div className="flex items-center space-x-1">
+                <div className="h-2 w-2 bg-gray-400 rounded-full"></div>
+                <span className="text-gray-600">Locked: 25,000</span>
+              </div>
+              <div className="flex items-center space-x-1">
+                <div className="h-2 w-2 bg-blue-500 rounded-full"></div>
+                <span className="text-blue-600">Unlocked: 15,000</span>
+              </div>
+              <div className="flex items-center space-x-1">
+                <div className="h-2 w-2 bg-green-500 rounded-full"></div>
+                <span className="text-green-600">Claimable: 10,000</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Input with Icon */}
+          <div className="relative flex items-center mb-2">
+            <input
+              type="number"
+              className="w-full border-2 border-gray-300 rounded-lg p-2 text-sm focus:outline-none focus:ring focus:border-blue-300"
+              placeholder="Enter amount"
+            />
+            {/* Icon */}
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="absolute right-2 h-5 w-5 text-gray-400 pointer-events-none"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M12 8c1.104 0 2-.672 2-1.5S13.104 5 12 5 10 5.672 10 6.5 10.896 8 12 8zm0 4c1.104 0 2-.672 2-1.5S13.104 9 12 9s-2 .672-2 1.5.896 1.5 2 1.5zm0 4c1.104 0 2-.672 2-1.5s-.896-1.5-2-1.5-2 .672-2 1.5.896 1.5 2 1.5z"
+              />
+            </svg>
+          </div>
+          {/* Percentage Buttons */}
+          <div className="flex space-x-2 mb-4">
+            <button className="px-3 py-0.5 border-2 border-black bg-white text-xs text-black hover:bg-gray-100">
+              50%
+            </button>
+            <button className="px-3 py-0.5 border-2 border-black bg-white text-xs text-black hover:bg-gray-100">
+              100%
+            </button>
+          </div>
+
+
+          {/* Transact Button */}
+          <button className="w-full px-4 py-2 text-sm font-medium border-2 border-black bg-white text-black hover:bg-gray-100">
+            Transact
+          </button>
+        </div>
+      );
+
+
+      cards.push(
+        <div
+          key="right-bottom"
+          className="border-2 border-black bg-white p-6 shadow-lg flex flex-col text-black text-lg"
+          style={{
+            gridRow: "3 / 6",
+            gridColumn: "3 / 4",
+          }}
+        >
+          <h2 className="font-bold text-xl mb-4">Chat</h2>
+          {/* Chat container */}
+          <div
+            className="flex flex-col space-y-2 overflow-y-auto border-t border-b py-4"
+            style={{
+              maxHeight: "300px", // Adjust height as needed
+            }}
+          >
+            {/* Placeholder messages */}
+            {[
+              { user: "Alice", message: "Hello there!", time: "10:00 AM" },
+              { user: "Bob", message: "Hi, how are you?", time: "10:05 AM" },
+              { user: "You", message: "I'm good, thanks!", time: "10:06 AM" },
+              { user: "Alice", message: "Hello there!", time: "10:00 AM" },
+              { user: "Bob", message: "Hi, how are you?", time: "10:05 AM" },
+              { user: "You", message: "I'm good, thanks!", time: "10:06 AM" },
+              { user: "Alice", message: "Hello there!", time: "10:00 AM" },
+              { user: "Bob", message: "Hi, how are you?", time: "10:05 AM" },
+              { user: "You", message: "I'm good, thanks!", time: "10:06 AM" },
+              { user: "Alice", message: "Hello there!", time: "10:00 AM" },
+              { user: "Bob", message: "Hi, how are you?", time: "10:05 AM" },
+              { user: "You", message: "I'm good, thanks!", time: "10:06 AM" },
+            ].map((chat, index) => (
+              <div key={index} className="flex flex-col">
+                <div className="text-sm font-medium">
+                  {chat.user}{" "}
+                  <span className="text-xs text-gray-600">{chat.time}</span>
+                </div>
+                <div className="text-sm">{chat.message}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Message input */}
+          <form
+            className="flex items-center mt-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              console.log("Send message logic here!");
+            }}
+          >
+            <input
+              type="text"
+              className="flex-grow border-2 border-gray-300 rounded-lg p-2 text-sm"
+              placeholder="Type your message..."
+            />
+            <button
+              type="submit"
+              className="ml-2 bg-blue-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-600"
+            >
+              Send
+            </button>
+          </form>
+        </div>
+      );
+    }
+
+
+    return cards;
+  };
+
+  return (
+    <div className="relative">
+      {/* Dark Overlay */}
+      {!isVisible && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-10"
+          onClick={() => setIsVisible(true)}
+        >
+          <div
+            className={`absolute inset-0 grid "grid-cols-[1fr_3fr_1fr]"
+              } gap-10 p-20`}
+            style={{
+              pointerEvents: "none",
+              gridTemplateRows: "repeat(5, 1fr)",
+            }}
+          >
+            {renderGridCards()}
+          </div>
+        </div>
+      )}
+
+      {/* Card */}
+      {isVisible && (
+        <div
+          className="max-w-lg mx-auto mt-10 cursor-pointer"
+          onClick={() => setIsVisible(false)}
+        >
+          <div className="relative border-2 border-black bg-white shadow-lg p-6">
+            <div className="absolute top-2 right-2 text-gray-500 text-xs">
+              30s ago
+            </div>
+            <div className="flex items-start mb-2">
+              <img
+                src="https://via.placeholder.com/80"
+                alt="Icon"
+                className="w-15 h-15 border border-black"
+              />
+              <div className="ml-4">
+                <h2 className="text-xl font-bold">
+                  <span className="font-bold">{name}</span>
+                  <span className="font-normal"> | goose</span>
+                </h2>
+                <p className="text-gray-700 text-sm mt-2">
+                  This is a simple card with sharp edges, a black border, and a
+                  progress bar.
+                </p>
+              </div>
+            </div>
+            <div className="flex space-x-2">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="currentColor"
+                viewBox="0 0 24 24"
+                className="w-5 h-5 text-gray-400"
+              >
+                <rect width="24" height="24" fill="currentColor" />
+              </svg>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="currentColor"
+                viewBox="0 0 24 24"
+                className="w-5 h-5 text-gray-400"
+              >
+                <rect width="24" height="24" fill="currentColor" />
+              </svg>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="currentColor"
+                viewBox="0 0 24 24"
+                className="w-5 h-5 text-gray-400"
+              >
+                <rect width="24" height="24" fill="currentColor" />
+              </svg>
+            </div>
+            <p className="text-gray-700 text-sm mt-4">50% | 20k</p>
+            <div className="mt-1 h-2 border-2 border-black bg-white relative">
+              <div
+                className="absolute top-0 left-0 h-full bg-black"
+                style={{ width: "66%" }}
+              ></div>
+            </div>
+            <div className="flex justify-start items-center text-gray-500 mt-2">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="currentColor"
+                viewBox="0 0 24 24"
+                className="w-4 h-4"
+              >
+                <rect width="24" height="24" fill="currentColor" />
+              </svg>
+              <span className="text-sm ml-1">123</span>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="currentColor"
+                viewBox="0 0 24 24"
+                className="w-4 h-4 ml-4"
+              >
+                <rect width="24" height="24" fill="currentColor" />
+              </svg>
+              <span className="text-sm ml-1">456</span>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

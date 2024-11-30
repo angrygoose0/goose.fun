@@ -27,9 +27,9 @@ declare_id!("5BpjFeNvcyvFWYYQg1G8o2dYpwSbZzi8qbVPAfxPiFbP");
 pub mod meme {
     use super::*;
 
-    pub const INITIAL_PRICE: u64 = 600; //solana lamports per one token (without decimal)
+    pub const INITIAL_PRICE: u64 = 2_500_000; //tokens per sol 
     pub const MINT_DECIMALS: u64 = 9
-    pub const MINT_SUPPLY: u64 = 1_000_000_000_000_000_000
+    pub const MINT_SUPPLY: u64 = 1_000_000_000_000_000_000 // 1billion times 10^9
 
 
     pub fn create_meme_token(
@@ -125,7 +125,7 @@ pub mod meme {
                     mint: ctx.accounts.mint.to_account_info(),
                 }
             ),
-            amount, // has to be u64 times by decimal amount.
+            amount, 
         )?;
 
 
@@ -220,7 +220,7 @@ pub mod meme {
             //hasnt bonded, so sol lamports
             if amount > 0 {
 
-                let tokens_owed = (amount as u64) / INITIAL_PRICE;
+                let tokens_owed = (amount as u64) * INITIAL_PRICE;
 
                 user_account.locked_amount = user_account
                     .locked_amount
@@ -252,7 +252,7 @@ pub mod meme {
 
                 }
             else if amount < 0 {
-                let deduction = (-amount) as u64 / INITIAL_PRICE;
+                let deduction = (-amount) as u64 * INITIAL_PRICE;
                 user_account.locked_amount = user_account
                     .locked_amount
                     .checked_sub(deduction)
@@ -268,7 +268,7 @@ pub mod meme {
                 let transfer_instruction = system_instruction::transfer(
                     &ctx.accounts.treasury.key(),
                     &ctx.accounts.signer.key(),
-                    deduction,
+                    (-amount) as u64,
                 );
 
                 invoke_signed(
