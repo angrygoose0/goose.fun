@@ -1,17 +1,19 @@
 'use client'
 
 import { getMemeProgram, getMemeProgramId } from '@project/anchor';
-import { useConnection } from '@solana/wallet-adapter-react';
-import { AccountInfo, Cluster, Connection, PublicKey, SYSVAR_RENT_PUBKEY } from '@solana/web3.js';
+import { useConnection, useWallet } from '@solana/wallet-adapter-react';
+import { AccountInfo, SystemProgram, Cluster, Transaction, Keypair, PublicKey, SYSVAR_RENT_PUBKEY } from '@solana/web3.js';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import { useCluster } from '../cluster/cluster-data-access';
 import { useAnchorProvider } from '../solana/solana-provider';
 import { useTransactionToast } from '../ui/ui-layout';
-import { getAssociatedTokenAddress, TOKEN_PROGRAM_ID } from "@solana/spl-token";
-import { ASSOCIATED_PROGRAM_ID } from '@coral-xyz/anchor/dist/cjs/utils/token';
+import { getAssociatedTokenAddress, mintTo, TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import { ASSOCIATED_PROGRAM_ID, associatedAddress } from '@coral-xyz/anchor/dist/cjs/utils/token';
 import { Metaplex } from "@metaplex-foundation/js";
+import { constants } from 'fs/promises';
+
 
 export interface InitTokenParams {
   name: string; // Token name
@@ -27,7 +29,6 @@ type ProgramAccount = {
 
 const METADATA_SEED = "metadata";
 const TOKEN_METADATA_PROGRAM_ID = new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
-
 
 
 export function getMetadataAddress(mint: PublicKey): PublicKey {
@@ -48,7 +49,6 @@ export function useMemeProgram() {
   const provider = useAnchorProvider();
   const programId = useMemo(() => getMemeProgramId(cluster.network as Cluster), [cluster]);
   const program = getMemeProgram(provider);
-
 
   enum SortBy {
     CreationTime = "creationTime",
@@ -81,6 +81,7 @@ export function useMemeProgram() {
 
         const accountsArray: Array<ProgramAccount> = Array.from(accounts);
 
+        /*
         accountsArray.sort((a, b) => {
           try {
             const valueA = a.account.data.readBigUInt64LE(0); // Use offset 0 from the slice
@@ -92,6 +93,7 @@ export function useMemeProgram() {
             return 0;
           }
         });
+        */
 
         const accountKeys = accountsArray.map((account) => account.pubkey);
         setPaginatedKeys(accountKeys.slice(0, pageSize)); // Update state with keys for the current page
@@ -110,10 +112,9 @@ export function useMemeProgram() {
     queryFn: () => connection.getParsedAccountInfo(programId),
   });
 
-  const createMemeToken = useMutation<string, Error, { metadata: InitTokenParams, publicKey: PublicKey }>({
+  const createMemeToken = useMutation<string, Error, { metadata: InitTokenParams, publicKey: PublicKey }>({ //publicKey is user's key
     mutationKey: ["memeTokenEntry", "create", { cluster }],
     mutationFn: async ({ metadata, publicKey }) => {
-      const hardCodedTreasury = new PublicKey("4ArWvAzbFV3JRbC3AepcyMKp5bvum18bBSFH3FgXZbXZ"); // Replace with the actual public key
 
       const tokenMetadata = {
         name: metadata.name,
@@ -123,8 +124,10 @@ export function useMemeProgram() {
       };
 
       const mintSeeds = [
+        Buffer.from("mint"),
+        Buffer.from(metadata.symbol),
         Buffer.from(metadata.name),
-        Buffer.from(metadata.symbol)
+
       ];
 
       const mint = PublicKey.findProgramAddressSync(
@@ -134,32 +137,109 @@ export function useMemeProgram() {
 
       const metadataAddress = getMetadataAddress(mint);
 
-      const treasuryTokenAccount = await getAssociatedTokenAddress(mint, hardCodedTreasury);
+      const transaction = new Transaction();
 
-      return program.methods
-        .createMemeToken(tokenMetadata, hardCodedTreasury)
+      const initTokenInstruction = await program.methods
+        .initMemeToken(tokenMetadata)
         .accounts({
-          payer: publicKey,
-          rent: SYSVAR_RENT_PUBKEY,
           metadata: metadataAddress,
           mint: mint,
-          treasury_token_account: treasuryTokenAccount,
-          treasury: hardCodedTreasury,
-          systemProgram: PublicKey.default,
+          signer: publicKey,
+          treasury: treasury,
+          rent: SYSVAR_RENT_PUBKEY,
+          systemProgram: SystemProgram.programId,
           tokenProgram: TOKEN_PROGRAM_ID,
           tokenMetadataProgram: TOKEN_METADATA_PROGRAM_ID,
-          associatedTokenProgram: ASSOCIATED_PROGRAM_ID,
+
         })
-        .rpc();
+        .instruction();
+
+      const mintTokenInstruction = await program.methods
+        .mintMemeToken(metadata.symbol, metadata.name)
+        .accounts({
+          mint: mint,
+          signer: publicKey,
+          rent: SYSVAR_RENT_PUBKEY,
+          systemProgram: SystemProgram.programId,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          associatedTokenProgram: ASSOCIATED_PROGRAM_ID,
+          treasuryTokenAccount: treasury_token_account,
+          treasury: treasury,
+        })
+        .instruction();
+
+      transaction.add(initTokenInstruction, mintTokenInstruction);
+      transaction.feePayer = publicKey;
+
+      const { value } = await connection.simulateTransaction(transaction);
+      console.log("Simulation result:", value);
+      if (value.err) {
+        console.error("Simulation error:", value.err);
+      }
+
+      try {
+        const tx1 = await program.methods
+          .initMemeToken(tokenMetadata)
+          .accounts({
+            metadata: metadataAddress,
+            mint: mint,
+            signer: publicKey,
+            rent: SYSVAR_RENT_PUBKEY,
+            systemProgram: SystemProgram.programId,
+            tokenProgram: TOKEN_PROGRAM_ID,
+            tokenMetadataProgram: TOKEN_METADATA_PROGRAM_ID,
+          })
+          .rpc();
+        const tx2 = await program.methods
+          .mintMemeToken(metadata.symbol, metadata.name)
+          .accounts({
+            mint: mint,
+            signer: publicKey,
+            rent: SYSVAR_RENT_PUBKEY,
+            systemProgram: SystemProgram.programId,
+            tokenProgram: TOKEN_PROGRAM_ID,
+            associatedTokenProgram: ASSOCIATED_PROGRAM_ID,
+          })
+          .rpc();
+      } catch (err) {
+        console.error("Detailed error:", err);
+      }
     },
     onSuccess: (signature) => {
       transactionToast(signature);
-      console.log("done");
+      console.log(signature);
     },
     onError: (error) => {
       toast.error(`Error creating entry: ${error.message}`);
       console.error("Toast error:", error);
     },
+
+  });
+
+  const getUserAccount = useMutation<string, Error, { publicKey: PublicKey, mint: PublicKey }>({
+    mutationKey: ["userAccount", "get", { cluster }],
+    mutationFn: async ({ mint, publicKey }) => {
+
+      const mintAccountInfo = await connection.getAccountInfo(mint);
+      if (!mintAccountInfo) {
+        console.log("Account not found.");
+        return false;
+      }
+
+      const userSeeds = [
+        Buffer.from("user_account"),
+        mint.toBuffer(),
+        publicKey.toBuffer(),
+      ];
+
+      const user = PublicKey.findProgramAddressSync(
+        userSeeds,
+        programId,
+      )[0];
+
+
+
+    }
   });
 
   return {
@@ -168,20 +248,30 @@ export function useMemeProgram() {
     paginatedKeys, // Paginated keys are updated asynchronously via useState
     getProgramAccount,
     createMemeToken,
+    connection,
   };
 }
 
+type AccountType = 'MemeEntryState' | 'UserAccount';
 
 
-export function useMemeProgramAccount({ account }: { account: PublicKey }) {
+export function useMemeProgramAccount({ account, accountType }: { account: PublicKey, accountType: AccountType }) {
   const { cluster } = useCluster();
   const { program } = useMemeProgram();
   const { connection } = useConnection();
 
   // Fetch the meme entry state
   const accountQuery = useQuery({
-    queryKey: ["meme", "fetch", { cluster, account }],
-    queryFn: () => program.account.memeEntryState.fetch(account),
+    queryKey: ['account', { cluster, account, accountType }],
+    queryFn: async () => {
+      if (accountType === 'MemeEntryState') {
+        return program.account.memeEntryState.fetch(account);
+      } else if (accountType === 'UserAccount') {
+        return program.account.userAccount.fetch(account);
+      } else {
+        throw new Error('Unknown account type');
+      }
+    },
   });
 
   const metaplex = Metaplex.make(connection);
@@ -190,6 +280,11 @@ export function useMemeProgramAccount({ account }: { account: PublicKey }) {
   const metadataQuery = useQuery({
     queryKey: ["metadata", { account }],
     queryFn: async () => {
+
+      if (accountType !== 'MemeEntryState') {
+        throw new Error('Metadata query is only valid for MemeEntryState accounts');
+      }
+
       if (!accountQuery.data) {
         throw new Error("Account data not yet loaded");
       }
@@ -215,16 +310,15 @@ export function useMemeProgramAccount({ account }: { account: PublicKey }) {
       const metadataJSON = await response.json();
       return metadataJSON;
     },
-    enabled: !!accountQuery.data, // Only run if accountQuery.data is available
+    enabled: accountType === 'MemeEntryState' && !!accountQuery.data, // Only run if accountQuery.data is available, and accountData is memenetry
   });
 
 
   return {
     accountQuery, // Query for the account data
     metadataQuery, // Query for the metadata JSON
-    account, // The account PublicKey
   };
-}
+};
 
 
 /*

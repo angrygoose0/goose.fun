@@ -1,4 +1,4 @@
-// 1. Import dependencies
+
 use anchor_lang::{
     prelude::*,
     solana_program::{
@@ -9,7 +9,7 @@ use anchor_lang::{
 
 use anchor_spl::{
     associated_token::AssociatedToken,
-    token::{mint_to, Mint, MintTo, Token, TokenAccount, TransferChecked},
+    token::{mint_to, Mint, MintTo, Token, TokenAccount, TransferChecked, transfer_checked},
     metadata::{
         create_metadata_accounts_v3,
         mpl_token_metadata::types::DataV2,
@@ -17,7 +17,7 @@ use anchor_spl::{
         Metadata as Metaplex,
     },
 };
-use solana_program::system_instruction;
+
 
 // 2. Declare Program ID (SolPG will automatically update this when you deploy)
 declare_id!("5BpjFeNvcyvFWYYQg1G8o2dYpwSbZzi8qbVPAfxPiFbP");
@@ -28,33 +28,25 @@ pub mod meme {
     use super::*;
 
     pub const INITIAL_PRICE: u64 = 2_500_000; //tokens per sol 
-    pub const MINT_DECIMALS: u64 = 9
-    pub const MINT_SUPPLY: u64 = 1_000_000_000_000_000_000 // 1billion times 10^9
+    pub const MINT_DECIMALS: u8 = 9;
+    pub const MINT_SUPPLY: u64 = 1_000_000_000_000_000_000; // 1billion times 10^9
 
 
-    pub fn create_meme_token(
-        ctx: Context<CreateMemeToken>, 
-        metadata: InitTokenParams, 
+    
+
+    pub fn init_meme_token(
+        ctx: Context<InitToken>,
+        metadata: InitTokenParams,
     ) -> Result<()> {
         if metadata.decimals != MINT_DECIMALS {
             return Err(error!(CustomError::InvalidDecimals));
         }
-
-        // Clone the name and symbol for use in `seeds` to avoid moving them
-        let name_bytes = metadata.name.clone().into_bytes();
-        let symbol_bytes = metadata.symbol.clone().into_bytes();
-        let seeds = &[
-            b"mint",
-            name_bytes.as_slice(),
-            symbol_bytes.as_slice(),
-            &[ctx.bumps.mint]
-        ];
+        let seeds = &["mint".as_bytes(), &metadata.symbol.as_bytes(), &metadata.name.as_bytes(), &[ctx.bumps.mint]];
         let signer = [&seeds[..]];
 
-        // Initialize token mint address
         let token_data: DataV2 = DataV2 {
-            name: metadata.name.clone(),  // Use cloned name
-            symbol: metadata.symbol.clone(), // Use cloned symbol
+            symbol: metadata.symbol.clone(),
+            name: metadata.name.clone(),
             uri: metadata.uri.clone(),
             seller_fee_basis_points: 0,
             creators: None,
@@ -73,7 +65,7 @@ pub mod meme {
                 system_program: ctx.accounts.system_program.to_account_info(),
                 rent: ctx.accounts.rent.to_account_info(),
             },
-            &signer
+            &signer,
         );
 
         create_metadata_accounts_v3(
@@ -83,6 +75,18 @@ pub mod meme {
             true,
             None,
         )?;
+
+        Ok(())
+    }
+
+    pub fn mint_meme_token(
+        ctx: Context<MintTokens>,
+        symbol: String,
+        name: String,
+    ) -> Result<()> {
+        let seeds = &["mint".as_bytes(), &symbol.as_bytes(), &name.as_bytes(), &[ctx.bumps.mint]];
+        //let seeds = &["treasury".as_bytes(), &[ctx.bumps.treasury]];
+        let signer = [&seeds[..]];
 
         mint_to(
             CpiContext::new_with_signer(
@@ -103,251 +107,265 @@ pub mod meme {
         meme_entry.mint = ctx.accounts.mint.key();
         meme_entry.creation_time = Clock::get()?.unix_timestamp as i64;
         meme_entry.locked_amount = 0;
-        meme_entry.bonded_time = None;
+        meme_entry.bonded_time = -1;
 
         Ok(())
     }
-
-    pub fn update_or_create_user_account(
-        ctx: Context<UpdateOrCreateUserAccount>,
-        amount: i64, //amount in lamports.
-        mint: Pubkey,
+    
+    // after bonding
+    pub fn lock_unlock(
+        ctx:Context<LockUnlockAfterBonding>,
+        amount: i64, //amount in SPL lamports.
     ) -> Result<()> {
-
-        // sending spl token
-        transfer_checked(
-            CpiContext::new(
-                ctx.accounts.token_program.to_account_info(),
-                TransferChecked {
-                    from ctx.accounts.user_token_account.to_account_info(),
-                    to: ctx.accounts.treasury_token_account.to_account_info(),
-                    authority: ctx.accounts.signer.to_account_info(),
-                    mint: ctx.accounts.mint.to_account_info(),
-                }
-            ),
-            amount, 
-        )?;
-
-
-        // sending sol
-        let transfer_instruction = system_instruction::transfer(
-        &ctx.accounts.signer.key(),
-        &ctx.accounts.treasury.key(),
-        amount,
-        );
-
-        invoke_signed(
-            &transfer_instruction,
-            &[
-                ctx.accounts.signer.to_account_info(),
-                ctx.accounts.treasury.to_account_info(),
-                ctx.accounts.system_program.to_account_info(),
-            ],
-            &[],
-        )?;
-
-
         let user_account = &mut ctx.accounts.user_account;
         let meme_entry = &mut ctx.accounts.meme_entry;
 
-        require!(meme_entry.mint == mint, CustomError::MintMismatch);
-        require!(amount >= 0, CustomError::InvalidAmount);
+        require!(amount != 0, CustomError::InvalidAmount);
 
         user_account.user = ctx.accounts.signer.key();
-        user_account.meme_entry = MemeEntryState {
-        dev: meme_entry.dev,
-        mint: meme_entry.mint,
-        locked_amount: meme_entry.locked_amount,
-        creation_time: meme_entry.creation_time,
-        bonded_time: meme_entry.bonded_time,
-        };
 
-        // bonded or not
-        if let Some(bonded_time) = meme_entry.bonded_time {
-            if amount > 0 {
-                user_account.locked_amount = user_account
-                    .locked_amount
-                    .checked_add(amount as u64)
-                    .ok_or(CustomError::Overflow)?;
+        require!(
+            meme_entry.bonded_time > 0,
+            CustomError::NotBonded,
+        );
 
-                meme_entry.locked_amount = meme_entry
-                    .locked_amount
-                    .checked_add(amount as u64)
-                    .ok_or(CustomError::Overflow)?;
+        // wants to lock, amount is SPL lamports
+        if amount > 0 {
+            user_account.locked_amount = user_account
+                .locked_amount
+                .checked_add(amount as u64)
+                .ok_or(CustomError::Overflow)?;
 
-                //user sends spl tokens to treasury
-                transfer_checked(
-                    CpiContext::new(
-                        ctx.accounts.token_program.to_account_info(),
-                        TransferChecked {
-                            from: ctx.accounts.user_token_account.to_account_info(),
-                            to: ctx.accounts.treasury_token_account.to_account_info(),
-                            authority: ctx.accounts.signer.to_account_info(),
-                            mint: ctx.accounts.mint.to_account_info(),
-                        }
-                    ),
-                    (amount as u64), // has to be u64 times by decimal amount.
-                )?;
-            } else if amount < 0 {
-                let deduction = (-amount) as u64;
+            meme_entry.locked_amount = meme_entry
+                .locked_amount
+                .checked_add(amount as u64)
+                .ok_or(CustomError::Overflow)?;
+            //user sends spl tokens to treasury
+            transfer_checked(
+                CpiContext::new(
+                    ctx.accounts.token_program.to_account_info(),
+                    TransferChecked {
+                        from: ctx.accounts.user_token_account.to_account_info(),
+                        to: ctx.accounts.treasury_token_account.to_account_info(),
+                        authority: ctx.accounts.signer.to_account_info(),
+                        mint: ctx.accounts.mint.to_account_info(),
+                    }
+                ),
+                amount as u64, // has to be u64 times by decimal amount.
+                MINT_DECIMALS,
+            )?;
+        } else if amount < 0 {
+            // wants to unlock, amount is SPL lamports wanting to take out of treasury.
+            let deduction = (-amount) as u64;
 
-                user_account.claimmable = user_account
-                    .claimmable
-                    .checked_sub(deduction)
-                    .ok_or(CustomError::Underflow)?;
+            user_account.claimmable = user_account
+                .claimmable
+                .checked_sub(deduction)
+                .ok_or(CustomError::Underflow)?;
 
-                meme_entry.locked_amount = meme_entry
-                    .locked_amount
-                    .checked_sub(deduction)
-                    .ok_or(CustomError::Underflow)?;
-                }
+            meme_entry.locked_amount = meme_entry
+                .locked_amount
+                .checked_sub(deduction)
+                .ok_or(CustomError::Underflow)?;
+            
 
-                //user receives spl tokens from treasury
-                transfer_checked(
-                    CpiContext::new(
-                        ctx.accounts.token_program.to_account_info(),
-                        TransferChecked {
-                            from: ctx.accounts.treasury_token_account.to_account_info(),
-                            to: ctx.accounts.user_token_account.to_account_info(),
-                            authority: ctx.accounts.treasury.to_account_info(),
-                            mint: ctx.accounts.mint.to_account_info(),
-                        }
-                    ),
-                    deduction, // has to be u64 times by decimal amount.
-                )?;
+            //user receives spl tokens from treasury
+            transfer_checked(
+                CpiContext::new(
+                    ctx.accounts.token_program.to_account_info(),
+                    TransferChecked {
+                        from: ctx.accounts.treasury_token_account.to_account_info(),
+                        to: ctx.accounts.user_token_account.to_account_info(),
+                        authority: ctx.accounts.treasury.to_account_info(),
+                        mint: ctx.accounts.mint.to_account_info(),
+                    }
+                ),
+                (-amount) as u64,
+                //spl token lamports.
+                MINT_DECIMALS,
+            )?;
+        }
+        Ok(())
 
-        } else {
-            //hasnt bonded, so sol lamports
-            if amount > 0 {
+    }
 
-                let tokens_owed = (amount as u64) * INITIAL_PRICE;
+    //before bonding
+    pub fn buy_sell(
+        ctx: Context<BuySellBeforeBonding>,
+        amount: i64, // sol lamports
+    ) -> Result<()> {
+        let user_account = &mut ctx.accounts.user_account;
+        let meme_entry = &mut ctx.accounts.meme_entry;
 
-                user_account.locked_amount = user_account
-                    .locked_amount
-                    .checked_add(tokens_owed)
-                    .ok_or(CustomError::Overflow)?;
+        require!(meme_entry.mint == ctx.accounts.mint.key(), CustomError::MintMismatch);
+        require!(amount != 0, CustomError::InvalidAmount);
 
-                meme_entry.locked_amount = meme_entry
-                    .locked_amount
-                    .checked_add(tokens_owed)
-                    .ok_or(CustomError::Overflow)?;
+        user_account.user = ctx.accounts.signer.key();
 
-                //if everything good, user gives sol lamports amount to treasury
+        require!(
+            meme_entry.bonded_time < 0,
+            CustomError::HasBonded,
+        );
 
-                let transfer_instruction = system_instruction::transfer(
-                    &ctx.accounts.signer.key(),
-                    &ctx.accounts.treasury.key(),
-                    (amount as u64),
-                );
+        if amount > 0 {
+            // token lamport amount
+            let tokens_owed = (amount as u64) * INITIAL_PRICE;
 
-                invoke_signed(
-                    &transfer_instruction,
-                    &[
-                        ctx.accounts.signer.to_account_info(),
-                        ctx.accounts.treasury.to_account_info(),
-                        ctx.accounts.system_program.to_account_info(),
-                    ],
-                    &[],
-                )?;
+            user_account.locked_amount = user_account
+                .locked_amount
+                .checked_add(tokens_owed)
+                .ok_or(CustomError::Overflow)?;
 
-                }
-            else if amount < 0 {
-                let deduction = (-amount) as u64 * INITIAL_PRICE;
-                user_account.locked_amount = user_account
-                    .locked_amount
-                    .checked_sub(deduction)
-                    .ok_or(CustomError::Underflow)?;
+            meme_entry.locked_amount = meme_entry
+                .locked_amount
+                .checked_add(tokens_owed)
+                .ok_or(CustomError::Overflow)?;
 
-                meme_entry.locked_amount = meme_entry
-                    .locked_amount
-                    .checked_sub(deduction)
-                    .ok_or(CustomError::Underflow)?;
+            //if everything good, user gives sol lamports amount to treasury
 
-                //if everything good, user receives amount sol lamports from treasury
+            let transfer_instruction = system_instruction::transfer(
+                &ctx.accounts.signer.key(),
+                &ctx.accounts.treasury.key(),
+                amount as u64,
+            );
 
-                let transfer_instruction = system_instruction::transfer(
-                    &ctx.accounts.treasury.key(),
-                    &ctx.accounts.signer.key(),
-                    (-amount) as u64,
-                );
+            invoke_signed(
+                &transfer_instruction,
+                &[
+                    ctx.accounts.signer.to_account_info(),
+                    ctx.accounts.treasury.to_account_info(),
+                    ctx.accounts.system_program.to_account_info(),
+                ],
+                &[],
+            )?;
+        } else if amount < 0 {
+            let spl_deduction = (-amount) as u64 * INITIAL_PRICE;
+            user_account.locked_amount = user_account
+                .locked_amount
+                .checked_sub(spl_deduction)
+                .ok_or(CustomError::Underflow)?;
 
-                invoke_signed(
-                    &transfer_instruction,
-                    &[
-                        ctx.accounts.treasury.to_account_info(),
-                        ctx.accounts.signer.to_account_info(),
-                        ctx.accounts.system_program.to_account_info(),
-                    ],
-                    &[],
-                )?;
-            }
+            meme_entry.locked_amount = meme_entry
+                .locked_amount
+                .checked_sub(spl_deduction)
+                .ok_or(CustomError::Underflow)?;
+
+            //if everything good, user receives amount sol lamports from treasury
+
+            let transfer_instruction = system_instruction::transfer(
+                &ctx.accounts.treasury.key(),
+                &ctx.accounts.signer.key(),
+                (-amount) as u64,
+            );
+
+            invoke_signed(
+                &transfer_instruction,
+                &[
+                    ctx.accounts.treasury.to_account_info(),
+                    ctx.accounts.signer.to_account_info(),
+                    ctx.accounts.system_program.to_account_info(),
+                ],
+                &[],
+            )?;
         }
         Ok(())
     }
 
-    pub fn update_meme_entry<'info>(
-        
+    pub fn update_meme_entry<'info>(    
         ctx: Context<UpdateMemeEntry>,
         _mint: Pubkey,
         locked_amount: u64,
-        bonded_time: Option<i64>,
-
+        bonded_time: i64,
     ) -> Result<()> {
         let meme_entry = &mut ctx.accounts.meme_entry;
         meme_entry.locked_amount = locked_amount;
         meme_entry.bonded_time = bonded_time;
         
-        // for when i want to derive the treasury_token_account dynamically
-        //let treasury_token_account = get_associated_token_address(&treasury, &ctx.accounts.mint.key());
         Ok(())
     }
 
-    
-
 }
+
+
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone)]
 pub struct InitTokenParams {
-    pub name: String,
     pub symbol: String,
+    pub name: String,
     pub uri: String,
     pub decimals: u8,
 }
-
 
 #[derive(Accounts)]
 #[instruction(
     params: InitTokenParams,
 )]
-pub struct CreateMemeToken<'info> {
-    #[account(mut)]
-    pub signer: Signer<'info>, // The signer who sends SOL
-    pub rent: Sysvar<'info, Rent>,
-
+pub struct InitToken<'info>{
     /// CHECK: New Metaplex Account being created
     #[account(mut)]
     pub metadata: UncheckedAccount<'info>,
-
     #[account(
-        init,
-        seeds = [b"mint", params.name.as_bytes(), params.symbol.as_bytes()],
+        init_if_needed,
+        seeds = [b"mint", params.symbol.as_bytes(), params.name.as_bytes()],
         bump,
         payer = signer,
         mint::decimals = params.decimals,
         mint::authority = mint,
     )]
     pub mint: Account<'info, Mint>,
+    /// CHECK: This is the treasury account derived using a PDA with seeds [b"treasury"].
+    /// Its validity is ensured by the PDA derivation logic and Anchor constraints.
+    #[account(
+        init_if_needed,
+        payer = signer,
+        space = 8,
+        seeds = [b"treasury"],
+        bump,
+    )]
+    pub treasury: AccountInfo<'info>,
+    #[account(mut)]
+    pub signer: Signer<'info>, // The signer who sends SOL
+    pub rent: Sysvar<'info, Rent>,
+
+    pub system_program: Program<'info, System>, // System program
+    pub token_program: Program<'info, Token>,
+    pub token_metadata_program: Program<'info, Metaplex>,
+}
+
+#[derive(Accounts)]
+#[instruction(
+    symbol: String,
+    name: String,
+)]
+pub struct MintTokens<'info>{
+    #[account(
+        mut,
+        seeds = [b"mint", symbol.as_bytes(), name.as_bytes()],
+        bump,
+        mint::authority = mint,
+    )]
+    pub mint: Account<'info, Mint>,
+
+    #[account(mut)]
+    pub signer: Signer<'info>, // The signer who sends SOL
+    pub rent: Sysvar<'info, Rent>,
+
+    pub system_program: Program<'info, System>, // System program
+    pub token_program: Program<'info, Token>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
 
     #[account(
-        init,
+        init_if_needed,
         payer = signer,
         associated_token::mint = mint,
         associated_token::authority = treasury,
     )]
     pub treasury_token_account: Account<'info, TokenAccount>,
 
+    /// CHECK: This is the treasury account derived using a PDA with seeds [b"treasury"].
+    /// Its validity is ensured by the PDA derivation logic and Anchor constraints.
     #[account(
-        init_if_needed,
+        mut,
         seeds = [b"treasury"],
         bump,
     )]
@@ -360,17 +378,9 @@ pub struct CreateMemeToken<'info> {
         space = 8 + MemeEntryState::INIT_SPACE,
         payer = signer,
     )]
-    pub meme_entry: Account<'info, MemeEntryState>,
+    pub meme_entry: Account<'info, MemeEntryState>,   
 
-    
-
-    pub system_program: Program<'info, System>, // System program
-    pub token_program: Program<'info, Token>,
-    pub token_metadata_program: Program<'info, Metaplex>,
-    pub associated_token_program: Program<'info, AssociatedToken>,
 }
-
-
 
 
 #[derive(Accounts)]
@@ -386,8 +396,10 @@ pub struct UpdateMemeEntry<'info> {
     #[account(mut)]
     pub signer: Signer<'info>,
 
+    /// CHECK: This is the treasury account derived using a PDA with seeds [b"treasury"].
+    /// Its validity is ensured by the PDA derivation logic and Anchor constraints.
     #[account(
-        init_if_needed,
+        mut,
         seeds = [b"treasury"],
         bump,
     )]
@@ -403,7 +415,18 @@ pub enum CustomError {
     InvalidDecimals,
     #[msg("Mint is mismatched.")]
     MintMismatch,
+    #[msg("Underflow")]
+    Underflow,
+    #[msg("Overflow")]
+    Overflow,
+    #[msg("Invalid Amount")]
+    InvalidAmount,
+    #[msg("Has bonded")]
+    HasBonded,
+    #[msg("Hasn't bonded")]
+    NotBonded,
 }
+
 
 
 #[account]
@@ -414,22 +437,73 @@ pub struct MemeEntryState {
 
     pub locked_amount: u64, //8
 
-    pub creation_time: i64,
-    pub bonded_time: Option<i64>,
+    pub creation_time: i64, // 8
+    pub bonded_time: i64,  // -1 for none (8)
 }
 
 #[account]
 #[derive(InitSpace)]
 pub struct UserAccount {
     pub user: Pubkey,
-    pub meme_entry: MemeEntryState,
     pub locked_amount: u64,
     pub claimmable: u64,
 }
 
+
 #[derive(Accounts)]
-#[instruction(mint: Pubkey)]
-pub struct UpdateOrCreateUserAccount<'info> {
+pub struct LockUnlockAfterBonding<'info> {
+    #[account(
+        init_if_needed,
+        payer = signer,
+        space = 8 + UserAccount::INIT_SPACE,
+        seeds = [b"user_account", mint.key().as_ref(), signer.key().as_ref()], // PDA seed
+        bump,
+    )]
+    pub user_account:Box<Account<'info, UserAccount>>,
+    #[account(
+        mut,
+        seeds = [b"meme_entry", mint.key().as_ref()],
+        bump,
+    )]
+    pub meme_entry: Box<Account<'info, MemeEntryState>>,
+    #[account(mut)]
+    pub signer: Signer<'info>,
+
+    #[account(
+        mut,
+    )]
+    pub mint: Account<'info, Mint>,
+
+    /// CHECK: This is the treasury account derived using a PDA with seeds [b"treasury"].
+    /// Its validity is ensured by the PDA derivation logic and Anchor constraints.
+    #[account(
+        mut,
+        seeds = [b"treasury"],
+        bump,
+    )]
+    pub treasury: AccountInfo<'info>,
+
+    #[account(
+        mut,
+        associated_token::mint = mint,
+        associated_token::authority = treasury,
+    )]
+    pub treasury_token_account: Account<'info, TokenAccount>,
+
+    #[account(
+        mut,
+        associated_token::mint = mint,
+        associated_token::authority = signer,
+    )]
+    pub user_token_account: Account<'info, TokenAccount>,
+
+    pub token_program: Program<'info, Token>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct BuySellBeforeBonding<'info> {
     #[account(
         init_if_needed,
         payer = signer,
@@ -446,24 +520,18 @@ pub struct UpdateOrCreateUserAccount<'info> {
     pub meme_entry: Account<'info, MemeEntryState>,
     #[account(mut)]
     pub signer: Signer<'info>,
-    
 
+    #[account(mut)]
+    pub mint: Account<'info, Mint>,
+
+    /// CHECK: This is the treasury account derived using a PDA with seeds [b"treasury"].
+    /// Its validity is ensured by the PDA derivation logic and Anchor constraints.
     #[account(
-        mut
-        associated_token::mint = mint,
-        associated_token::authority = treasury,
+        mut,
+        seeds = [b"treasury"],
+        bump,
     )]
-    pub treasury_token_account: Account<'info, TokenAccount>,
+    pub treasury: AccountInfo<'info>,
 
-    #[account(
-        init_if_needed,
-        payer = signer,
-        associated_token::mint = mint,
-        associated_token::authority = signer,
-    )]
-    pub user_token_account: Account<'info, TokenAccount>,
-
-    pub token_program: Program<'info, Token>,
-    pub associated_token_program: Program<'info, AssociatedToken>,
     pub system_program: Program<'info, System>,
 }

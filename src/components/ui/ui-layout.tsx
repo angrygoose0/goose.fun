@@ -9,7 +9,8 @@ import toast, { Toaster } from 'react-hot-toast'
 import { AccountChecker } from '../account/account-ui'
 import { ClusterChecker, ClusterUiSelect, ExplorerLink } from '../cluster/cluster-ui'
 import { WalletButton } from '../solana/solana-provider'
-import { TokenCard } from '../meme/meme-ui'
+import { MemeCreate, MemeList, TokenCard } from '../meme/meme-ui'
+import { NavbarCard, NavbarFilters } from './extra-ui'
 
 
 export function UiLayout({ children }: { children: ReactNode }) {
@@ -27,63 +28,12 @@ export function UiLayout({ children }: { children: ReactNode }) {
           </Link>
         </div>
 
+        <NavbarFilters />
 
-        <p className="text-sm font-medium text-gray-700">Creation Time</p>
-        <div className="flex space-x-4">
-          <input
-            type="number"
-            className="w-1/2 border-2 border-gray-300 p-2 text-xs focus:outline-none focus:border-black"
-            placeholder="Min"
-          />
-          <input
-            type="number"
-            className="w-1/2 border-2 border-gray-300 p-2 text-xs focus:outline-none focus:border-black"
-            placeholder="Max"
-          />
+        <div className="mt-3 flex flex-col">
+          <NavbarCard name="duck" />
+          <NavbarCard name="duck" />
         </div>
-        <p className="text-sm font-medium text-gray-700">Volume</p>
-        <div className="flex space-x-4">
-          <input
-            type="number"
-            className="w-1/2 border-2 border-gray-300 p-2 text-xs focus:outline-none focus:border-black"
-            placeholder="Min"
-          />
-          <input
-            type="number"
-            className="w-1/2 border-2 border-gray-300 p-2 text-xs focus:outline-none focus:border-black"
-            placeholder="Max"
-          />
-        </div>
-        <p className="text-sm font-medium text-gray-700">Featured</p>
-        <div className="flex space-x-4">
-          <input
-            type="number"
-            className="w-1/2 border-2 border-gray-300 p-2 text-xs focus:outline-none focus:border-black"
-            placeholder="Min"
-          />
-          <input
-            type="number"
-            className="w-1/2 border-2 border-gray-300 p-2 text-xs focus:outline-none focus:border-black"
-            placeholder="Max"
-          />
-        </div>
-
-        <div className="flex w-full py-4">
-          <button className="w-1/2 p-2 border-2 border-black text-sm font-medium text-black hover:bg-gray-200">
-            Apply
-          </button>
-          <button className="w-1/2 p-2 border-2 border-grey-500 text-sm font-medium text-black hover:bg-gray-200">
-            Reset
-          </button>
-        </div>
-
-
-
-
-
-
-
-
 
       </div>
 
@@ -112,28 +62,8 @@ export function UiLayout({ children }: { children: ReactNode }) {
             </div>
           </div>
         </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 p-6">
-          <TokenCard name="goos" />
-          <TokenCard name="duck" />
-          <TokenCard name="goos" />
-          <TokenCard name="duck" />
-          <TokenCard name="goos" />
-          <TokenCard name="duck" />
-          <TokenCard name="goos" />
-          <TokenCard name="duck" />
-          <TokenCard name="goos" />
-          <TokenCard name="duck" />
-          <TokenCard name="goos" />
-          <TokenCard name="duck" />
-          <TokenCard name="goos" />
-          <TokenCard name="duck" />
-          <TokenCard name="goos" />
-          <TokenCard name="duck" />
-          <TokenCard name="goos" />
-          <TokenCard name="duck" />
-
-        </div>
+        <MemeCreate />
+        <MemeList />
 
 
 

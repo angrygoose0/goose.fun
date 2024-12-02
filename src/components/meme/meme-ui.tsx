@@ -2,13 +2,26 @@
 
 import { ChangeEvent, useCallback, useMemo, useState, useEffect } from 'react'
 import { useMemeProgram, useMemeProgramAccount, } from './meme-data-access'
-import { InputView } from "../input";
+import { useGetBalance } from '../account/account-data-access';
+import { InputView } from "../helper-ui";
 import axios from "axios";
 import toast from "react-hot-toast";
 import { useWallet } from '@solana/wallet-adapter-react';
 import { PublicKey } from '@solana/web3.js';
+import { FaTelegramPlane, FaTwitter, FaGlobe, } from 'react-icons/fa';
+import { FaXTwitter } from 'react-icons/fa6';
+import { BN } from '@coral-xyz/anchor';
+import { AccountBalance } from '../account/account-ui';
+
 
 export function MemeCreate() {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Open the modal
+  const openModal = () => setIsModalOpen(true);
+
+  // Close the modal
+  const closeModal = () => setIsModalOpen(false);
 
   const [token, setToken] = useState<{
     name: string;
@@ -152,6 +165,7 @@ export function MemeCreate() {
           decimals: 9,
         };
 
+
         // Await the mutation to ensure the process completes before showing success toast
         await createMemeToken.mutateAsync({ metadata, publicKey });
 
@@ -172,66 +186,96 @@ export function MemeCreate() {
 
   return (
     <div>
+      <button onClick={openModal}>Open Modal</button>
 
-      {token.image ? (
-        <img src={token.image} alt="token" />
-      ) : (
-        <label htmlFor="file" className="custom-file-upload">
-          <span>image</span>
-          <input type="file" id="file" onChange={handleImageChange} />
-        </label>
+      {isModalOpen && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-10"
+          onClick={closeModal}
+        >
+          <div
+            className="relative border-2 border-black bg-white shadow-lg p-6 z-15"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {token.image ? (
+              <img
+                src={token.image}
+                alt="token"
+                className="w-20 h-20 object-cover"
+              />
+            ) : (
+              <label htmlFor="file" className="custom-file-upload">
+                <span>image</span>
+                <input type="file" id="file" onChange={handleImageChange} />
+              </label>
+            )}
+
+            <InputView
+              name="Name"
+              placeholder="name"
+              clickhandle={(e) => handleFormFieldChange("name", e)}
+            />
+            <InputView
+              name="Symbol"
+              placeholder="symbol"
+              clickhandle={(e) => handleFormFieldChange("symbol", e)}
+            />
+            <InputView
+              name="Description"
+              placeholder="description"
+              clickhandle={(e) => handleFormFieldChange("description", e)}
+            />
+            <InputView
+              name="twitter_link"
+              placeholder="twitter_link"
+              clickhandle={(e) => handleFormFieldChange("twitter_link", e)}
+            />
+            <InputView
+              name="telegram_link"
+              placeholder="telegram_link"
+              clickhandle={(e) => handleFormFieldChange("telegram_link", e)}
+            />
+            <InputView
+              name="website_link"
+              placeholder="website_link"
+              clickhandle={(e) => handleFormFieldChange("website_link", e)}
+            />
+
+
+            <button
+              className="btn btn-xs lg:btn-md btn-primary"
+              onClick={handleFormSubmit}
+              disabled={!isFormValid}
+            >
+              Create Token
+            </button>
+
+
+          </div>
+
+
+
+        </div >
       )}
-
-      <InputView
-        name="Name"
-        placeholder="name"
-        clickhandle={(e) => handleFormFieldChange("name", e)}
-      />
-      <InputView
-        name="Symbol"
-        placeholder="symbol"
-        clickhandle={(e) => handleFormFieldChange("symbol", e)}
-      />
-      <InputView
-        name="Description"
-        placeholder="description"
-        clickhandle={(e) => handleFormFieldChange("description", e)}
-      />
-      <InputView
-        name="twitter_link"
-        placeholder="twitter_link"
-        clickhandle={(e) => handleFormFieldChange("twitter_link", e)}
-      />
-      <InputView
-        name="telegram_link"
-        placeholder="telegram_link"
-        clickhandle={(e) => handleFormFieldChange("telegram_link", e)}
-      />
-      <InputView
-        name="website_link"
-        placeholder="website_link"
-        clickhandle={(e) => handleFormFieldChange("website_link", e)}
-      />
-
-
-      <button
-        className="btn btn-xs lg:btn-md btn-primary"
-        onClick={handleFormSubmit}
-        disabled={!isFormValid}
-      >
-        Create Token
-      </button>
-    </div >
+    </div>
 
   );
 }
 
 export function MemeList() {
   const { paginatedKeys, getProgramAccount } = useMemeProgram();
+  const { publicKey } = useWallet();
+  const balanceQuery = useGetBalance({ publicKey })
+
 
   // Show loading spinner while fetching the program account
   if (getProgramAccount.isLoading) {
-    return <span className="loading loading-spinner loading-lg"></span>;
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <span className="loading loading-spinner loading-lg"></span>
+      </div>
+    );
+
   }
 
   // Show a message if no program account is found
@@ -247,18 +291,22 @@ export function MemeList() {
   }
   // Render memes if `paginatedKeys` exist
   return (
-    <div className="space-y-6">
-      {paginatedKeys.length > 0 ? (
-        <div className="grid md:grid-cols-2 gap-4">
-          {paginatedKeys.map((publicKey) => (
-            <MemeCard key={publicKey.toString()} account={publicKey} />
-          ))}
-        </div>
-      ) : (
-        <div className="text-center">
-          <h2 className="text-2xl">No memes :(</h2>
-        </div>
-      )}
+
+    <div >
+
+      <div className="space-y-6">
+        {paginatedKeys.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 p-6">
+            {paginatedKeys.map((publicKey) => (
+              <TokenCard key={publicKey.toString()} account={publicKey} />
+            ))}
+          </div>
+        ) : (
+          <div className="text-center">
+            <h2 className="text-2xl">No memes :(</h2>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -274,43 +322,40 @@ function timeAgo(from: number): string {
   return `${Math.floor(diff / 86400)}d`; // Days
 }
 
-function MemeCard({ account }: { account: PublicKey }) {
-  const { accountQuery, metadataQuery } = useMemeProgramAccount({
-    account,
-  })
 
-  if (accountQuery.isLoading || metadataQuery.isLoading) {
-    return <span className="loading loading-spinner loading-lg"></span>;
+export function TokenCard({ account }: { account: PublicKey }) {
+  const { publicKey } = useWallet()
+  if (!publicKey) {
+    return null
   }
 
-  if (accountQuery.isError || !accountQuery.data || metadataQuery.isError || !metadataQuery.data) {
-    return <div className="text-error">Error loading meme account</div>;
-  }
 
-  const metadata = metadataQuery.data
-  const { dev, mint, lockedAmount, unlockedAmount, creationTime, bondedTime } = accountQuery.data;
 
-  return (
-    <div className="card card-bordered border-base-300 border-4 text-neutral-content">
-      {mint.toString()}
 
-      <h3>Raw Metadata JSON:</h3>
-      <pre>{JSON.stringify(metadata, null, 2)}</pre>
-    </div>
-  );
-};
+  const { accountQuery: memeAccountQuery, metadataQuery: memeMetadataQuery } = useMemeProgramAccount({
+    account: account,
+    accountType: 'MemeEntryState',
+  });
+
+  const { accountQuery: userAccountQuery } = useMemeProgramAccount({
+    account: account,
+    accountType: 'UserAccount',
+  });
 
 
 
 
-
-
-export function TokenCard({ name }: { name: string }) {
   const [isVisible, setIsVisible] = useState(true);
   const [hideLeft, setHideLeft] = useState(false);
   const [hideRight, setHideRight] = useState(false);
 
-  // Listen for window resize to determine layout
+  const [selectedAction, setSelectedAction] = useState("Buy");
+  const handleActionChange = (action: string) => {
+    setSelectedAction(action);
+  };
+
+
+
   useEffect(() => {
     const handleResize = () => {
       setHideLeft(window.innerWidth < 1440);
@@ -331,6 +376,44 @@ export function TokenCard({ name }: { name: string }) {
       window.removeEventListener("keydown", handleEscape);
     };
   }, []);
+
+
+  if (memeAccountQuery.isLoading || memeMetadataQuery.isLoading) {
+    return <span className="loading loading-spinner loading-lg"></span>;
+  }
+
+  if (memeAccountQuery.isError || !memeAccountQuery.data || memeMetadataQuery.isError || !memeMetadataQuery.data) {
+    return <div className="text-error">Error loading meme account</div>;
+  }
+
+
+
+  const { dev, mint, lockedAmount, creationTime, bondedTime } = memeAccountQuery.data;
+  const { name, symbol, description, image, twitter_link, telegram_link, website_link, } = memeMetadataQuery.data;
+
+  console.log('lockedAmount:', lockedAmount.toString());
+  console.log('bondedTime:', bondedTime.toString());
+  const globalPercentageBN = lockedAmount.isZero()
+    ? new BN(0) // If lockedAmount is 0, percentage is 0
+    : bondedTime < 0
+      ? lockedAmount
+        .div(new BN(800_000_000 * 10 ** 9)) // For negative bondedTime
+        .mul(new BN(100)) // Convert to percentage
+      : lockedAmount
+        .div(new BN(1_000_000_000 * 10 ** 9)) // For positive bondedTime
+        .mul(new BN(100)); // Convert to percentage
+
+  const globalPercentage = parseFloat(globalPercentageBN.toString()) / (10 ** 9); // Adjust precision
+  const formattedPercentage = `${globalPercentage.toFixed(2)}%`; // Format to 2 decimal places
+
+
+
+  const userAccountData = userAccountQuery.data;
+  const user = userAccountData?.user;
+  const userLockedAmount = userAccountData?.lockedAmount;
+  const claimmable = userAccountData?.claimmable;
+  // Listen for window resize to determine layout
+
 
   const renderGridCards = () => {
     const cards = [];
@@ -433,55 +516,65 @@ export function TokenCard({ name }: { name: string }) {
           gridColumn: hideRight ? "1 / 4" : (hideLeft ? "1 / 3" : "2 / 3")
         }}
       >
-        <div className="absolute top-2 right-2 text-gray-500 text-xs">30s ago</div>
+        <div className="absolute top-2 right-2 text-gray-500 text-xs">{timeAgo(creationTime.toNumber())} ago</div>
         <div className="flex items-start mb-2">
           <img
-            src="https://via.placeholder.com/80"
+            src={image}
             alt="Icon"
-            className="w-15 h-15 border border-black"
+            className="w-12 h-12 border-2 border-black object-contain"
           />
           <div className="ml-4">
             <h2 className="text-xl font-bold">
-              <span className="font-bold">User Name</span>
-              <span className="font-normal"> | goose</span>
+              <span className="font-bold">{symbol}</span>
+              <span className="font-normal"> | {name}</span>
             </h2>
             <p className="text-gray-700 text-sm mt-2">
-              This is a simple card with sharp edges, a black border, and a
-              progress bar.
+              {description}
             </p>
           </div>
         </div>
         <div className="flex space-x-2">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            fill="currentColor"
-            viewBox="0 0 24 24"
-            className="w-5 h-5 text-gray-400"
-          >
-            <rect width="24" height="24" fill="currentColor" />
-          </svg>
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            fill="currentColor"
-            viewBox="0 0 24 24"
-            className="w-5 h-5 text-gray-400"
-          >
-            <rect width="24" height="24" fill="currentColor" />
-          </svg>
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            fill="currentColor"
-            viewBox="0 0 24 24"
-            className="w-5 h-5 text-gray-400"
-          >
-            <rect width="24" height="24" fill="currentColor" />
-          </svg>
+          {/* Telegram Icon */}
+          {telegram_link && (
+            <a
+              href={telegram_link}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-5 h-5 text-gray-400 hover:text-blue-500"
+            >
+              <FaTelegramPlane />
+            </a>
+          )}
+
+          {/* Twitter (X) Icon */}
+          {twitter_link && (
+            <a
+              href={twitter_link}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-5 h-5 text-gray-400 hover:text-blue-400"
+            >
+              <FaXTwitter />
+            </a>
+          )}
+
+          {/* Website Icon */}
+          {website_link && (
+            <a
+              href={website_link}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-5 h-5 text-gray-400 hover:text-green-500"
+            >
+              <FaGlobe />
+            </a>
+          )}
         </div>
-        <p className="text-gray-700 text-sm mt-4">50% | 20k</p>
+        <p className="text-gray-700 text-sm mt-4">{formattedPercentage} | 20k</p>
         <div className="mt-1 h-2 border-2 border-black bg-white relative">
           <div
             className="absolute top-0 left-0 h-full bg-black"
-            style={{ width: "66%" }}
+            style={{ width: `${globalPercentage}%` }}
           ></div>
         </div>
         <div className="flex justify-start items-center text-gray-500 mt-2">
@@ -504,48 +597,52 @@ export function TokenCard({ name }: { name: string }) {
           </svg>
           <span className="text-sm ml-1">456</span>
         </div>
-        <div className="flex flex-col space-y-2 mt-4">
-          {/* Total GS */}
-          <div className="flex items-baseline space-x-2">
-            <div className="text-sm font-semibold text-black">50,000 GS</div>
-            <div className="text-sm text-gray-500">(Total)</div>
-          </div>
 
-          {/* Color-Coded Bar */}
-          <div className="mt-1 h-2 border-2 border-black bg-white relative">
-            {/* Locked Amount */}
-            <div
-              className="absolute top-0 left-0 h-full bg-gray-400"
-              style={{ width: "50%" }} // Adjust dynamically
-            ></div>
-            {/* Unlocked Amount */}
-            <div
-              className="absolute top-0 left-0 h-full bg-blue-500"
-              style={{ width: "30%", marginLeft: "50%" }} // Adjust dynamically
-            ></div>
-            {/* Claimable Amount */}
-            <div
-              className="absolute top-0 left-0 h-full bg-green-500"
-              style={{ width: "20%", marginLeft: "80%" }} // Adjust dynamically
-            ></div>
-          </div>
+        {userAccountData ? (
+          <div className="flex flex-col space-y-2 mt-4">
+            {/* Total GS */}
+            <div className="flex items-baseline space-x-2">
+              <div className="text-sm font-semibold text-black">50,000 GS</div>
+              <div className="text-sm text-gray-500">(Total)</div>
+            </div>
 
-          {/* Labels with Color Codes */}
-          <div className="flex justify-between text-xs mt-1">
-            <div className="flex items-center space-x-1">
-              <div className="h-2 w-2 bg-gray-400 rounded-full"></div>
-              <span className="text-gray-600">Locked: 25,000</span>
+            {/* Color-Coded Bar */}
+            <div className="mt-1 h-2 border-2 border-black bg-white relative">
+              {/* Locked Amount */}
+              <div
+                className="absolute top-0 left-0 h-full bg-gray-400"
+                style={{ width: "50%" }} // Adjust dynamically
+              ></div>
+              {/* Unlocked Amount */}
+              <div
+                className="absolute top-0 left-0 h-full bg-blue-500"
+                style={{ width: "30%", marginLeft: "50%" }} // Adjust dynamically
+              ></div>
+              {/* Claimable Amount */}
+              <div
+                className="absolute top-0 left-0 h-full bg-green-500"
+                style={{ width: "20%", marginLeft: "80%" }} // Adjust dynamically
+              ></div>
             </div>
-            <div className="flex items-center space-x-1">
-              <div className="h-2 w-2 bg-blue-500 rounded-full"></div>
-              <span className="text-blue-600">Unlocked: 15,000</span>
-            </div>
-            <div className="flex items-center space-x-1">
-              <div className="h-2 w-2 bg-green-500 rounded-full"></div>
-              <span className="text-green-600">Claimable: 10,000</span>
+
+            {/* Labels with Color Codes */}
+            <div className="flex justify-between text-xs mt-1">
+              <div className="flex items-center space-x-1">
+                <div className="h-2 w-2 bg-gray-400 rounded-full"></div>
+                <span className="text-gray-600">Locked: {userLockedAmount?.toNumber()}</span>
+              </div>
+              <div className="flex items-center space-x-1">
+                <div className="h-2 w-2 bg-blue-500 rounded-full"></div>
+                <span className="text-blue-600">Unlocked: 15,000</span>
+              </div>
+              <div className="flex items-center space-x-1">
+                <div className="h-2 w-2 bg-green-500 rounded-full"></div>
+                <span className="text-green-600">Claimable: {claimmable?.toNumber()}</span>
+              </div>
             </div>
           </div>
-        </div>
+        ) : null}
+
       </div>
     );
     cards.push(
@@ -576,36 +673,35 @@ export function TokenCard({ name }: { name: string }) {
           }}
         >
           <div className="flex mb-4">
-            {/* Buy Placeholder */}
+            {/* Buy Button */}
             <button
-              className="w-1/4 flex items-center justify-center px-4 py-2 text-sm font-medium border-2 border-black bg-white text-black hover:bg-gray-100"
+              onClick={() => handleActionChange("Buy")}
+              className={`${selectedAction === "Buy"
+                ? "border-black bg-gray-100"
+                : "border-gray-500 bg-white"
+                } w-1/2 flex items-center justify-center px-4 py-2 text-sm font-medium border-2 text-black hover:bg-gray-100`}
             >
               <p>Buy</p>
             </button>
 
-            {/* Sell Placeholder */}
+            {/* Sell Button */}
             <button
-              className="w-1/4 flex items-center justify-center px-4 py-2 text-sm font-medium border-2 border-grey-500 bg-white text-black hover:bg-gray-100"
+              onClick={() => handleActionChange("Sell")}
+              className={`${selectedAction === "Sell"
+                ? "border-black bg-gray-100"
+                : "border-gray-500 bg-white"
+                } w-1/2 flex items-center justify-center px-4 py-2 text-sm font-medium border-2 text-black hover:bg-gray-100`}
             >
               <p>Sell</p>
             </button>
-            {/* Buy Placeholder */}
-            <button
-              className="w-1/4 flex items-center justify-center px-4 py-2 text-sm font-medium border-2 border-black bg-white text-black hover:bg-gray-100"
-            >
-              <p>Lock</p>
-            </button>
-
-            <button
-              className="w-1/4 flex items-center justify-center px-4 py-2 text-sm font-medium border-2 border-grey-500 bg-white text-black hover:bg-gray-100"
-            >Claim
-            </button>
           </div>
+
 
           {/* SOL Balance */}
           <div className="mb-4">
             <div className="flex items-baseline space-x-2">
-              <div className="text-sm font-semibold text-black">100 SOL</div>
+
+              <div className="text-sm font-semibold text-black"><AccountBalance address={publicKey} /></div>
               <div className="text-sm text-gray-500">~ $499</div>
             </div>
 
@@ -617,50 +713,51 @@ export function TokenCard({ name }: { name: string }) {
             </div>
           </div>
 
-
-
           {/* GS Balance */}
-          <div className="flex flex-col space-y-2 mb-4">
-            <div className="flex items-baseline space-x-2">
-              <div className="text-sm font-semibold text-black">50,000 GS</div>
-              <div className="text-sm text-gray-500">(Total)</div>
-            </div>
-
-            <div className="mt-1 h-2 border-2 border-black bg-white relative">
-              {/* Locked Amount */}
-              <div
-                className="absolute top-0 left-0 h-full bg-gray-400"
-                style={{ width: "50%" }} // Adjust dynamically
-              ></div>
-              {/* Unlocked Amount */}
-              <div
-                className="absolute top-0 left-0 h-full bg-blue-500"
-                style={{ width: "30%", marginLeft: "50%" }} // Adjust dynamically
-              ></div>
-              {/* Claimable Amount */}
-              <div
-                className="absolute top-0 left-0 h-full bg-green-500"
-                style={{ width: "20%", marginLeft: "80%" }} // Adjust dynamically
-              ></div>
-            </div>
-
-            {/* Labels with Color Codes */}
-            <div className="flex justify-between text-xs mt-1">
-              <div className="flex items-center space-x-1">
-                <div className="h-2 w-2 bg-gray-400 rounded-full"></div>
-                <span className="text-gray-600">Locked: 25,000</span>
+          {userAccountData ? (
+            <div className="flex flex-col space-y-2 mt-4">
+              {/* Total GS */}
+              <div className="flex items-baseline space-x-2">
+                <div className="text-sm font-semibold text-black">50,000 GS</div>
+                <div className="text-sm text-gray-500">(Total)</div>
               </div>
-              <div className="flex items-center space-x-1">
-                <div className="h-2 w-2 bg-blue-500 rounded-full"></div>
-                <span className="text-blue-600">Unlocked: 15,000</span>
+
+              {/* Color-Coded Bar */}
+              <div className="mt-1 h-2 border-2 border-black bg-white relative">
+                {/* Locked Amount */}
+                <div
+                  className="absolute top-0 left-0 h-full bg-gray-400"
+                  style={{ width: "50%" }} // Adjust dynamically
+                ></div>
+                {/* Unlocked Amount */}
+                <div
+                  className="absolute top-0 left-0 h-full bg-blue-500"
+                  style={{ width: "30%", marginLeft: "50%" }} // Adjust dynamically
+                ></div>
+                {/* Claimable Amount */}
+                <div
+                  className="absolute top-0 left-0 h-full bg-green-500"
+                  style={{ width: "20%", marginLeft: "80%" }} // Adjust dynamically
+                ></div>
               </div>
-              <div className="flex items-center space-x-1">
-                <div className="h-2 w-2 bg-green-500 rounded-full"></div>
-                <span className="text-green-600">Claimable: 10,000</span>
+
+              {/* Labels with Color Codes */}
+              <div className="flex justify-between text-xs mt-1">
+                <div className="flex items-center space-x-1">
+                  <div className="h-2 w-2 bg-gray-400 rounded-full"></div>
+                  <span className="text-gray-600">Locked: {userLockedAmount?.toNumber()}</span>
+                </div>
+                <div className="flex items-center space-x-1">
+                  <div className="h-2 w-2 bg-blue-500 rounded-full"></div>
+                  <span className="text-blue-600">Unlocked: 15,000</span>
+                </div>
+                <div className="flex items-center space-x-1">
+                  <div className="h-2 w-2 bg-green-500 rounded-full"></div>
+                  <span className="text-green-600">Claimable: {claimmable?.toNumber()}</span>
+                </div>
               </div>
             </div>
-
-          </div>
+          ) : null}
 
 
           {/* Input with Icon */}
@@ -673,13 +770,32 @@ export function TokenCard({ name }: { name: string }) {
           </div>
 
           {/* Percentage Buttons */}
-          <div className="flex space-x-2 mb-4">
-            <button className="px-3 py-0.5 border border-black bg-white text-xs text-black hover:bg-gray-100">
-              50%
-            </button>
-            <button className="px-3 py-0.5 border border-black bg-white text-xs text-black hover:bg-gray-100">
-              100%
-            </button>
+          <div className="flex space-x-4 mb-4">
+            {selectedAction === "Buy" ? (
+              <>
+                <button className="w-8 h-6 border border-black bg-white text-xs text-black hover:bg-gray-100 flex items-center justify-center">
+                  0.1
+                </button>
+                <button className="w-8 h-6 border border-black bg-white text-xs text-black hover:bg-gray-100 flex items-center justify-center">
+                  1
+                </button>
+                <button className="w-8 h-6 border border-black bg-white text-xs text-black hover:bg-gray-100 flex items-center justify-center">
+                  2
+                </button>
+              </>
+            ) : (
+              <>
+                <button className="w-8 h-6 border border-black bg-white text-xs text-black hover:bg-gray-100 flex items-center justify-center">
+                  25%
+                </button>
+                <button className="w-8 h-6 border border-black bg-white text-xs text-black hover:bg-gray-100 flex items-center justify-center">
+                  50%
+                </button>
+                <button className="w-8 h-6 border border-black bg-white text-xs text-black hover:bg-gray-100 flex items-center justify-center">
+                  100%
+                </button>
+              </>
+            )}
           </div>
 
           {/* Transact Button */}
@@ -787,56 +903,66 @@ export function TokenCard({ name }: { name: string }) {
         >
           <div className="relative border-2 border-black bg-white shadow-lg p-6">
             <div className="absolute top-2 right-2 text-gray-500 text-xs">
-              30s ago
+              {timeAgo(creationTime.toNumber())} ago
             </div>
             <div className="flex items-start mb-2">
               <img
-                src="https://via.placeholder.com/80"
+                src={image}
                 alt="Icon"
-                className="w-15 h-15 border border-black"
+                className="w-12 h-12 border-2 border-black object-contain"
               />
               <div className="ml-4">
                 <h2 className="text-xl font-bold">
-                  <span className="font-bold">{name}</span>
-                  <span className="font-normal"> | goose</span>
+                  <span className="font-bold">{symbol}</span>
+                  <span className="font-normal"> {name}</span>
                 </h2>
                 <p className="text-gray-700 text-sm mt-2">
-                  This is a simple card with sharp edges, a black border, and a
-                  progress bar.
+                  {description}
                 </p>
               </div>
             </div>
             <div className="flex space-x-2">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                fill="currentColor"
-                viewBox="0 0 24 24"
-                className="w-5 h-5 text-gray-400"
-              >
-                <rect width="24" height="24" fill="currentColor" />
-              </svg>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                fill="currentColor"
-                viewBox="0 0 24 24"
-                className="w-5 h-5 text-gray-400"
-              >
-                <rect width="24" height="24" fill="currentColor" />
-              </svg>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                fill="currentColor"
-                viewBox="0 0 24 24"
-                className="w-5 h-5 text-gray-400"
-              >
-                <rect width="24" height="24" fill="currentColor" />
-              </svg>
+              {/* Telegram Icon */}
+              {telegram_link && (
+                <a
+                  href={telegram_link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-5 h-5 text-gray-400 hover:text-blue-500"
+                >
+                  <FaTelegramPlane />
+                </a>
+              )}
+
+              {/* Twitter (X) Icon */}
+              {twitter_link && (
+                <a
+                  href={twitter_link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-5 h-5 text-gray-400 hover:text-blue-400"
+                >
+                  <FaXTwitter />
+                </a>
+              )}
+
+              {/* Website Icon */}
+              {website_link && (
+                <a
+                  href={website_link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-5 h-5 text-gray-400 hover:text-green-500"
+                >
+                  <FaGlobe />
+                </a>
+              )}
             </div>
-            <p className="text-gray-700 text-sm mt-4">50% | 20k</p>
+            <p className="text-gray-700 text-sm mt-4">{formattedPercentage} | 20k</p>
             <div className="mt-1 h-2 border-2 border-black bg-white relative">
               <div
                 className="absolute top-0 left-0 h-full bg-black"
-                style={{ width: "66%" }}
+                style={{ width: `${globalPercentage}%` }}
               ></div>
             </div>
             <div className="flex justify-start items-center text-gray-500 mt-2">
@@ -860,48 +986,50 @@ export function TokenCard({ name }: { name: string }) {
               <span className="text-sm ml-1">456</span>
             </div>
             {/* GS Balance */}
-            <div className="flex flex-col space-y-2 mt-4">
-              {/* Total GS */}
-              <div className="flex items-baseline space-x-2">
-                <div className="text-sm font-semibold text-black">50,000 GS</div>
-                <div className="text-sm text-gray-500">(Total)</div>
-              </div>
+            {userAccountData ? (
+              <div className="flex flex-col space-y-2 mt-4">
+                {/* Total GS */}
+                <div className="flex items-baseline space-x-2">
+                  <div className="text-sm font-semibold text-black">50,000 GS</div>
+                  <div className="text-sm text-gray-500">(Total)</div>
+                </div>
 
-              {/* Color-Coded Bar */}
-              <div className="mt-1 h-2 border-2 border-black bg-white relative">
-                {/* Locked Amount */}
-                <div
-                  className="absolute top-0 left-0 h-full bg-gray-400"
-                  style={{ width: "50%" }} // Adjust dynamically
-                ></div>
-                {/* Unlocked Amount */}
-                <div
-                  className="absolute top-0 left-0 h-full bg-blue-500"
-                  style={{ width: "30%", marginLeft: "50%" }} // Adjust dynamically
-                ></div>
-                {/* Claimable Amount */}
-                <div
-                  className="absolute top-0 left-0 h-full bg-green-500"
-                  style={{ width: "20%", marginLeft: "80%" }} // Adjust dynamically
-                ></div>
-              </div>
+                {/* Color-Coded Bar */}
+                <div className="mt-1 h-2 border-2 border-black bg-white relative">
+                  {/* Locked Amount */}
+                  <div
+                    className="absolute top-0 left-0 h-full bg-gray-400"
+                    style={{ width: "50%" }} // Adjust dynamically
+                  ></div>
+                  {/* Unlocked Amount */}
+                  <div
+                    className="absolute top-0 left-0 h-full bg-blue-500"
+                    style={{ width: "30%", marginLeft: "50%" }} // Adjust dynamically
+                  ></div>
+                  {/* Claimable Amount */}
+                  <div
+                    className="absolute top-0 left-0 h-full bg-green-500"
+                    style={{ width: "20%", marginLeft: "80%" }} // Adjust dynamically
+                  ></div>
+                </div>
 
-              {/* Labels with Color Codes */}
-              <div className="flex justify-between text-xs mt-1">
-                <div className="flex items-center space-x-1">
-                  <div className="h-2 w-2 bg-gray-400 rounded-full"></div>
-                  <span className="text-gray-600">Locked: 25,000</span>
-                </div>
-                <div className="flex items-center space-x-1">
-                  <div className="h-2 w-2 bg-blue-500 rounded-full"></div>
-                  <span className="text-blue-600">Unlocked: 15,000</span>
-                </div>
-                <div className="flex items-center space-x-1">
-                  <div className="h-2 w-2 bg-green-500 rounded-full"></div>
-                  <span className="text-green-600">Claimable: 10,000</span>
+                {/* Labels with Color Codes */}
+                <div className="flex justify-between text-xs mt-1">
+                  <div className="flex items-center space-x-1">
+                    <div className="h-2 w-2 bg-gray-400 rounded-full"></div>
+                    <span className="text-gray-600">Locked: {userLockedAmount?.toNumber()}</span>
+                  </div>
+                  <div className="flex items-center space-x-1">
+                    <div className="h-2 w-2 bg-blue-500 rounded-full"></div>
+                    <span className="text-blue-600">Unlocked: 15,000</span>
+                  </div>
+                  <div className="flex items-center space-x-1">
+                    <div className="h-2 w-2 bg-green-500 rounded-full"></div>
+                    <span className="text-green-600">Claimable: {claimmable?.toNumber()}</span>
+                  </div>
                 </div>
               </div>
-            </div>
+            ) : null}
           </div>
         </div>
       )}
