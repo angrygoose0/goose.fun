@@ -7,7 +7,7 @@ import { InputView } from "../helper-ui";
 import axios from "axios";
 import toast from "react-hot-toast";
 import { useWallet } from '@solana/wallet-adapter-react';
-import { PublicKey } from '@solana/web3.js';
+import { LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js';
 import { FaTelegramPlane, FaTwitter, FaGlobe, } from 'react-icons/fa';
 import { FaXTwitter } from 'react-icons/fa6';
 import { BN } from '@coral-xyz/anchor';
@@ -265,7 +265,6 @@ export function MemeCreate() {
 export function MemeList() {
   const { paginatedKeys, getProgramAccount } = useMemeProgram();
   const { publicKey } = useWallet();
-  const balanceQuery = useGetBalance({ publicKey })
 
 
   // Show loading spinner while fetching the program account
@@ -325,14 +324,9 @@ function timeAgo(from: number): string {
 
 export function TokenCard({ account }: { account: PublicKey }) {
   const { publicKey } = useWallet()
-  if (!publicKey) {
-    return null
-  }
 
 
-
-
-  const { accountQuery: memeAccountQuery, metadataQuery: memeMetadataQuery } = useMemeProgramAccount({
+  const { accountQuery: memeAccountQuery, metadataQuery: memeMetadataQuery, interactWithToken } = useMemeProgramAccount({
     account: account,
     accountType: 'MemeEntryState',
   });
@@ -341,6 +335,21 @@ export function TokenCard({ account }: { account: PublicKey }) {
     account: account,
     accountType: 'UserAccount',
   });
+
+  const balanceQuery = useGetBalance({ address: publicKey })
+  const solBalance = balanceQuery.data
+    ? Math.round((balanceQuery.data / LAMPORTS_PER_SOL) * 100000) / 100000
+    : null;
+
+  const [amount, setAmount] = useState(0);
+  const handleFormFieldChange = (event: { target: { value: any; }; }) => {
+    const value = event.target.value;
+
+    // Convert to number or 0 if the input is cleared
+    const numericValue = value === "" ? 0 : parseFloat(value);
+
+    setAmount(numericValue);
+  };
 
 
 
@@ -391,6 +400,7 @@ export function TokenCard({ account }: { account: PublicKey }) {
   const { dev, mint, lockedAmount, creationTime, bondedTime } = memeAccountQuery.data;
   const { name, symbol, description, image, twitter_link, telegram_link, website_link, } = memeMetadataQuery.data;
 
+
   console.log('lockedAmount:', lockedAmount.toString());
   console.log('bondedTime:', bondedTime.toString());
   const globalPercentageBN = lockedAmount.isZero()
@@ -413,6 +423,42 @@ export function TokenCard({ account }: { account: PublicKey }) {
   const userLockedAmount = userAccountData?.lockedAmount;
   const claimmable = userAccountData?.claimmable;
   // Listen for window resize to determine layout
+
+  const handleInteractTokenFormSubmit = useCallback(
+    async () => {
+      try {
+
+        if (!publicKey) {
+          throw new Error("Wallet is not connected.");
+        }
+
+        let amountProcessed: number = 0;
+
+        if (selectedAction == "Buy") {
+          if (amount > solBalance) {
+            throw new Error("sol balance too low");
+          }
+
+        } else if (selectedAction == "Sell") {
+          amountProcessed = -amount;
+          if (amount > claimmable) {
+            throw new Error("you cant claim allat");
+          }
+        }
+
+        // Await the mutation to ensure the process completes before showing success toast
+        await interactWithToken.mutateAsync({ publicKey, amountProcessed, mint });
+
+        // Show success message
+        toast.success("success");
+      } catch (error: any) {
+        // Log error and show error message
+        console.error(error);
+        toast.error(error);
+      }
+    },
+    [publicKey, amount, mint, interactWithToken] // Ensure dependencies are included in the dependency array
+  );
 
 
   const renderGridCards = () => {
@@ -701,7 +747,7 @@ export function TokenCard({ account }: { account: PublicKey }) {
           <div className="mb-4">
             <div className="flex items-baseline space-x-2">
 
-              <div className="text-sm font-semibold text-black"><AccountBalance address={publicKey} /></div>
+              <div className="text-sm font-semibold text-black">{solBalance} SOL</div>
               <div className="text-sm text-gray-500">~ $499</div>
             </div>
 
@@ -764,10 +810,13 @@ export function TokenCard({ account }: { account: PublicKey }) {
           <div className="relative flex items-center mb-2">
             <input
               type="number"
+              value={amount || ""}
               className="w-full border-2 border-gray-200 p-2 text-sm focus:outline-none focus:border-black"
               placeholder="Enter amount"
+              onChange={handleFormFieldChange}
             />
           </div>
+          <p>{amount}</p>
 
           {/* Percentage Buttons */}
           <div className="flex space-x-4 mb-4">

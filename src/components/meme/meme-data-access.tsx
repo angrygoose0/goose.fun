@@ -9,10 +9,11 @@ import toast from 'react-hot-toast';
 import { useCluster } from '../cluster/cluster-data-access';
 import { useAnchorProvider } from '../solana/solana-provider';
 import { useTransactionToast } from '../ui/ui-layout';
-import { getAssociatedTokenAddress, mintTo, TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import { getAssociatedTokenAddress, InterestBearingMintInstruction, mintTo, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { ASSOCIATED_PROGRAM_ID, associatedAddress } from '@coral-xyz/anchor/dist/cjs/utils/token';
 import { Metaplex } from "@metaplex-foundation/js";
 import { constants } from 'fs/promises';
+import { BN } from '@coral-xyz/anchor';
 
 
 export interface InitTokenParams {
@@ -135,6 +136,20 @@ export function useMemeProgram() {
         programId
       )[0];
 
+      const treasurySeeds = [
+        Buffer.from("treasury"),
+      ];
+
+      const treasury = PublicKey.findProgramAddressSync(
+        treasurySeeds,
+        programId,
+      )[0];
+
+      const treasury_token_account = await associatedAddress({
+        mint: mint,
+        owner: treasury,
+      })
+
       const metadataAddress = getMetadataAddress(mint);
 
       const transaction = new Transaction();
@@ -144,8 +159,8 @@ export function useMemeProgram() {
         .accounts({
           metadata: metadataAddress,
           mint: mint,
+          //treasury: treasury,
           signer: publicKey,
-          treasury: treasury,
           rent: SYSVAR_RENT_PUBKEY,
           systemProgram: SystemProgram.programId,
           tokenProgram: TOKEN_PROGRAM_ID,
@@ -163,8 +178,8 @@ export function useMemeProgram() {
           systemProgram: SystemProgram.programId,
           tokenProgram: TOKEN_PROGRAM_ID,
           associatedTokenProgram: ASSOCIATED_PROGRAM_ID,
-          treasuryTokenAccount: treasury_token_account,
-          treasury: treasury,
+          //treasuryTokenAccount: treasury_token_account,
+          //treasury: treasury,
         })
         .instruction();
 
@@ -216,31 +231,6 @@ export function useMemeProgram() {
 
   });
 
-  const getUserAccount = useMutation<string, Error, { publicKey: PublicKey, mint: PublicKey }>({
-    mutationKey: ["userAccount", "get", { cluster }],
-    mutationFn: async ({ mint, publicKey }) => {
-
-      const mintAccountInfo = await connection.getAccountInfo(mint);
-      if (!mintAccountInfo) {
-        console.log("Account not found.");
-        return false;
-      }
-
-      const userSeeds = [
-        Buffer.from("user_account"),
-        mint.toBuffer(),
-        publicKey.toBuffer(),
-      ];
-
-      const user = PublicKey.findProgramAddressSync(
-        userSeeds,
-        programId,
-      )[0];
-
-
-
-    }
-  });
 
   return {
     program,
@@ -259,6 +249,7 @@ export function useMemeProgramAccount({ account, accountType }: { account: Publi
   const { cluster } = useCluster();
   const { program } = useMemeProgram();
   const { connection } = useConnection();
+  const transactionToast = useTransactionToast();
 
   // Fetch the meme entry state
   const accountQuery = useQuery({
@@ -313,10 +304,32 @@ export function useMemeProgramAccount({ account, accountType }: { account: Publi
     enabled: accountType === 'MemeEntryState' && !!accountQuery.data, // Only run if accountQuery.data is available, and accountData is memenetry
   });
 
+  const interactWithToken = useMutation<string, Error, { publicKey: PublicKey, amount: number, mint: PublicKey }>({ //+amount is buy, -amount is sell,
+    mutationKey: [`interactWithToken`, `update`, { cluster }],
+    mutationFn: ({ publicKey, mint, amount }) => {
+      return program.methods
+        .buySell(new BN(amount))
+        .accounts({
+          signer: publicKey,
+          mint: mint,
+        })
+        .rpc();
+    },
+    onSuccess: (signature) => {
+      transactionToast(signature);
+      console.log(signature);
+    },
+    onError: (error) => {
+      toast.error(`Error creating entry: ${error.message}`);
+      console.error("Toast error:", error);
+    },
+  });
+
 
   return {
     accountQuery, // Query for the account data
     metadataQuery, // Query for the metadata JSON
+    interactWithToken
   };
 };
 

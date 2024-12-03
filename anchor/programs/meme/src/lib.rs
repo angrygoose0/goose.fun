@@ -31,7 +31,8 @@ pub mod meme {
     pub const MINT_DECIMALS: u8 = 9;
     pub const MINT_SUPPLY: u64 = 1_000_000_000_000_000_000; // 1billion times 10^9
 
-
+    pub const UNLOCK_FREQUENCY = 24 //hours
+    pub const UNLOCK_AMOUNT = 10 //%
     
 
     pub fn init_meme_token(
@@ -113,7 +114,7 @@ pub mod meme {
     }
     
     // after bonding
-    pub fn lock_unlock(
+    pub fn lock_claim(
         ctx:Context<LockUnlockAfterBonding>,
         amount: i64, //amount in SPL lamports.
     ) -> Result<()> {
@@ -197,7 +198,6 @@ pub mod meme {
         let user_account = &mut ctx.accounts.user_account;
         let meme_entry = &mut ctx.accounts.meme_entry;
 
-        require!(meme_entry.mint == ctx.accounts.mint.key(), CustomError::MintMismatch);
         require!(amount != 0, CustomError::InvalidAmount);
 
         user_account.user = ctx.accounts.signer.key();
@@ -271,17 +271,27 @@ pub mod meme {
         Ok(())
     }
 
-    pub fn update_meme_entry<'info>(    
-        ctx: Context<UpdateMemeEntry>,
-        _mint: Pubkey,
-        locked_amount: u64,
-        bonded_time: i64,
+    pub fn bond_to_raydiym<'info>(    
+        ctx: Context<BondToRaydium>,
     ) -> Result<()> {
         let meme_entry = &mut ctx.accounts.meme_entry;
-        meme_entry.locked_amount = locked_amount;
         meme_entry.bonded_time = bonded_time;
-        
+        // send sol from treasury to liquidity pool in raydium
         Ok(())
+    }
+
+    pub fn unlock_tokens_in_treasury<'info>(
+        ctx: Context<UnlockTokens>,
+    ) -> Result<()> {
+        let meme_entry = &mut ctx.accounts.meme_entry;
+        meme_entry.locked_amount // take off 10%
+        meme_entry.
+    }
+
+    pub fn unlock_tokens_in_user<'info>(
+        ctx: Context<UnlockTokens>,
+    ) -> Result<()> {
+
     }
 
 }
@@ -365,7 +375,9 @@ pub struct MintTokens<'info>{
     /// CHECK: This is the treasury account derived using a PDA with seeds [b"treasury"].
     /// Its validity is ensured by the PDA derivation logic and Anchor constraints.
     #[account(
-        mut,
+        init_if_needed,
+        space = 8,
+        payer = signer,
         seeds = [b"treasury"],
         bump,
     )]
@@ -427,6 +439,7 @@ pub enum CustomError {
     NotBonded,
 }
 
+pub
 
 
 #[account]
@@ -449,7 +462,6 @@ pub struct UserAccount {
     pub claimmable: u64,
 }
 
-
 #[derive(Accounts)]
 pub struct LockUnlockAfterBonding<'info> {
     #[account(
@@ -471,6 +483,7 @@ pub struct LockUnlockAfterBonding<'info> {
 
     #[account(
         mut,
+        mint::authority = mint,
     )]
     pub mint: Account<'info, Mint>,
 
@@ -521,7 +534,37 @@ pub struct BuySellBeforeBonding<'info> {
     #[account(mut)]
     pub signer: Signer<'info>,
 
+    #[account(
+        mut,
+    )]
+    pub mint: Account<'info, Mint>,
+
+    /// CHECK: This is the treasury account derived using a PDA with seeds [b"treasury"].
+    /// Its validity is ensured by the PDA derivation logic and Anchor constraints.
+    #[account(
+        mut,
+        seeds = [b"treasury"],
+        bump,
+    )]
+    pub treasury: AccountInfo<'info>,
+
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct BondToRaydium<'info> {
+    #[account(
+        mut,
+        seeds = [b"meme_entry", mint.key().as_ref()],
+        bump,
+    )]
+    pub meme_entry: Account<'info, MemeEntryState>,
     #[account(mut)]
+    pub signer: Signer<'info>,
+
+    #[account(
+        mut,
+    )]
     pub mint: Account<'info, Mint>,
 
     /// CHECK: This is the treasury account derived using a PDA with seeds [b"treasury"].

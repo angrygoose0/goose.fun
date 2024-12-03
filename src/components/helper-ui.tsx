@@ -10,7 +10,7 @@ interface InputViewProps {
 }
 
 // Use the props type with the FC generic
-export const InputView: FC<InputViewProps> = ({ name, placeholder, value, clickhandle, className }) => {
+export const InputView: FC<InputViewProps> = ({ name, placeholder, value, clickhandle }) => {
     // Fallback to a no-op function if clickhandle is not provided
     const handleChange = clickhandle || (() => { });
 
@@ -31,7 +31,7 @@ export const InputView: FC<InputViewProps> = ({ name, placeholder, value, clickh
     );
 };
 
-export const ButtonView: FC<InputViewProps> = ({ name, placeholder, value, clickhandle, className }) => {
+export const ButtonView: FC<InputViewProps> = ({ name, placeholder, value, clickhandle }) => {
     // Fallback to a no-op function if clickhandle is not provided
     const handleChange = clickhandle || (() => { });
 
