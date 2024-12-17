@@ -231,16 +231,16 @@ export type Meme = {
       ]
     },
     {
-      "name": "lockUnlock",
+      "name": "lockClaim",
       "discriminator": [
-        245,
-        2,
-        248,
-        189,
+        246,
+        17,
+        238,
+        41,
+        27,
+        228,
         212,
-        137,
-        250,
-        127
+        6
       ],
       "accounts": [
         {
@@ -745,95 +745,6 @@ export type Meme = {
         {
           "name": "name",
           "type": "string"
-        }
-      ]
-    },
-    {
-      "name": "updateMemeEntry",
-      "discriminator": [
-        170,
-        105,
-        220,
-        135,
-        0,
-        182,
-        207,
-        44
-      ],
-      "accounts": [
-        {
-          "name": "memeEntry",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  109,
-                  101,
-                  109,
-                  101,
-                  95,
-                  101,
-                  110,
-                  116,
-                  114,
-                  121
-                ]
-              },
-              {
-                "kind": "arg",
-                "path": "mint"
-              }
-            ]
-          }
-        },
-        {
-          "name": "signer",
-          "writable": true,
-          "signer": true
-        },
-        {
-          "name": "treasury",
-          "docs": [
-            "Its validity is ensured by the PDA derivation logic and Anchor constraints."
-          ],
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  116,
-                  114,
-                  101,
-                  97,
-                  115,
-                  117,
-                  114,
-                  121
-                ]
-              }
-            ]
-          }
-        },
-        {
-          "name": "systemProgram",
-          "address": "11111111111111111111111111111111"
-        }
-      ],
-      "args": [
-        {
-          "name": "mint",
-          "type": "pubkey"
-        },
-        {
-          "name": "lockedAmount",
-          "type": "u64"
-        },
-        {
-          "name": "bondedTime",
-          "type": "i64"
         }
       ]
     }

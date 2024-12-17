@@ -1,8 +1,8 @@
 'use client'
 
 import { ChangeEvent, useCallback, useMemo, useState, useEffect } from 'react'
-import { useMemeProgram, useMemeProgramAccount, } from './meme-data-access'
-import { useGetBalance } from '../account/account-data-access';
+import { useMemeProgram, useMetadataQuery, useBuySellTokenMutation, useUserAccountQuery } from './meme-data-access'
+import { useGetBalance, useGetTokenAccounts } from '../account/account-data-access';
 import { InputView } from "../helper-ui";
 import axios from "axios";
 import toast from "react-hot-toast";
@@ -12,15 +12,12 @@ import { FaTelegramPlane, FaTwitter, FaGlobe, } from 'react-icons/fa';
 import { FaXTwitter } from 'react-icons/fa6';
 import { BN } from '@coral-xyz/anchor';
 import { AccountBalance } from '../account/account-ui';
+import { WalletButton } from '../solana/solana-provider'
 
 
 export function MemeCreate() {
   const [isModalOpen, setIsModalOpen] = useState(false);
-
-  // Open the modal
   const openModal = () => setIsModalOpen(true);
-
-  // Close the modal
   const closeModal = () => setIsModalOpen(false);
 
   const [token, setToken] = useState<{
@@ -47,11 +44,9 @@ export function MemeCreate() {
 
   const { publicKey } = useWallet();
 
-
   const isFormValid = Object.values(token).every(
     (field) => field !== null && field.trim() !== ""
   );
-
 
   //IMAGE UPLOAD IPFS
   const handleImageChange: React.ChangeEventHandler<HTMLInputElement> = async (event) => {
@@ -71,8 +66,6 @@ export function MemeCreate() {
     }
   };
 
-
-
   const uploadImagePinata = async (file: File): Promise<string | null> => {
     try {
       const formData = new FormData();
@@ -88,8 +81,6 @@ export function MemeCreate() {
           "Content-Type": "multipart/form-data",
         },
       });
-
-
 
       return `https://gateway.pinata.cloud/ipfs/${response.data.IpfsHash}`;
     } catch (error) {
@@ -137,8 +128,6 @@ export function MemeCreate() {
     setToken({ ...token, [fieldName]: e.target.value });
   };
 
-
-
   const handleFormSubmit = useCallback(
     async () => {
       setLoading(true); // Set loading state to true at the start
@@ -165,7 +154,6 @@ export function MemeCreate() {
           decimals: 9,
         };
 
-
         // Await the mutation to ensure the process completes before showing success toast
         await createMemeToken.mutateAsync({ metadata, publicKey });
 
@@ -182,7 +170,6 @@ export function MemeCreate() {
     },
     [token, createMemeToken, isFormValid] // Ensure dependencies are included in the dependency array
   );
-
 
   return (
     <div>
@@ -249,23 +236,16 @@ export function MemeCreate() {
             >
               Create Token
             </button>
-
-
           </div>
-
-
-
         </div >
       )}
     </div>
-
   );
 }
 
 export function MemeList() {
-  const { paginatedKeys, getProgramAccount } = useMemeProgram();
+  const { paginatedAccounts, getProgramAccount } = useMemeProgram();
   const { publicKey } = useWallet();
-
 
   // Show loading spinner while fetching the program account
   if (getProgramAccount.isLoading) {
@@ -278,7 +258,7 @@ export function MemeList() {
   }
 
   // Show a message if no program account is found
-  if (!getProgramAccount.data?.value) {
+  else if (!getProgramAccount.data?.value) {
     return (
       <div className="alert alert-info flex justify-center">
         <span>
@@ -288,26 +268,27 @@ export function MemeList() {
       </div>
     );
   }
-  // Render memes if `paginatedKeys` exist
-  return (
+  else {
+    return (
+      <div >
+        <div className="space-y-6">
+          {paginatedAccounts.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 p-6">
+              {paginatedAccounts.map((account) => (
 
-    <div >
-
-      <div className="space-y-6">
-        {paginatedKeys.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 p-6">
-            {paginatedKeys.map((publicKey) => (
-              <TokenCard key={publicKey.toString()} account={publicKey} />
-            ))}
-          </div>
-        ) : (
-          <div className="text-center">
-            <h2 className="text-2xl">No memes :(</h2>
-          </div>
-        )}
+                <TokenCard key={account.publicKey.toString()} account={account} />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center">
+              <h2 className="text-2xl">No memes :(</h2>
+            </div>
+          )}
+        </div>
       </div>
-    </div>
-  );
+    );
+  }
+
 }
 
 
@@ -321,48 +302,422 @@ function timeAgo(from: number): string {
   return `${Math.floor(diff / 86400)}d`; // Days
 }
 
+// Define an enum for action types
+export enum ActionType {
+  Buy = "Buy",
+  Sell = "Sell",
+  RaydiumBuy = "RaydiumBuy",
+  RaydiumSell = "RaydiumSell",
+  Lock = "Lock",
+  Claim = "Claim"
+}
 
-export function TokenCard({ account }: { account: PublicKey }) {
-  const { publicKey } = useWallet()
 
+const lamportsToTokens = (lamports: number) => {
+  return lamports / Math.pow(10, 9); // Convert lamports to tokens
+};
 
-  const { accountQuery: memeAccountQuery, metadataQuery: memeMetadataQuery, interactWithToken } = useMemeProgramAccount({
-    account: account,
-    accountType: 'MemeEntryState',
-  });
+const INITIAL_PRICE = 2.5 * 1_000_000; // 2.5 million tokens per SOL
+const SOL_TO_LAMPORTS = 1_000_000_000;
 
-  const { accountQuery: userAccountQuery } = useMemeProgramAccount({
-    account: account,
-    accountType: 'UserAccount',
-  });
+// Conversion functions
+const convertTokensToSol = (tokens: number): number => {
+  return tokens / INITIAL_PRICE;
+};
+
+const convertSolToTokens = (sol: number): number => {
+  return sol * INITIAL_PRICE;
+};
+
+const convertSolToLamports = (sol: number): number => {
+  return sol * SOL_TO_LAMPORTS;
+};
+
+export function BalanceCard({ publicKey, mint, account, bondedTime }: { publicKey: PublicKey, mint: PublicKey, account: PublicKey, bondedTime: BN }) {
+  const { buySellToken } = useBuySellTokenMutation();
+
+  const { userAccountQuery } = useUserAccountQuery({ publicKey, mint });
+  const { metadataQuery } = useMetadataQuery({ mint });
+
+  const symbol = metadataQuery.data?.symbol || "";
+
+  const userLockedAmountBN = userAccountQuery.data?.lockedAmount || new BN(0);
+  const claimmableBN = userAccountQuery.data?.claimmable || new BN(0);
 
   const balanceQuery = useGetBalance({ address: publicKey })
   const solBalance = balanceQuery.data
     ? Math.round((balanceQuery.data / LAMPORTS_PER_SOL) * 100000) / 100000
-    : null;
+    : 0;
+
+  const { getSpecificTokenBalance } = useGetTokenAccounts({
+    address: publicKey,
+    mint: mint,
+  });
+
+  const tokenBalanceBN = getSpecificTokenBalance.data?.balance || new BN(0);
+
+
+  const totalTokens = tokenBalanceBN
+    .add(userLockedAmountBN)
+    .add(claimmableBN);
+
+  const totalTokensNumber = totalTokens.toNumber();
+  const lockedPercentage = totalTokensNumber > 0
+    ? (userLockedAmountBN.toNumber() / totalTokensNumber) * 100
+    : 0;
+  const unlockedPercentage = totalTokensNumber > 0
+    ? (tokenBalanceBN.toNumber() / totalTokensNumber) * 100
+    : 0;
+  const claimablePercentage = totalTokensNumber > 0
+    ? (claimmableBN.toNumber() / totalTokensNumber) * 100
+    : 0;
 
   const [amount, setAmount] = useState(0);
-  const handleFormFieldChange = (event: { target: { value: any; }; }) => {
-    const value = event.target.value;
-
-    // Convert to number or 0 if the input is cleared
-    const numericValue = value === "" ? 0 : parseFloat(value);
-
-    setAmount(numericValue);
+  const [showingSol, setShowingSol] = useState(true); // true for showing SOL, false for showing token
+  const toggleSolOrToken = () => {
+    setShowingSol((prevMode) => {
+      const newMode = !prevMode;
+      const convertedAmount = newMode
+        ? convertTokensToSol(amount) // Convert Tokens to SOL
+        : convertSolToTokens(amount); // Convert SOL to Tokens
+      setAmountWithLimits(convertedAmount, newMode); // Use limits to ensure the value is valid
+      return newMode; // Toggle the mode
+    });
   };
 
 
+  const setAmountWithLimits = (numericValue: number, showingSolOverride?: boolean) => {
+    const useShowingSol = showingSolOverride !== undefined ? showingSolOverride : showingSol;
+
+    if (numericValue < 0) {
+      setAmount(0);
+      return;
+    }
+
+    if (selectedAction === ActionType.Buy) {
+      if (useShowingSol) {
+        setAmount(Math.min(numericValue, solBalance));
+      } else {
+        setAmount(Math.min(numericValue, convertSolToTokens(solBalance)));
+      }
+    } else if (selectedAction === ActionType.Sell) {
+      if (useShowingSol) {
+        setAmount(Math.min(numericValue, convertTokensToSol(lamportsToTokens(userLockedAmountBN.toNumber()))));
+      } else {
+        setAmount(Math.min(numericValue, lamportsToTokens(userLockedAmountBN.toNumber())));
+      }
+    } else {
+      setAmount(numericValue);
+    }
+  };
+
+  const handleFormFieldChange = (event: { target: { value: any; }; }) => {
+    const value = event.target.value;
+    const numericValue = value === "" ? 0 : parseFloat(value); // raw value from user.
+    setAmountWithLimits(numericValue);
+  };
+
+
+
+  const [selectedAction, setSelectedAction] = useState<ActionType>(ActionType.Buy);
+  const handleActionChange = (action: ActionType) => {
+    setSelectedAction(action);
+  };
+
+  const handleBuySellFormSubmit = useCallback(async () => {
+    try {
+      let amountSentToSolana: number;
+
+      // Validate amount based on selected action
+      if (selectedAction === ActionType.Buy) {
+        const solRequired = showingSol ? amount : convertTokensToSol(amount);
+
+        if (solRequired > solBalance) {
+          throw new Error("SOL balance too low.");
+        }
+
+        amountSentToSolana = solRequired;
+      } else if (selectedAction === ActionType.Sell) {
+        const tokensRequired = showingSol ? convertSolToTokens(amount) : amount;
+
+        if (new BN(tokensRequired).gt(userLockedAmountBN)) {
+          throw new Error("You can't claim more than you invested.");
+        }
+
+        amountSentToSolana = showingSol ? -amount : -convertTokensToSol(amount);
+      }
+      else {
+        throw new Error("coming soon");
+      }
+
+      // Perform the buy/sell operation
+      await buySellToken.mutateAsync({ publicKey, amount: convertSolToLamports(amountSentToSolana), mint });
+      toast.success("Success!");
+    } catch (error: any) {
+      console.error(error);
+      toast.error(error.message || "An error occurred.");
+    }
+  }, [publicKey, amount, showingSol, selectedAction, solBalance, userLockedAmountBN, mint]);
+
+
+  return (
+    <div
+      key="right-top"
+      className="border-2 border-black bg-white p-6 shadow-lg flex flex-col text-black text-lg"
+      style={{
+        gridRow: "1 / 2",
+        gridColumn: "3 / 4",
+      }}
+    >
+      <div className="flex mb-4">
+        {bondedTime < new BN(0) ? (
+          <>
+            {/* Two buttons: Buy and Sell */}
+            <button
+              onClick={() => handleActionChange(ActionType.Buy)}
+              className={`${selectedAction === ActionType.Buy
+                ? "border-black bg-gray-300"
+                : "border-gray-500 bg-white"
+                } w-1/2 flex items-center justify-center px-4 py-2 text-sm font-medium border-2 text-black hover:bg-gray-100`}
+            >
+              <p>Buy</p>
+            </button>
+
+            <button
+              onClick={() => handleActionChange(ActionType.Sell)}
+              className={`${selectedAction === ActionType.Sell
+                ? "border-black bg-gray-300"
+                : "border-gray-500 bg-white"
+                } w-1/2 flex items-center justify-center px-4 py-2 text-sm font-medium border-2 text-black hover:bg-gray-100`}
+            >
+              <p>Sell</p>
+            </button>
+          </>
+        ) : (
+          <>
+            {/* Four buttons: Buy, Sell, Lock, and Claim */}
+            <button
+              onClick={() => handleActionChange(ActionType.RaydiumBuy)}
+              className={`${selectedAction === ActionType.RaydiumBuy
+                ? "border-black bg-gray-300"
+                : "border-gray-500 bg-white"
+                } w-1/4 flex items-center justify-center px-4 py-2 text-sm font-medium border-2 text-black hover:bg-gray-100`}
+            >
+              <p>Buy</p>
+            </button>
+
+            <button
+              onClick={() => handleActionChange(ActionType.RaydiumSell)}
+              className={`${selectedAction === ActionType.RaydiumSell
+                ? "border-black bg-gray-300"
+                : "border-gray-500 bg-white"
+                } w-1/4 flex items-center justify-center px-4 py-2 text-sm font-medium border-2 text-black hover:bg-gray-100`}
+            >
+              <p>Sell</p>
+            </button>
+
+            <button
+              onClick={() => handleActionChange(ActionType.Lock)}
+              className={`${selectedAction === ActionType.Lock
+                ? "border-black bg-gray-300"
+                : "border-gray-500 bg-white"
+                } w-1/4 flex items-center justify-center px-4 py-2 text-sm font-medium border-2 text-black hover:bg-gray-100`}
+            >
+              <p>Lock</p>
+            </button>
+
+            <button
+              onClick={() => handleActionChange(ActionType.Claim)}
+              className={`${selectedAction === ActionType.Claim
+                ? "border-black bg-gray-300"
+                : "border-gray-500 bg-white"
+                } w-1/4 flex items-center justify-center px-4 py-2 text-sm font-medium border-2 text-black hover:bg-gray-100`}
+            >
+              <p>Claim</p>
+            </button>
+          </>
+        )}
+      </div>
+
+
+      <div className="mb-4">
+        <div className="flex items-baseline space-x-2">
+          <div className="text-sm font-semibold text-black">{solBalance} SOL</div>
+          <div className="text-sm text-gray-500">~ $499</div>
+        </div>
+
+        <div className="mt-1 h-2 border-2 border-black bg-white relative">
+          <div
+            className="absolute top-0 left-0 h-full bg-black"
+            style={{ width: "100%" }}
+          ></div>
+        </div>
+      </div>
+
+      <div className="flex flex-col space-y-2 mt-2">
+        {bondedTime < new BN(0) ? (
+          <>
+            {/* When bondedTime is negative so hasnt bonded */}
+            <div className="flex items-baseline space-x-2">
+              <div className="text-sm font-semibold text-black">
+                {lamportsToTokens(userLockedAmountBN.toNumber())} {symbol.toString()}
+              </div>
+              <div className="text-sm text-gray-500">(Total)</div>
+            </div>
+
+            <div className="h-2 border-2 border-black bg-white relative">
+              <div
+                className="absolute top-0 left-0 h-full bg-purple-500"
+                style={{ width: "100%" }}
+              ></div>
+            </div>
+
+            <div className="flex justify-between text-xs mt-1">
+              <div className="flex items-center space-x-1">
+                <div className="h-2 w-2 bg-purple-500 rounded-full"></div>
+                <span className="text-purple-600">
+                  Invested: {lamportsToTokens(userLockedAmountBN.toNumber())}
+                </span>
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            {/* When bondedTime is positive */}
+            <div className="flex items-baseline space-x-2">
+              <div className="text-sm font-semibold text-black">
+                {totalTokens.toString()} {symbol.toString()}
+              </div>
+              <div className="text-sm text-gray-500">(Total)</div>
+            </div>
+
+            <div className="h-2 border-2 border-black bg-white relative">
+              <div
+                className="absolute top-0 left-0 h-full bg-gray-400"
+                style={{ width: `${lockedPercentage}%` }}
+              ></div>
+              <div
+                className="absolute top-0 left-0 h-full bg-blue-500"
+                style={{
+                  width: `${unlockedPercentage}%`,
+                  marginLeft: `${lockedPercentage}%`,
+                }}
+              ></div>
+              <div
+                className="absolute top-0 left-0 h-full bg-green-500"
+                style={{
+                  width: `${claimablePercentage}%`,
+                  marginLeft: `${lockedPercentage + unlockedPercentage}%`,
+                }}
+              ></div>
+            </div>
+
+            <div className="flex justify-between text-xs mt-1">
+              <div className="flex items-center space-x-1">
+                <div className="h-2 w-2 bg-gray-400 rounded-full"></div>
+                <span className="text-gray-600">Locked: {userLockedAmount?.toNumber() ?? 0}</span>
+              </div>
+              <div className="flex items-center space-x-1">
+                <div className="h-2 w-2 bg-blue-500 rounded-full"></div>
+                <span className="text-blue-600">
+                  Unlocked: {tokenBalance?.uiAmount ?? 0}
+                </span>
+              </div>
+              <div className="flex items-center space-x-1">
+                <div className="h-2 w-2 bg-green-500 rounded-full"></div>
+                <span className="text-green-600">Claimable: {claimmable?.toNumber() ?? 0}</span>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+
+
+      <div className="relative flex items-center mb-2 mt-2">
+        <input
+          type="number"
+          value={amount || ""}
+          className="w-full border-2 border-gray-200 p-2 pr-16 text-sm focus:outline-none focus:border-black appearance-none"
+          placeholder={solBalance?.toString()}
+          onChange={handleFormFieldChange}
+
+        />
+        <button
+          className="absolute right-2 top-1/2 -translate-y-1/2 bg-gray-200 text-gray-600 text-sm px-4 py-1 rounded focus:outline-none"
+          onClick={toggleSolOrToken}
+        >
+          {showingSol ? "Mode: SOL (Swap to Tokens)" : "Mode: Tokens (Swap to SOL)"}
+        </button>
+
+      </div>
+
+      <p>{amount}</p>
+
+      <div className="flex space-x-4 mb-4">
+        {selectedAction === ActionType.Buy ? (
+          <>
+            <button
+              className="w-8 h-6 border border-black bg-white text-xs text-black hover:bg-gray-100 flex items-center justify-center"
+              onClick={() => setAmountWithLimits(0.1)}
+            >
+              0.1
+            </button>
+            <button
+              className="w-8 h-6 border border-black bg-white text-xs text-black hover:bg-gray-100 flex items-center justify-center"
+              onClick={() => setAmountWithLimits(1)}
+            >
+              1
+            </button>
+            <button
+              className="w-8 h-6 border border-black bg-white text-xs text-black hover:bg-gray-100 flex items-center justify-center"
+              onClick={() => setAmountWithLimits(2)}
+            >
+              2
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              className="w-8 h-6 border border-black bg-white text-xs text-black hover:bg-gray-100 flex items-center justify-center"
+              onClick={() => setAmountWithLimits(0.1)}
+            >
+              0.1
+            </button>
+            <button
+              className="w-8 h-6 border border-black bg-white text-xs text-black hover:bg-gray-100 flex items-center justify-center"
+              onClick={() => setAmountWithLimits(0.1)}
+            >
+              0.1
+            </button>
+            <button
+              className="w-8 h-6 border border-black bg-white text-xs text-black hover:bg-gray-100 flex items-center justify-center"
+              onClick={() => setAmountWithLimits(0.1)}
+            >
+              0.1
+            </button>
+          </>
+        )}
+      </div>
+
+      <button
+        className="w-full px-4 py-2 text-sm font-medium border-2 border-black bg-white text-black hover:bg-gray-100"
+        onClick={handleBuySellFormSubmit}
+      >
+        Transact
+      </button>
+    </div>
+  );
+}
+
+
+
+export function TokenCard({ account }: { account: any }) {
+  const { publicKey } = useWallet()
 
 
   const [isVisible, setIsVisible] = useState(true);
   const [hideLeft, setHideLeft] = useState(false);
   const [hideRight, setHideRight] = useState(false);
-
-  const [selectedAction, setSelectedAction] = useState("Buy");
-  const handleActionChange = (action: string) => {
-    setSelectedAction(action);
-  };
-
 
 
   useEffect(() => {
@@ -386,26 +741,14 @@ export function TokenCard({ account }: { account: PublicKey }) {
     };
   }, []);
 
-
-  if (memeAccountQuery.isLoading || memeMetadataQuery.isLoading) {
-    return <span className="loading loading-spinner loading-lg"></span>;
-  }
-
-  if (memeAccountQuery.isError || !memeAccountQuery.data || memeMetadataQuery.isError || !memeMetadataQuery.data) {
-    return <div className="text-error">Error loading meme account</div>;
-  }
+  // ignore this, as i've specified that memeAccountQuery is for the memeaccount, not useraccount.
+  const { dev, mint, lockedAmount, creationTime, bondedTime } = account.account;
 
 
-
-  const { dev, mint, lockedAmount, creationTime, bondedTime } = memeAccountQuery.data;
-  const { name, symbol, description, image, twitter_link, telegram_link, website_link, } = memeMetadataQuery.data;
-
-
-  console.log('lockedAmount:', lockedAmount.toString());
-  console.log('bondedTime:', bondedTime.toString());
+  /*
   const globalPercentageBN = lockedAmount.isZero()
     ? new BN(0) // If lockedAmount is 0, percentage is 0
-    : bondedTime < 0
+    : bondedTime < new BN(0)
       ? lockedAmount
         .div(new BN(800_000_000 * 10 ** 9)) // For negative bondedTime
         .mul(new BN(100)) // Convert to percentage
@@ -415,51 +758,7 @@ export function TokenCard({ account }: { account: PublicKey }) {
 
   const globalPercentage = parseFloat(globalPercentageBN.toString()) / (10 ** 9); // Adjust precision
   const formattedPercentage = `${globalPercentage.toFixed(2)}%`; // Format to 2 decimal places
-
-
-
-  const userAccountData = userAccountQuery.data;
-  const user = userAccountData?.user;
-  const userLockedAmount = userAccountData?.lockedAmount;
-  const claimmable = userAccountData?.claimmable;
-  // Listen for window resize to determine layout
-
-  const handleInteractTokenFormSubmit = useCallback(
-    async () => {
-      try {
-
-        if (!publicKey) {
-          throw new Error("Wallet is not connected.");
-        }
-
-        let amountProcessed: number = 0;
-
-        if (selectedAction == "Buy") {
-          if (amount > solBalance) {
-            throw new Error("sol balance too low");
-          }
-
-        } else if (selectedAction == "Sell") {
-          amountProcessed = -amount;
-          if (amount > claimmable) {
-            throw new Error("you cant claim allat");
-          }
-        }
-
-        // Await the mutation to ensure the process completes before showing success toast
-        await interactWithToken.mutateAsync({ publicKey, amountProcessed, mint });
-
-        // Show success message
-        toast.success("success");
-      } catch (error: any) {
-        // Log error and show error message
-        console.error(error);
-        toast.error(error);
-      }
-    },
-    [publicKey, amount, mint, interactWithToken] // Ensure dependencies are included in the dependency array
-  );
-
+  */
 
   const renderGridCards = () => {
     const cards = [];
@@ -616,11 +915,11 @@ export function TokenCard({ account }: { account: PublicKey }) {
             </a>
           )}
         </div>
-        <p className="text-gray-700 text-sm mt-4">{formattedPercentage} | 20k</p>
+        <p className="text-gray-700 text-sm mt-4"> | 20k</p>
         <div className="mt-1 h-2 border-2 border-black bg-white relative">
           <div
             className="absolute top-0 left-0 h-full bg-black"
-            style={{ width: `${globalPercentage}%` }}
+          //style={{ width: `${globalPercentage}%` }}
           ></div>
         </div>
         <div className="flex justify-start items-center text-gray-500 mt-2">
@@ -710,148 +1009,23 @@ export function TokenCard({ account }: { account: PublicKey }) {
 
     if (!hideRight) {
       cards.push(
-        <div
-          key="right-top"
-          className="border-2 border-black bg-white p-6 shadow-lg flex flex-col text-black text-lg"
-          style={{
-            gridRow: "1 / 2",
-            gridColumn: "3 / 4",
-          }}
-        >
-          <div className="flex mb-4">
-            {/* Buy Button */}
-            <button
-              onClick={() => handleActionChange("Buy")}
-              className={`${selectedAction === "Buy"
-                ? "border-black bg-gray-100"
-                : "border-gray-500 bg-white"
-                } w-1/2 flex items-center justify-center px-4 py-2 text-sm font-medium border-2 text-black hover:bg-gray-100`}
-            >
-              <p>Buy</p>
-            </button>
-
-            {/* Sell Button */}
-            <button
-              onClick={() => handleActionChange("Sell")}
-              className={`${selectedAction === "Sell"
-                ? "border-black bg-gray-100"
-                : "border-gray-500 bg-white"
-                } w-1/2 flex items-center justify-center px-4 py-2 text-sm font-medium border-2 text-black hover:bg-gray-100`}
-            >
-              <p>Sell</p>
-            </button>
-          </div>
-
-
-          {/* SOL Balance */}
-          <div className="mb-4">
-            <div className="flex items-baseline space-x-2">
-
-              <div className="text-sm font-semibold text-black">{solBalance} SOL</div>
-              <div className="text-sm text-gray-500">~ $499</div>
-            </div>
-
-            <div className="mt-1 h-2 border-2 border-black bg-white relative">
-              <div
-                className="absolute top-0 left-0 h-full bg-black"
-                style={{ width: "80%" }} // Example: SOL balance usage as 80%
-              ></div>
+        publicKey ? (
+          <BalanceCard publicKey={publicKey} mint={mint} account={account} bondedTime={bondedTime} />
+        ) : (
+          <div
+            key="right-top"
+            className="border-2 border-black bg-white p-6 shadow-lg flex flex-col text-black text-lg"
+            style={{
+              gridRow: "1 / 2",
+              gridColumn: "3 / 4",
+            }}
+          >
+            <div className="flex justify-center items-center h-full">
+              <WalletButton />
             </div>
           </div>
+        )
 
-          {/* GS Balance */}
-          {userAccountData ? (
-            <div className="flex flex-col space-y-2 mt-4">
-              {/* Total GS */}
-              <div className="flex items-baseline space-x-2">
-                <div className="text-sm font-semibold text-black">50,000 GS</div>
-                <div className="text-sm text-gray-500">(Total)</div>
-              </div>
-
-              {/* Color-Coded Bar */}
-              <div className="mt-1 h-2 border-2 border-black bg-white relative">
-                {/* Locked Amount */}
-                <div
-                  className="absolute top-0 left-0 h-full bg-gray-400"
-                  style={{ width: "50%" }} // Adjust dynamically
-                ></div>
-                {/* Unlocked Amount */}
-                <div
-                  className="absolute top-0 left-0 h-full bg-blue-500"
-                  style={{ width: "30%", marginLeft: "50%" }} // Adjust dynamically
-                ></div>
-                {/* Claimable Amount */}
-                <div
-                  className="absolute top-0 left-0 h-full bg-green-500"
-                  style={{ width: "20%", marginLeft: "80%" }} // Adjust dynamically
-                ></div>
-              </div>
-
-              {/* Labels with Color Codes */}
-              <div className="flex justify-between text-xs mt-1">
-                <div className="flex items-center space-x-1">
-                  <div className="h-2 w-2 bg-gray-400 rounded-full"></div>
-                  <span className="text-gray-600">Locked: {userLockedAmount?.toNumber()}</span>
-                </div>
-                <div className="flex items-center space-x-1">
-                  <div className="h-2 w-2 bg-blue-500 rounded-full"></div>
-                  <span className="text-blue-600">Unlocked: 15,000</span>
-                </div>
-                <div className="flex items-center space-x-1">
-                  <div className="h-2 w-2 bg-green-500 rounded-full"></div>
-                  <span className="text-green-600">Claimable: {claimmable?.toNumber()}</span>
-                </div>
-              </div>
-            </div>
-          ) : null}
-
-
-          {/* Input with Icon */}
-          <div className="relative flex items-center mb-2">
-            <input
-              type="number"
-              value={amount || ""}
-              className="w-full border-2 border-gray-200 p-2 text-sm focus:outline-none focus:border-black"
-              placeholder="Enter amount"
-              onChange={handleFormFieldChange}
-            />
-          </div>
-          <p>{amount}</p>
-
-          {/* Percentage Buttons */}
-          <div className="flex space-x-4 mb-4">
-            {selectedAction === "Buy" ? (
-              <>
-                <button className="w-8 h-6 border border-black bg-white text-xs text-black hover:bg-gray-100 flex items-center justify-center">
-                  0.1
-                </button>
-                <button className="w-8 h-6 border border-black bg-white text-xs text-black hover:bg-gray-100 flex items-center justify-center">
-                  1
-                </button>
-                <button className="w-8 h-6 border border-black bg-white text-xs text-black hover:bg-gray-100 flex items-center justify-center">
-                  2
-                </button>
-              </>
-            ) : (
-              <>
-                <button className="w-8 h-6 border border-black bg-white text-xs text-black hover:bg-gray-100 flex items-center justify-center">
-                  25%
-                </button>
-                <button className="w-8 h-6 border border-black bg-white text-xs text-black hover:bg-gray-100 flex items-center justify-center">
-                  50%
-                </button>
-                <button className="w-8 h-6 border border-black bg-white text-xs text-black hover:bg-gray-100 flex items-center justify-center">
-                  100%
-                </button>
-              </>
-            )}
-          </div>
-
-          {/* Transact Button */}
-          <button className="w-full px-4 py-2 text-sm font-medium border-2 border-black bg-white text-black hover:bg-gray-100">
-            Transact
-          </button>
-        </div>
       );
 
       cards.push(
@@ -1007,11 +1181,10 @@ export function TokenCard({ account }: { account: PublicKey }) {
                 </a>
               )}
             </div>
-            <p className="text-gray-700 text-sm mt-4">{formattedPercentage} | 20k</p>
+            <p className="text-gray-700 text-sm mt-4"> | 20k</p>
             <div className="mt-1 h-2 border-2 border-black bg-white relative">
               <div
                 className="absolute top-0 left-0 h-full bg-black"
-                style={{ width: `${globalPercentage}%` }}
               ></div>
             </div>
             <div className="flex justify-start items-center text-gray-500 mt-2">

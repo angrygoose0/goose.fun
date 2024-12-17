@@ -225,16 +225,16 @@
       ]
     },
     {
-      "name": "lock_unlock",
+      "name": "lock_claim",
       "discriminator": [
-        245,
-        2,
-        248,
-        189,
+        246,
+        17,
+        238,
+        41,
+        27,
+        228,
         212,
-        137,
-        250,
-        127
+        6
       ],
       "accounts": [
         {
@@ -739,95 +739,6 @@
         {
           "name": "name",
           "type": "string"
-        }
-      ]
-    },
-    {
-      "name": "update_meme_entry",
-      "discriminator": [
-        170,
-        105,
-        220,
-        135,
-        0,
-        182,
-        207,
-        44
-      ],
-      "accounts": [
-        {
-          "name": "meme_entry",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  109,
-                  101,
-                  109,
-                  101,
-                  95,
-                  101,
-                  110,
-                  116,
-                  114,
-                  121
-                ]
-              },
-              {
-                "kind": "arg",
-                "path": "mint"
-              }
-            ]
-          }
-        },
-        {
-          "name": "signer",
-          "writable": true,
-          "signer": true
-        },
-        {
-          "name": "treasury",
-          "docs": [
-            "Its validity is ensured by the PDA derivation logic and Anchor constraints."
-          ],
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  116,
-                  114,
-                  101,
-                  97,
-                  115,
-                  117,
-                  114,
-                  121
-                ]
-              }
-            ]
-          }
-        },
-        {
-          "name": "system_program",
-          "address": "11111111111111111111111111111111"
-        }
-      ],
-      "args": [
-        {
-          "name": "_mint",
-          "type": "pubkey"
-        },
-        {
-          "name": "locked_amount",
-          "type": "u64"
-        },
-        {
-          "name": "bonded_time",
-          "type": "i64"
         }
       ]
     }

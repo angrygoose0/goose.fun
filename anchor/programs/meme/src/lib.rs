@@ -31,8 +31,8 @@ pub mod meme {
     pub const MINT_DECIMALS: u8 = 9;
     pub const MINT_SUPPLY: u64 = 1_000_000_000_000_000_000; // 1billion times 10^9
 
-    pub const UNLOCK_FREQUENCY = 24 //hours
-    pub const UNLOCK_AMOUNT = 10 //%
+    pub const UNLOCK_FREQUENCY:u8 = 24; //hours
+    pub const UNLOCK_AMOUNT:u8 = 10; //%
     
 
     pub fn init_meme_token(
@@ -271,6 +271,7 @@ pub mod meme {
         Ok(())
     }
 
+    /*
     pub fn bond_to_raydiym<'info>(    
         ctx: Context<BondToRaydium>,
     ) -> Result<()> {
@@ -284,8 +285,7 @@ pub mod meme {
         ctx: Context<UnlockTokens>,
     ) -> Result<()> {
         let meme_entry = &mut ctx.accounts.meme_entry;
-        meme_entry.locked_amount // take off 10%
-        meme_entry.
+        //meme_entry.locked_amount // take off 10%
     }
 
     pub fn unlock_tokens_in_user<'info>(
@@ -293,6 +293,7 @@ pub mod meme {
     ) -> Result<()> {
 
     }
+    */
 
 }
 
@@ -438,8 +439,6 @@ pub enum CustomError {
     #[msg("Hasn't bonded")]
     NotBonded,
 }
-
-pub
 
 
 #[account]

@@ -1,7 +1,7 @@
 'use client'
 
-import {TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID} from '@solana/spl-token'
-import {useConnection, useWallet} from '@solana/wallet-adapter-react'
+import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from '@solana/spl-token'
+import { useConnection, useWallet } from '@solana/wallet-adapter-react'
 import {
   Connection,
   LAMPORTS_PER_SOL,
@@ -11,9 +11,9 @@ import {
   TransactionSignature,
   VersionedTransaction,
 } from '@solana/web3.js'
-import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
-import {useTransactionToast} from '../ui/ui-layout'
+import { useTransactionToast } from '../ui/ui-layout'
 
 export function useGetBalance({ address }: { address: PublicKey }) {
   const { connection } = useConnection()
@@ -33,12 +33,13 @@ export function useGetSignatures({ address }: { address: PublicKey }) {
   })
 }
 
-export function useGetTokenAccounts({ address }: { address: PublicKey }) {
-  const { connection } = useConnection()
+export function useGetAllTokenAccounts({ address }: { address: PublicKey }) {
+  const { connection } = useConnection();
 
   return useQuery({
-    queryKey: ['get-token-accounts', { endpoint: connection.rpcEndpoint, address }],
+    queryKey: ['get-all-token-accounts', { endpoint: connection.rpcEndpoint, address }],
     queryFn: async () => {
+      // Fetch token accounts for both program IDs
       const [tokenAccounts, token2022Accounts] = await Promise.all([
         connection.getParsedTokenAccountsByOwner(address, {
           programId: TOKEN_PROGRAM_ID,
@@ -46,11 +47,76 @@ export function useGetTokenAccounts({ address }: { address: PublicKey }) {
         connection.getParsedTokenAccountsByOwner(address, {
           programId: TOKEN_2022_PROGRAM_ID,
         }),
-      ])
-      return [...tokenAccounts.value, ...token2022Accounts.value]
+      ]);
+
+      return [...tokenAccounts.value, ...token2022Accounts.value];
     },
-  })
+  });
 }
+
+export function useGetTokenAccounts({ address, mint }: { address: PublicKey, mint: PublicKey }) {
+  const { connection } = useConnection();
+
+  // Fetch all token accounts
+  const getAllTokenAccounts = useQuery({
+    queryKey: ['get-token-accounts', { endpoint: connection.rpcEndpoint, address }],
+    queryFn: async () => {
+      // Fetch token accounts for both program IDs
+      const [tokenAccounts, token2022Accounts] = await Promise.all([
+        connection.getParsedTokenAccountsByOwner(address, {
+          programId: TOKEN_PROGRAM_ID,
+        }),
+        connection.getParsedTokenAccountsByOwner(address, {
+          programId: TOKEN_2022_PROGRAM_ID,
+        }),
+      ]);
+
+      const allTokenAccounts = [...tokenAccounts.value, ...token2022Accounts.value];
+      return allTokenAccounts;
+    },
+  });
+
+  // Fetch specific token balance
+  const getSpecificTokenBalance = useQuery({
+    queryKey: ['get-token-balance', { mint }],
+    queryFn: async () => {
+      if (!getAllTokenAccounts.data) {
+        return {
+          uiAmount: 0,
+          balance: 0,
+          decimals: 0,
+        };
+      }
+
+      const mintStr = mint.toBase58();
+      const matchingAccount = getAllTokenAccounts.data.find(account => {
+        return account.account.data.parsed.info.mint === mintStr;
+      });
+
+      if (matchingAccount) {
+        return {
+          uiAmount: matchingAccount.account.data.parsed.info.tokenAmount.uiAmount,
+          balance: matchingAccount.account.data.parsed.info.tokenAmount.amount,
+          decimals: matchingAccount.account.data.parsed.info.tokenAmount.decimals,
+        };
+      }
+
+      // Return 0 balance if no matching account is found
+      return {
+        uiAmount: 0,
+        balance: 0,
+        decimals: 0,
+      };
+    },
+    enabled: !!mint, // Run only if mint is provided
+  });
+
+  return {
+    getAllTokenAccounts,
+    getSpecificTokenBalance,
+  };
+}
+
 
 export function useTransferSol({ address }: { address: PublicKey }) {
   const { connection } = useConnection()

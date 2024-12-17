@@ -14,6 +14,7 @@ import { ASSOCIATED_PROGRAM_ID, associatedAddress } from '@coral-xyz/anchor/dist
 import { Metaplex } from "@metaplex-foundation/js";
 import { constants } from 'fs/promises';
 import { BN } from '@coral-xyz/anchor';
+import { utf8 } from '@project-serum/anchor/dist/cjs/utils/bytes';
 
 
 export interface InitTokenParams {
@@ -43,6 +44,10 @@ export function getMetadataAddress(mint: PublicKey): PublicKey {
   )[0];
 }
 
+const getDiscriminator = (name: string) => {
+  return Buffer.from(utf8.encode(`account:${name}`)).slice(0, 8);
+};
+
 export function useMemeProgram() {
   const { connection } = useConnection();
   const { cluster } = useCluster();
@@ -56,57 +61,49 @@ export function useMemeProgram() {
     LockedAmount = "lockedAmount",
   }
   const [sortBy, setSortBy] = useState<SortBy>(SortBy.CreationTime); // Default sorting by creationTime
-  const [paginatedKeys, setPaginatedKeys] = useState<PublicKey[]>([]);
-
+  const [paginatedAccounts, setPaginatedAccounts] = useState<any[]>([]); // To store sorted and paginated accounts
   const [currentPage, setCurrentPage] = useState(1); // Track current page
   const pageSize = 5; // Number of accounts per page
+  const [loading, setLoading] = useState(false); // Loading state
 
   // Fetch and process accounts
   useEffect(() => {
     const fetchAndProcessAccounts = async () => {
       try {
-        const { offset, length } = (() => {
+        setLoading(true);
+
+        // Fetch all accounts using Anchor
+        const allAccounts = await program.account.memeEntryState.all([]);
+
+        // Sort accounts based on selected criteria
+        const sortedAccounts = allAccounts.sort((a, b) => {
           if (sortBy === SortBy.CreationTime) {
-            return { offset: 72, length: 8 }; // creation_time
+            const valueA = a.account.creationTime;
+            const valueB = b.account.creationTime;
+            return valueB.cmp(valueA); // Sort in descending order
           } else if (sortBy === SortBy.LockedAmount) {
-            return { offset: 64, length: 8 }; // locked_amount
+            const valueA = Number(a.account.lockedAmount); // Convert BigInt to number
+            const valueB = Number(b.account.lockedAmount);
+            return valueB - valueA; // Descending order
           }
-          return { offset: 0, length: 0 }; // Default (handle edge case)
-        })();
-
-        // Calculate paginated slice based on currentPage and pageSize
-        const paginatedOffset = (currentPage - 1) * pageSize;
-        const accounts = await connection.getProgramAccounts(programId, {
-          dataSlice: { offset: paginatedOffset + offset, length }, // Dynamic offset
+          return 0;
         });
 
-        const accountsArray: Array<ProgramAccount> = Array.from(accounts);
+        // Paginate the sorted accounts
+        const startIndex = (currentPage - 1) * pageSize;
+        const paginated = sortedAccounts.slice(startIndex, startIndex + pageSize);
 
-        /*
-        accountsArray.sort((a, b) => {
-          try {
-            const valueA = a.account.data.readBigUInt64LE(0); // Use offset 0 from the slice
-            const valueB = b.account.data.readBigUInt64LE(0);
-
-            return valueB > valueA ? -1 : 1; // Descending order
-          } catch (error) {
-            console.error("Error sorting accounts: ", error);
-            return 0;
-          }
-        });
-        */
-
-        const accountKeys = accountsArray.map((account) => account.pubkey);
-        setPaginatedKeys(accountKeys.slice(0, pageSize)); // Update state with keys for the current page
+        // Update state with paginated accounts
+        setPaginatedAccounts(paginated);
       } catch (error) {
-        console.error("Error fetching program accounts: ", error);
+        console.error("Error fetching and sorting accounts:", error);
+      } finally {
+        setLoading(false);
       }
     };
 
     fetchAndProcessAccounts();
-  }, [connection, programId, sortBy, currentPage]); // Add currentPage as a dependency
-
-
+  }, [program, sortBy, currentPage]); // Dependencies: program, sortBy, currentPage
 
   const getProgramAccount = useQuery({
     queryKey: ["get-program-account", { cluster }],
@@ -235,83 +232,65 @@ export function useMemeProgram() {
   return {
     program,
     programId,
-    paginatedKeys, // Paginated keys are updated asynchronously via useState
+    paginatedAccounts, // Paginated keys are updated asynchronously via useState
     getProgramAccount,
     createMemeToken,
     connection,
   };
 }
 
-type AccountType = 'MemeEntryState' | 'UserAccount';
 
-
-export function useMemeProgramAccount({ account, accountType }: { account: PublicKey, accountType: AccountType }) {
-  const { cluster } = useCluster();
-  const { program } = useMemeProgram();
+export function useMetadataQuery({
+  mint,
+}: {
+  mint: PublicKey;
+}) {
   const { connection } = useConnection();
-  const transactionToast = useTransactionToast();
-
-  // Fetch the meme entry state
-  const accountQuery = useQuery({
-    queryKey: ['account', { cluster, account, accountType }],
-    queryFn: async () => {
-      if (accountType === 'MemeEntryState') {
-        return program.account.memeEntryState.fetch(account);
-      } else if (accountType === 'UserAccount') {
-        return program.account.userAccount.fetch(account);
-      } else {
-        throw new Error('Unknown account type');
-      }
-    },
-  });
-
   const metaplex = Metaplex.make(connection);
 
-  // Fetch metadata JSON
-  const metadataQuery = useQuery({
-    queryKey: ["metadata", { account }],
+  const metadataQuery =  useQuery({
+    queryKey: ['metadata', { mint }],
     queryFn: async () => {
+      const metadataAddress = getMetadataAddress(mint);
 
-      if (accountType !== 'MemeEntryState') {
-        throw new Error('Metadata query is only valid for MemeEntryState accounts');
-      }
-
-      if (!accountQuery.data) {
-        throw new Error("Account data not yet loaded");
-      }
-
-      // Derive the metadata address
-      const metadataAddress = getMetadataAddress(accountQuery.data.mint);
-
-
-      // Fetch metadata account info
       const accountInfo = await connection.getAccountInfo(metadataAddress);
       if (!accountInfo) {
-        throw new Error("Metadata account not found");
+        throw new Error('Metadata account not found');
       }
 
-      const token = await metaplex.nfts().findByMint({ mintAddress: accountQuery.data.mint })
+      const token = await metaplex.nfts().findByMint({ mintAddress: mint });
 
-      // Fetch the JSON metadata from the URI
       const response = await fetch(token.uri);
       if (!response.ok) {
         throw new Error(`Failed to fetch metadata JSON from ${token.uri}`);
       }
 
-      const metadataJSON = await response.json();
-      return metadataJSON;
+      return response.json();
     },
-    enabled: accountType === 'MemeEntryState' && !!accountQuery.data, // Only run if accountQuery.data is available, and accountData is memenetry
+    enabled: !!mint, // Run only if mint is provided
   });
 
-  const interactWithToken = useMutation<string, Error, { publicKey: PublicKey, amount: number, mint: PublicKey }>({ //+amount is buy, -amount is sell,
-    mutationKey: [`interactWithToken`, `update`, { cluster }],
+  return {
+    metadataQuery,
+  };
+}
+
+export function useBuySellTokenMutation() {
+  const { program } = useMemeProgram();
+  const transactionToast = useTransactionToast();
+
+  const buySellToken = useMutation<
+    string,
+    Error,
+    { publicKey: PublicKey; amount: number; mint: PublicKey }
+  >({
+    mutationKey: ['buySellToken'],
     mutationFn: ({ publicKey, mint, amount }) => {
       return program.methods
         .buySell(new BN(amount))
         .accounts({
           signer: publicKey,
-          mint: mint,
+          mint,
         })
         .rpc();
     },
@@ -320,18 +299,60 @@ export function useMemeProgramAccount({ account, accountType }: { account: Publi
       console.log(signature);
     },
     onError: (error) => {
-      toast.error(`Error creating entry: ${error.message}`);
-      console.error("Toast error:", error);
+      toast.error(`Error buy/selling token: ${error.message}`);
+      console.error('Toast error:', error);
     },
   });
 
+  return {
+    buySellToken,
+  };
+}
+
+export function useUserAccountQuery({
+  publicKey,
+  mint,
+}: {
+  publicKey: PublicKey;
+  mint: PublicKey;
+}) {
+  const { cluster } = useCluster();
+  const { program } = useMemeProgram();
+  const programId = useMemo(() => getMemeProgramId(cluster.network as Cluster), [cluster]);
+
+  const userAccountSeeds = [
+    Buffer.from("user_account"),
+    mint.toBuffer(),
+    publicKey.toBuffer()
+  ];
+
+  const userAccountKey = PublicKey.findProgramAddressSync(
+    userAccountSeeds,
+    programId
+  )[0];
+
+  // Fetch the meme entry state
+  const userAccountQuery = useQuery({
+    queryKey: ['userAccount', { cluster, userAccountKey }],
+    queryFn: async () => {
+      return program.account.userAccount.fetch(userAccountKey);
+    }
+  });
+
+  /*
+  const memeEntryQuery = useQuery({
+    queryKey: ['memeEntry', { cluster, memeEntryAccountKey }],
+    queryFn: async () => {
+      return program.account.memeEntryState.fetch(memeEntryAccountKey);
+    }
+  });
+  */
 
   return {
-    accountQuery, // Query for the account data
-    metadataQuery, // Query for the metadata JSON
-    interactWithToken
+    userAccountQuery
   };
-};
+}
+
 
 
 /*
