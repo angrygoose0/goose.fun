@@ -443,7 +443,7 @@ pub enum CustomError {
 
 #[account]
 #[derive(InitSpace)]
-pub struct MemeEntryState {
+pub struct MemeEntryState { //8
     pub dev: Pubkey, //32
     pub mint: Pubkey, //32
 

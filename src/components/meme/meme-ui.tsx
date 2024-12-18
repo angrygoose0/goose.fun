@@ -1,7 +1,7 @@
 'use client'
 
 import { ChangeEvent, useCallback, useMemo, useState, useEffect } from 'react'
-import { useMemeProgram, useMetadataQuery, useBuySellTokenMutation, useUserAccountQuery } from './meme-data-access'
+import { useMemeProgram, useMetadataQuery, useBuySellTokenMutation, useAccountQuery, useCreateMemeToken, useProcessedAccountsQuery } from './meme-data-access'
 import { useGetBalance, useGetTokenAccounts } from '../account/account-data-access';
 import { InputView } from "../helper-ui";
 import axios from "axios";
@@ -40,7 +40,7 @@ export function MemeCreate() {
 
   const [loading, setLoading] = useState(false);
 
-  const { createMemeToken } = useMemeProgram();
+  const { createMemeToken } = useCreateMemeToken();
 
   const { publicKey } = useWallet();
 
@@ -153,6 +153,7 @@ export function MemeCreate() {
           uri: metadataUrl,
           decimals: 9,
         };
+        console.log("ready");
 
         // Await the mutation to ensure the process completes before showing success toast
         await createMemeToken.mutateAsync({ metadata, publicKey });
@@ -244,52 +245,65 @@ export function MemeCreate() {
 }
 
 export function MemeList() {
-  const { paginatedAccounts, getProgramAccount } = useMemeProgram();
-  const { publicKey } = useWallet();
+  const [currentPage, setCurrentPage] = useState(1);
+  const [sortBy, setSortBy] = useState("creation_time");
+  const { processedAccountsQuery } = useProcessedAccountsQuery({ currentPage, sortBy });
+  const { data: accounts, isLoading, error } = processedAccountsQuery;
+  console.log("accounts data:", accounts);
 
-  // Show loading spinner while fetching the program account
-  if (getProgramAccount.isLoading) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <span className="loading loading-spinner loading-lg"></span>
-      </div>
-    );
-
+  if (isLoading) {
+    return <></>;
+  }
+  if (error) {
+    return <></>;
   }
 
-  // Show a message if no program account is found
-  else if (!getProgramAccount.data?.value) {
-    return (
-      <div className="alert alert-info flex justify-center">
-        <span>
-          Program account not found. Make sure you have deployed the program and
-          are on the correct cluster.
-        </span>
-      </div>
-    );
+  if (!accounts || accounts.length < 1 || accounts == null) {
+    return <></>;
   }
-  else {
-    return (
-      <div >
-        <div className="space-y-6">
-          {paginatedAccounts.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 p-6">
-              {paginatedAccounts.map((account) => (
 
-                <TokenCard key={account.publicKey.toString()} account={account} />
-              ))}
-            </div>
-          ) : (
-            <div className="text-center">
-              <h2 className="text-2xl">No memes :(</h2>
-            </div>
-          )}
+  //
+  return (
+    <div>
+      <div className="space-y-6">
+
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 p-6">
+          {accounts.map((account) => (
+            account != null ? (
+              <TokenCard key={account.mint.toString()} account={account} />
+            ) : null
+          ))}
         </div>
+
+        <div className="text-center">
+          <h2 className="text-2xl">No memes :(</h2>
+        </div>
+
       </div>
-    );
-  }
+
+      <div className="flex justify-center mt-6 space-x-4">
+        <button
+          className="btn btn-secondary"
+          onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+          disabled={currentPage === 1}
+        >
+          Previous
+        </button>
+        <span>Page {currentPage}</span>
+        <button
+          className="btn btn-secondary"
+          onClick={() => setCurrentPage((prev) => prev + 1)}
+          disabled={!accounts || accounts.length < 5} // Disable if no more pages
+        >
+          Next
+        </button>
+      </div>
+    </div>
+  );
+
 
 }
+
 
 
 function timeAgo(from: number): string {
@@ -333,29 +347,13 @@ const convertSolToLamports = (sol: number): number => {
   return sol * SOL_TO_LAMPORTS;
 };
 
-export function BalanceCard({ publicKey, mint, account, bondedTime }: { publicKey: PublicKey, mint: PublicKey, account: PublicKey, bondedTime: BN }) {
+export function BalanceCard({ publicKey, mint, account, bondedTime, symbol, userLockedAmountBN, claimmableBN, tokenBalanceBN, tokenBalanceUi }: { publicKey: PublicKey, mint: PublicKey, account: PublicKey, bondedTime: BN, symbol: string, userLockedAmountBN: BN, claimmableBN: BN, tokenBalanceBN: BN, tokenBalanceUi: number }) {
   const { buySellToken } = useBuySellTokenMutation();
-
-  const { userAccountQuery } = useUserAccountQuery({ publicKey, mint });
-  const { metadataQuery } = useMetadataQuery({ mint });
-
-  const symbol = metadataQuery.data?.symbol || "";
-
-  const userLockedAmountBN = userAccountQuery.data?.lockedAmount || new BN(0);
-  const claimmableBN = userAccountQuery.data?.claimmable || new BN(0);
 
   const balanceQuery = useGetBalance({ address: publicKey })
   const solBalance = balanceQuery.data
     ? Math.round((balanceQuery.data / LAMPORTS_PER_SOL) * 100000) / 100000
     : 0;
-
-  const { getSpecificTokenBalance } = useGetTokenAccounts({
-    address: publicKey,
-    mint: mint,
-  });
-
-  const tokenBalanceBN = getSpecificTokenBalance.data?.balance || new BN(0);
-
 
   const totalTokens = tokenBalanceBN
     .add(userLockedAmountBN)
@@ -615,17 +613,17 @@ export function BalanceCard({ publicKey, mint, account, bondedTime }: { publicKe
             <div className="flex justify-between text-xs mt-1">
               <div className="flex items-center space-x-1">
                 <div className="h-2 w-2 bg-gray-400 rounded-full"></div>
-                <span className="text-gray-600">Locked: {userLockedAmount?.toNumber() ?? 0}</span>
+                <span className="text-gray-600">Locked: {userLockedAmountBN.toNumber()}</span>
               </div>
               <div className="flex items-center space-x-1">
                 <div className="h-2 w-2 bg-blue-500 rounded-full"></div>
                 <span className="text-blue-600">
-                  Unlocked: {tokenBalance?.uiAmount ?? 0}
+                  Unlocked: {tokenBalanceUi}
                 </span>
               </div>
               <div className="flex items-center space-x-1">
                 <div className="h-2 w-2 bg-green-500 rounded-full"></div>
-                <span className="text-green-600">Claimable: {claimmable?.toNumber() ?? 0}</span>
+                <span className="text-green-600">Claimable: {claimmableBN.toNumber()}</span>
               </div>
             </div>
           </>
@@ -714,11 +712,9 @@ export function BalanceCard({ publicKey, mint, account, bondedTime }: { publicKe
 export function TokenCard({ account }: { account: any }) {
   const { publicKey } = useWallet()
 
-
   const [isVisible, setIsVisible] = useState(true);
   const [hideLeft, setHideLeft] = useState(false);
   const [hideRight, setHideRight] = useState(false);
-
 
   useEffect(() => {
     const handleResize = () => {
@@ -742,7 +738,44 @@ export function TokenCard({ account }: { account: any }) {
   }, []);
 
   // ignore this, as i've specified that memeAccountQuery is for the memeaccount, not useraccount.
-  const { dev, mint, lockedAmount, creationTime, bondedTime } = account.account;
+  const { dev, mint, lockedAmount, creationTime, bondedTime } = account;
+  const { metadataQuery } = useMetadataQuery({ mint });
+  const symbol = metadataQuery.data?.symbol || "";
+  const name = metadataQuery.data?.name || "";
+  const image = metadataQuery.data?.image || "";
+  const telegram_link = metadataQuery.data?.telegram_link || "";
+  const website_link = metadataQuery.data?.website_link || "";
+  const twitter_link = metadataQuery.data?.twitter_link || "";
+  const description = metadataQuery.data?.description || "";
+
+
+
+  let userLockedAmountBN = new BN(0);
+  let claimmableBN = new BN(0);
+  let tokenBalanceBN = new BN(0);
+  let tokenBalanceUi = 0;
+
+  if (publicKey != null) {
+    const { userAccountQuery } = useAccountQuery({ publicKey, mint });
+    if (userAccountQuery.data !== undefined) {
+      userLockedAmountBN = userAccountQuery.data.lockedAmount;
+      claimmableBN = userAccountQuery.data.claimmable;
+    }
+
+    const { getSpecificTokenBalance } = useGetTokenAccounts({
+      address: publicKey,
+      mint: mint,
+    });
+    if (getSpecificTokenBalance.data !== undefined) {
+      tokenBalanceBN = new BN(getSpecificTokenBalance.data.balance);
+      tokenBalanceUi = getSpecificTokenBalance.data.uiAmount;
+    }
+  }
+
+
+
+
+
 
 
   /*
@@ -943,11 +976,11 @@ export function TokenCard({ account }: { account: any }) {
           <span className="text-sm ml-1">456</span>
         </div>
 
-        {userAccountData ? (
+        {publicKey != null ? (
           <div className="flex flex-col space-y-2 mt-4">
             {/* Total GS */}
             <div className="flex items-baseline space-x-2">
-              <div className="text-sm font-semibold text-black">50,000 GS</div>
+              <div className="text-sm font-semibold text-black">50,000 {symbol}</div>
               <div className="text-sm text-gray-500">(Total)</div>
             </div>
 
@@ -974,15 +1007,15 @@ export function TokenCard({ account }: { account: any }) {
             <div className="flex justify-between text-xs mt-1">
               <div className="flex items-center space-x-1">
                 <div className="h-2 w-2 bg-gray-400 rounded-full"></div>
-                <span className="text-gray-600">Locked: {userLockedAmount?.toNumber()}</span>
+                <span className="text-gray-600">Locked: {userLockedAmountBN.toNumber()}</span>
               </div>
               <div className="flex items-center space-x-1">
                 <div className="h-2 w-2 bg-blue-500 rounded-full"></div>
-                <span className="text-blue-600">Unlocked: 15,000</span>
+                <span className="text-blue-600">Unlocked: {tokenBalanceUi}</span>
               </div>
               <div className="flex items-center space-x-1">
                 <div className="h-2 w-2 bg-green-500 rounded-full"></div>
-                <span className="text-green-600">Claimable: {claimmable?.toNumber()}</span>
+                <span className="text-green-600">Claimable: {claimmableBN.toNumber()}</span>
               </div>
             </div>
           </div>
@@ -1010,7 +1043,7 @@ export function TokenCard({ account }: { account: any }) {
     if (!hideRight) {
       cards.push(
         publicKey ? (
-          <BalanceCard publicKey={publicKey} mint={mint} account={account} bondedTime={bondedTime} />
+          <BalanceCard publicKey={publicKey} mint={mint} account={account} bondedTime={bondedTime} symbol={symbol} userLockedAmountBN={userLockedAmountBN} claimmableBN={claimmableBN} tokenBalanceBN={tokenBalanceBN} tokenBalanceUi={tokenBalanceUi} />
         ) : (
           <div
             key="right-top"
@@ -1208,11 +1241,11 @@ export function TokenCard({ account }: { account: any }) {
               <span className="text-sm ml-1">456</span>
             </div>
             {/* GS Balance */}
-            {userAccountData ? (
+            {publicKey != null ? (
               <div className="flex flex-col space-y-2 mt-4">
                 {/* Total GS */}
                 <div className="flex items-baseline space-x-2">
-                  <div className="text-sm font-semibold text-black">50,000 GS</div>
+                  <div className="text-sm font-semibold text-black">50,000 {symbol}</div>
                   <div className="text-sm text-gray-500">(Total)</div>
                 </div>
 
@@ -1239,15 +1272,15 @@ export function TokenCard({ account }: { account: any }) {
                 <div className="flex justify-between text-xs mt-1">
                   <div className="flex items-center space-x-1">
                     <div className="h-2 w-2 bg-gray-400 rounded-full"></div>
-                    <span className="text-gray-600">Locked: {userLockedAmount?.toNumber()}</span>
+                    <span className="text-gray-600">Locked: {userLockedAmountBN.toNumber()}</span>
                   </div>
                   <div className="flex items-center space-x-1">
                     <div className="h-2 w-2 bg-blue-500 rounded-full"></div>
-                    <span className="text-blue-600">Unlocked: 15,000</span>
+                    <span className="text-blue-600">Unlocked: {tokenBalanceUi}</span>
                   </div>
                   <div className="flex items-center space-x-1">
                     <div className="h-2 w-2 bg-green-500 rounded-full"></div>
-                    <span className="text-green-600">Claimable: {claimmable?.toNumber()}</span>
+                    <span className="text-green-600">Claimmable: {claimmableBN.toNumber()}</span>
                   </div>
                 </div>
               </div>

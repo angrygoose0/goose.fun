@@ -97,12 +97,12 @@ export function AccountButtons({ address }: { address: PublicKey }) {
 
 export function AccountTokens({ address }: { address: PublicKey }) {
   const [showAll, setShowAll] = useState(false)
-  const query = useGetTokenAccounts({ address })
+  const { getAllTokenAccounts } = useGetTokenAccounts({ address })
   const client = useQueryClient()
   const items = useMemo(() => {
     if (showAll) return query.data
-    return query.data?.slice(0, 5)
-  }, [query.data, showAll])
+    return getAllTokenAccounts.data?.slice(0, 5)
+  }, [getAllTokenAccounts.data, showAll])
 
   return (
     <div className="space-y-2">
@@ -110,13 +110,13 @@ export function AccountTokens({ address }: { address: PublicKey }) {
         <div className="flex justify-between">
           <h2 className="text-2xl font-bold">Token Accounts</h2>
           <div className="space-x-2">
-            {query.isLoading ? (
+            {getAllTokenAccounts.isLoading ? (
               <span className="loading loading-spinner"></span>
             ) : (
               <button
                 className="btn btn-sm btn-outline"
                 onClick={async () => {
-                  await query.refetch()
+                  await getAllTokenAccounts.refetch()
                   await client.invalidateQueries({
                     queryKey: ['getTokenAccountBalance'],
                   })
@@ -128,10 +128,10 @@ export function AccountTokens({ address }: { address: PublicKey }) {
           </div>
         </div>
       </div>
-      {query.isError && <pre className="alert alert-error">Error: {query.error?.message.toString()}</pre>}
-      {query.isSuccess && (
+      {getAllTokenAccounts.isError && <pre className="alert alert-error">Error: {query.error?.message.toString()}</pre>}
+      {getAllTokenAccounts.isSuccess && (
         <div>
-          {query.data.length === 0 ? (
+          {getAllTokenAccounts.data.length === 0 ? (
             <div>No token accounts found.</div>
           ) : (
             <table className="table border-4 rounded-lg border-separate border-base-300">
