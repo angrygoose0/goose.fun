@@ -91,27 +91,8 @@
         },
         {
           "name": "treasury",
-          "docs": [
-            "Its validity is ensured by the PDA derivation logic and Anchor constraints."
-          ],
           "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  116,
-                  114,
-                  101,
-                  97,
-                  115,
-                  117,
-                  114,
-                  121
-                ]
-              }
-            ]
-          }
+          "signer": true
         },
         {
           "name": "system_program",
@@ -169,27 +150,7 @@
         },
         {
           "name": "treasury",
-          "docs": [
-            "Its validity is ensured by the PDA derivation logic and Anchor constraints."
-          ],
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  116,
-                  114,
-                  101,
-                  97,
-                  115,
-                  117,
-                  114,
-                  121
-                ]
-              }
-            ]
-          }
+          "writable": true
         },
         {
           "name": "signer",
@@ -308,27 +269,8 @@
         },
         {
           "name": "treasury",
-          "docs": [
-            "Its validity is ensured by the PDA derivation logic and Anchor constraints."
-          ],
           "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  116,
-                  114,
-                  101,
-                  97,
-                  115,
-                  117,
-                  114,
-                  121
-                ]
-              }
-            ]
-          }
+          "signer": true
         },
         {
           "name": "treasury_token_account",
@@ -681,27 +623,7 @@
         },
         {
           "name": "treasury",
-          "docs": [
-            "Its validity is ensured by the PDA derivation logic and Anchor constraints."
-          ],
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  116,
-                  114,
-                  101,
-                  97,
-                  115,
-                  117,
-                  114,
-                  121
-                ]
-              }
-            ]
-          }
+          "writable": true
         },
         {
           "name": "meme_entry",
@@ -806,6 +728,11 @@
       "code": 6006,
       "name": "NotBonded",
       "msg": "Hasn't bonded"
+    },
+    {
+      "code": 6007,
+      "name": "InvalidBump",
+      "msg": "Invalid Bump"
     }
   ],
   "types": [
@@ -868,6 +795,10 @@
         "fields": [
           {
             "name": "user",
+            "type": "pubkey"
+          },
+          {
+            "name": "mint",
             "type": "pubkey"
           },
           {

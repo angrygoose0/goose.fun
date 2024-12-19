@@ -33,27 +33,6 @@ export function useGetSignatures({ address }: { address: PublicKey }) {
   })
 }
 
-export function useGetAllTokenAccounts({ address }: { address: PublicKey }) {
-  const { connection } = useConnection();
-
-  return useQuery({
-    queryKey: ['get-all-token-accounts', { endpoint: connection.rpcEndpoint, address }],
-    queryFn: async () => {
-      // Fetch token accounts for both program IDs
-      const [tokenAccounts, token2022Accounts] = await Promise.all([
-        connection.getParsedTokenAccountsByOwner(address, {
-          programId: TOKEN_PROGRAM_ID,
-        }),
-        connection.getParsedTokenAccountsByOwner(address, {
-          programId: TOKEN_2022_PROGRAM_ID,
-        }),
-      ]);
-
-      return [...tokenAccounts.value, ...token2022Accounts.value];
-    },
-  });
-}
-
 export function useGetTokenAccounts({ address, mint }: { address: PublicKey, mint: PublicKey }) {
   const { connection } = useConnection();
 
@@ -78,26 +57,19 @@ export function useGetTokenAccounts({ address, mint }: { address: PublicKey, min
 
   // Fetch specific token balance
   const getSpecificTokenBalance = useQuery({
-    queryKey: ['get-token-balance', { mint }],
+    queryKey: ['get-token-balance', { address, mint }],
     queryFn: async () => {
-      if (!getAllTokenAccounts.data) {
-        return {
-          uiAmount: 0,
-          balance: 0,
-          decimals: 0,
-        };
-      }
-
-      const mintStr = mint.toBase58();
-      const matchingAccount = getAllTokenAccounts.data.find(account => {
-        return account.account.data.parsed.info.mint === mintStr;
+      const tokenAccounts = await connection.getParsedTokenAccountsByOwner(address, {
+        mint,
       });
 
-      if (matchingAccount) {
+      if (tokenAccounts.value.length > 0) {
+        const account = tokenAccounts.value[0];
+        const { tokenAmount } = account.account.data.parsed.info;
         return {
-          uiAmount: matchingAccount.account.data.parsed.info.tokenAmount.uiAmount,
-          balance: matchingAccount.account.data.parsed.info.tokenAmount.amount,
-          decimals: matchingAccount.account.data.parsed.info.tokenAmount.decimals,
+          uiAmount: tokenAmount.uiAmount,
+          balance: tokenAmount.amount,
+          decimals: tokenAmount.decimals,
         };
       }
 
@@ -108,8 +80,9 @@ export function useGetTokenAccounts({ address, mint }: { address: PublicKey, min
         decimals: 0,
       };
     },
-    enabled: !!mint, // Run only if mint is provided
+    enabled: !!address && !!mint, // Ensure query runs only if required parameters are provided
   });
+
 
   return {
     getAllTokenAccounts,

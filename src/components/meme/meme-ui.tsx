@@ -1,8 +1,9 @@
 'use client'
 
 import { ChangeEvent, useCallback, useMemo, useState, useEffect } from 'react'
-import { useMemeProgram, useMetadataQuery, useBuySellTokenMutation, useAccountQuery, useCreateMemeToken, useProcessedAccountsQuery } from './meme-data-access'
+import { useMemeProgram, useMetadataQuery, useBuySellTokenMutation, useAccountQuery, useCreateMemeToken, useProcessedAccountsQuery, useUserAccountsByMintQuery } from './meme-data-access'
 import { useGetBalance, useGetTokenAccounts } from '../account/account-data-access';
+import { toLamports, fromLamports, calculatePercentage, timeAgo, simplifyBN } from './meme-helper-functions';
 import { InputView } from "../helper-ui";
 import axios from "axios";
 import toast from "react-hot-toast";
@@ -160,6 +161,7 @@ export function MemeCreate() {
 
         // Show success message
         toast.success("Meme token created successfully!");
+        closeModal();
       } catch (error: any) {
         // Log error and show error message
         console.error("Error creating meme token:", error);
@@ -251,15 +253,12 @@ export function MemeList() {
   const { data: accounts, isLoading, error } = processedAccountsQuery;
   console.log("accounts data:", accounts);
 
-  if (isLoading) {
-    return <></>;
-  }
-  if (error) {
-    return <></>;
-  }
 
-  if (!accounts || accounts.length < 1 || accounts == null) {
-    return <></>;
+
+  if (!accounts || accounts.length < 1 || accounts == null || error || isLoading) {
+    return (<div>
+      <span className="loading loading-spinner"></span>
+    </div>);
   }
 
   //
@@ -274,11 +273,6 @@ export function MemeList() {
             ) : null
           ))}
         </div>
-
-        <div className="text-center">
-          <h2 className="text-2xl">No memes :(</h2>
-        </div>
-
       </div>
 
       <div className="flex justify-center mt-6 space-x-4">
@@ -306,15 +300,7 @@ export function MemeList() {
 
 
 
-function timeAgo(from: number): string {
-  const now = Math.floor(Date.now() / 1000); // Current time in seconds
-  const diff = now - from;
 
-  if (diff < 60) return `${diff}s`; // Seconds
-  if (diff < 3600) return `${Math.floor(diff / 60)}m`; // Minutes
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h`; // Hours
-  return `${Math.floor(diff / 86400)}d`; // Days
-}
 
 // Define an enum for action types
 export enum ActionType {
@@ -327,12 +313,8 @@ export enum ActionType {
 }
 
 
-const lamportsToTokens = (lamports: number) => {
-  return lamports / Math.pow(10, 9); // Convert lamports to tokens
-};
-
 const INITIAL_PRICE = 2.5 * 1_000_000; // 2.5 million tokens per SOL
-const SOL_TO_LAMPORTS = 1_000_000_000;
+
 
 // Conversion functions
 const convertTokensToSol = (tokens: number): number => {
@@ -343,11 +325,8 @@ const convertSolToTokens = (sol: number): number => {
   return sol * INITIAL_PRICE;
 };
 
-const convertSolToLamports = (sol: number): number => {
-  return sol * SOL_TO_LAMPORTS;
-};
 
-export function BalanceCard({ publicKey, mint, account, bondedTime, symbol, userLockedAmountBN, claimmableBN, tokenBalanceBN, tokenBalanceUi }: { publicKey: PublicKey, mint: PublicKey, account: PublicKey, bondedTime: BN, symbol: string, userLockedAmountBN: BN, claimmableBN: BN, tokenBalanceBN: BN, tokenBalanceUi: number }) {
+export function BalanceCard({ publicKey, mint, account, bondedTime, symbol, userLockedAmountBN, claimmableBN, tokenBalanceBN }: { publicKey: PublicKey, mint: PublicKey, account: PublicKey, bondedTime: BN, symbol: string, userLockedAmountBN: BN, claimmableBN: BN, tokenBalanceBN: BN }) {
   const { buySellToken } = useBuySellTokenMutation();
 
   const balanceQuery = useGetBalance({ address: publicKey })
@@ -359,16 +338,11 @@ export function BalanceCard({ publicKey, mint, account, bondedTime, symbol, user
     .add(userLockedAmountBN)
     .add(claimmableBN);
 
-  const totalTokensNumber = totalTokens.toNumber();
-  const lockedPercentage = totalTokensNumber > 0
-    ? (userLockedAmountBN.toNumber() / totalTokensNumber) * 100
-    : 0;
-  const unlockedPercentage = totalTokensNumber > 0
-    ? (tokenBalanceBN.toNumber() / totalTokensNumber) * 100
-    : 0;
-  const claimablePercentage = totalTokensNumber > 0
-    ? (claimmableBN.toNumber() / totalTokensNumber) * 100
-    : 0;
+  const lockedPercentage = calculatePercentage(userLockedAmountBN, totalTokens);
+  const unlockedPercentage = calculatePercentage(tokenBalanceBN, totalTokens);
+  const claimmablePercentage = calculatePercentage(claimmableBN, totalTokens);
+
+
 
   const [amount, setAmount] = useState(0);
   const [showingSol, setShowingSol] = useState(true); // true for showing SOL, false for showing token
@@ -400,9 +374,9 @@ export function BalanceCard({ publicKey, mint, account, bondedTime, symbol, user
       }
     } else if (selectedAction === ActionType.Sell) {
       if (useShowingSol) {
-        setAmount(Math.min(numericValue, convertTokensToSol(lamportsToTokens(userLockedAmountBN.toNumber()))));
+        setAmount(Math.min(numericValue, convertTokensToSol(fromLamports(userLockedAmountBN).toNumber())));
       } else {
-        setAmount(Math.min(numericValue, lamportsToTokens(userLockedAmountBN.toNumber())));
+        setAmount(Math.min(numericValue, fromLamports(userLockedAmountBN).toNumber()));
       }
     } else {
       setAmount(numericValue);
@@ -449,7 +423,7 @@ export function BalanceCard({ publicKey, mint, account, bondedTime, symbol, user
       }
 
       // Perform the buy/sell operation
-      await buySellToken.mutateAsync({ publicKey, amount: convertSolToLamports(amountSentToSolana), mint });
+      await buySellToken.mutateAsync({ publicKey, amount: toLamports(new BN(amountSentToSolana)).toNumber(), mint });
       toast.success("Success!");
     } catch (error: any) {
       console.error(error);
@@ -558,9 +532,9 @@ export function BalanceCard({ publicKey, mint, account, bondedTime, symbol, user
             {/* When bondedTime is negative so hasnt bonded */}
             <div className="flex items-baseline space-x-2">
               <div className="text-sm font-semibold text-black">
-                {lamportsToTokens(userLockedAmountBN.toNumber())} {symbol.toString()}
+                {simplifyBN(fromLamports(userLockedAmountBN))} {symbol.toString()}
               </div>
-              <div className="text-sm text-gray-500">(Total)</div>
+              <div className="text-sm text-gray-500">~ $92.21</div>
             </div>
 
             <div className="h-2 border-2 border-black bg-white relative">
@@ -574,7 +548,7 @@ export function BalanceCard({ publicKey, mint, account, bondedTime, symbol, user
               <div className="flex items-center space-x-1">
                 <div className="h-2 w-2 bg-purple-500 rounded-full"></div>
                 <span className="text-purple-600">
-                  Invested: {lamportsToTokens(userLockedAmountBN.toNumber())}
+                  Invested: {simplifyBN(fromLamports(userLockedAmountBN))}
                 </span>
               </div>
             </div>
@@ -586,7 +560,7 @@ export function BalanceCard({ publicKey, mint, account, bondedTime, symbol, user
               <div className="text-sm font-semibold text-black">
                 {totalTokens.toString()} {symbol.toString()}
               </div>
-              <div className="text-sm text-gray-500">(Total)</div>
+              <div className="text-sm text-gray-500">~ $12.52</div>
             </div>
 
             <div className="h-2 border-2 border-black bg-white relative">
@@ -604,8 +578,8 @@ export function BalanceCard({ publicKey, mint, account, bondedTime, symbol, user
               <div
                 className="absolute top-0 left-0 h-full bg-green-500"
                 style={{
-                  width: `${claimablePercentage}%`,
-                  marginLeft: `${lockedPercentage + unlockedPercentage}%`,
+                  width: `${claimmablePercentage}%`,
+                  marginLeft: `${lockedPercentage.add(unlockedPercentage)}%`,
                 }}
               ></div>
             </div>
@@ -613,17 +587,18 @@ export function BalanceCard({ publicKey, mint, account, bondedTime, symbol, user
             <div className="flex justify-between text-xs mt-1">
               <div className="flex items-center space-x-1">
                 <div className="h-2 w-2 bg-gray-400 rounded-full"></div>
-                <span className="text-gray-600">Locked: {userLockedAmountBN.toNumber()}</span>
+
+                <span className="text-gray-600">Locked: {simplifyBN(userLockedAmountBN)}</span>
               </div>
               <div className="flex items-center space-x-1">
                 <div className="h-2 w-2 bg-blue-500 rounded-full"></div>
                 <span className="text-blue-600">
-                  Unlocked: {tokenBalanceUi}
+                  Unlocked: {simplifyBN(tokenBalanceBN)}
                 </span>
               </div>
               <div className="flex items-center space-x-1">
                 <div className="h-2 w-2 bg-green-500 rounded-full"></div>
-                <span className="text-green-600">Claimable: {claimmableBN.toNumber()}</span>
+                <span className="text-green-600">Claimable: {simplifyBN(claimmableBN)}</span>
               </div>
             </div>
           </>
@@ -640,6 +615,7 @@ export function BalanceCard({ publicKey, mint, account, bondedTime, symbol, user
           onChange={handleFormFieldChange}
 
         />
+
         <button
           className="absolute right-2 top-1/2 -translate-y-1/2 bg-gray-200 text-gray-600 text-sm px-4 py-1 rounded focus:outline-none"
           onClick={toggleSolOrToken}
@@ -648,8 +624,7 @@ export function BalanceCard({ publicKey, mint, account, bondedTime, symbol, user
         </button>
 
       </div>
-
-      <p>{amount}</p>
+      <div className="text-sm text-gray-500 mb-2">~ $49.06</div>
 
       <div className="flex space-x-4 mb-4">
         {selectedAction === ActionType.Buy ? (
@@ -708,7 +683,6 @@ export function BalanceCard({ publicKey, mint, account, bondedTime, symbol, user
 }
 
 
-
 export function TokenCard({ account }: { account: any }) {
   const { publicKey } = useWallet()
 
@@ -748,12 +722,17 @@ export function TokenCard({ account }: { account: any }) {
   const twitter_link = metadataQuery.data?.twitter_link || "";
   const description = metadataQuery.data?.description || "";
 
+  const { userAccountsByMintQuery } = useUserAccountsByMintQuery({ mint });
 
+  const holderData = userAccountsByMintQuery.data ?? null;
+
+
+  const divisor = bondedTime.isNeg() ? new BN('800000000000000000') : new BN('1000000000000000000');
+  const globalPercentage = calculatePercentage(lockedAmount, divisor);
 
   let userLockedAmountBN = new BN(0);
   let claimmableBN = new BN(0);
   let tokenBalanceBN = new BN(0);
-  let tokenBalanceUi = 0;
 
   if (publicKey != null) {
     const { userAccountQuery } = useAccountQuery({ publicKey, mint });
@@ -768,30 +747,16 @@ export function TokenCard({ account }: { account: any }) {
     });
     if (getSpecificTokenBalance.data !== undefined) {
       tokenBalanceBN = new BN(getSpecificTokenBalance.data.balance);
-      tokenBalanceUi = getSpecificTokenBalance.data.uiAmount;
     }
   }
 
+  const totalTokens = tokenBalanceBN
+    .add(userLockedAmountBN)
+    .add(claimmableBN);
 
-
-
-
-
-
-  /*
-  const globalPercentageBN = lockedAmount.isZero()
-    ? new BN(0) // If lockedAmount is 0, percentage is 0
-    : bondedTime < new BN(0)
-      ? lockedAmount
-        .div(new BN(800_000_000 * 10 ** 9)) // For negative bondedTime
-        .mul(new BN(100)) // Convert to percentage
-      : lockedAmount
-        .div(new BN(1_000_000_000 * 10 ** 9)) // For positive bondedTime
-        .mul(new BN(100)); // Convert to percentage
-
-  const globalPercentage = parseFloat(globalPercentageBN.toString()) / (10 ** 9); // Adjust precision
-  const formattedPercentage = `${globalPercentage.toFixed(2)}%`; // Format to 2 decimal places
-  */
+  const lockedPercentage = calculatePercentage(userLockedAmountBN, totalTokens);
+  const unlockedPercentage = calculatePercentage(tokenBalanceBN, totalTokens);
+  const claimmablePercentage = calculatePercentage(claimmableBN, totalTokens);
 
   const renderGridCards = () => {
     const cards = [];
@@ -858,31 +823,30 @@ export function TokenCard({ account }: { account: any }) {
               maxHeight: "1000px", // Adjust height as needed
             }}
           >
-            {[
-              { rank: 1, percentage: "40%", wallet: "0xA1B2...C3D4" },
-              { rank: 2, percentage: "30%", wallet: "0xE5F6...G7H8" },
-              { rank: 3, percentage: "20%", wallet: "0xI9J0...K1L2" },
-              { rank: 4, percentage: "5%", wallet: "0xM3N4...O5P6" },
-              { rank: 5, percentage: "5%", wallet: "0xQ7R8...S9T0" },
-              { rank: 1, percentage: "40%", wallet: "0xA1B2...C3D4" },
-              { rank: 2, percentage: "30%", wallet: "0xE5F6...G7H8" },
-              { rank: 3, percentage: "20%", wallet: "0xI9J0...K1L2" },
-              { rank: 4, percentage: "5%", wallet: "0xM3N4...O5P6" },
-              { rank: 5, percentage: "5%", wallet: "0xQ7R8...S9T0" },
-
-            ].map((holder, index) => (
-              <div
-                key={index}
-                className="flex justify-between items-center border-b pb-2"
-              >
-                <div className="text-sm font-medium"># {holder.rank}</div>
-                <div className="text-sm">{holder.percentage}</div>
-                <div className="text-sm text-gray-600">{holder.wallet}</div>
-              </div>
-            ))}
+            {holderData !== null ? (
+              holderData.map((account, index) => (
+                account !== null && account !== undefined && ( // Check if account is not null/undefined
+                  <div
+                    key={index}
+                    className="flex justify-between items-center border-b pb-2"
+                  >
+                    <div className="text-sm font-medium"># {account.user.toString()}</div>
+                    <div className="text-sm">{account.lockedAmount.toString()}</div>
+                    <div className="text-sm text-gray-600">{account.claimmable.toString()}</div>
+                    <div className="text-sm text-gray-600">{account.tokenBalance.toString()}</div>
+                    <div className="text-sm text-gray-600">{account.total.toString()}</div>
+                  </div>
+                )
+              ))
+            ) : (
+              <div className="text-sm text-gray-500">No data available.</div>
+            )}
           </div>
         </div>
       );
+
+
+
     }
 
     cards.push(
@@ -904,7 +868,9 @@ export function TokenCard({ account }: { account: any }) {
           <div className="ml-4">
             <h2 className="text-xl font-bold">
               <span className="font-bold">{symbol}</span>
-              <span className="font-normal"> | {name}</span>
+              <span className="font-normal"> {name}
+                <span className="text-gray-500 text-xs ml-2">{mint.toString()}</span>
+              </span>
             </h2>
             <p className="text-gray-700 text-sm mt-2">
               {description}
@@ -948,11 +914,17 @@ export function TokenCard({ account }: { account: any }) {
             </a>
           )}
         </div>
-        <p className="text-gray-700 text-sm mt-4"> | 20k</p>
+        <div className="flex flex-col space-y-1 mt-2">
+          <div className="flex items-baseline space-x-2">
+            <div className="text-sm font-semibold text-black">{globalPercentage.toString()} %</div>
+            <div className="text-sm text-gray-500">~ $49.06</div>
+          </div>
+        </div>
         <div className="mt-1 h-2 border-2 border-black bg-white relative">
+
           <div
-            className="absolute top-0 left-0 h-full bg-black"
-          //style={{ width: `${globalPercentage}%` }}
+            className="absolute top-0 left-0 h-full bg-purple-300"
+            style={{ width: `${globalPercentage}%` }}
           ></div>
         </div>
         <div className="flex justify-start items-center text-gray-500 mt-2">
@@ -976,52 +948,7 @@ export function TokenCard({ account }: { account: any }) {
           <span className="text-sm ml-1">456</span>
         </div>
 
-        {publicKey != null ? (
-          <div className="flex flex-col space-y-2 mt-4">
-            {/* Total GS */}
-            <div className="flex items-baseline space-x-2">
-              <div className="text-sm font-semibold text-black">50,000 {symbol}</div>
-              <div className="text-sm text-gray-500">(Total)</div>
-            </div>
-
-            {/* Color-Coded Bar */}
-            <div className="mt-1 h-2 border-2 border-black bg-white relative">
-              {/* Locked Amount */}
-              <div
-                className="absolute top-0 left-0 h-full bg-gray-400"
-                style={{ width: "50%" }} // Adjust dynamically
-              ></div>
-              {/* Unlocked Amount */}
-              <div
-                className="absolute top-0 left-0 h-full bg-blue-500"
-                style={{ width: "30%", marginLeft: "50%" }} // Adjust dynamically
-              ></div>
-              {/* Claimable Amount */}
-              <div
-                className="absolute top-0 left-0 h-full bg-green-500"
-                style={{ width: "20%", marginLeft: "80%" }} // Adjust dynamically
-              ></div>
-            </div>
-
-            {/* Labels with Color Codes */}
-            <div className="flex justify-between text-xs mt-1">
-              <div className="flex items-center space-x-1">
-                <div className="h-2 w-2 bg-gray-400 rounded-full"></div>
-                <span className="text-gray-600">Locked: {userLockedAmountBN.toNumber()}</span>
-              </div>
-              <div className="flex items-center space-x-1">
-                <div className="h-2 w-2 bg-blue-500 rounded-full"></div>
-                <span className="text-blue-600">Unlocked: {tokenBalanceUi}</span>
-              </div>
-              <div className="flex items-center space-x-1">
-                <div className="h-2 w-2 bg-green-500 rounded-full"></div>
-                <span className="text-green-600">Claimable: {claimmableBN.toNumber()}</span>
-              </div>
-            </div>
-          </div>
-        ) : null}
-
-      </div>
+      </div >
     );
     cards.push(
       <div
@@ -1043,7 +970,7 @@ export function TokenCard({ account }: { account: any }) {
     if (!hideRight) {
       cards.push(
         publicKey ? (
-          <BalanceCard publicKey={publicKey} mint={mint} account={account} bondedTime={bondedTime} symbol={symbol} userLockedAmountBN={userLockedAmountBN} claimmableBN={claimmableBN} tokenBalanceBN={tokenBalanceBN} tokenBalanceUi={tokenBalanceUi} />
+          <BalanceCard publicKey={publicKey} mint={mint} account={account} bondedTime={bondedTime} symbol={symbol} userLockedAmountBN={userLockedAmountBN} claimmableBN={claimmableBN} tokenBalanceBN={tokenBalanceBN} />
         ) : (
           <div
             key="right-top"
@@ -1170,7 +1097,10 @@ export function TokenCard({ account }: { account: any }) {
               <div className="ml-4">
                 <h2 className="text-xl font-bold">
                   <span className="font-bold">{symbol}</span>
-                  <span className="font-normal"> {name}</span>
+                  <span className="font-normal"> {name}
+                    <span className="text-gray-500 text-xs ml-2">{mint.toString().slice(0, 10)}...</span>
+                  </span>
+
                 </h2>
                 <p className="text-gray-700 text-sm mt-2">
                   {description}
@@ -1214,10 +1144,18 @@ export function TokenCard({ account }: { account: any }) {
                 </a>
               )}
             </div>
-            <p className="text-gray-700 text-sm mt-4"> | 20k</p>
+
+            <div className="flex flex-col space-y-1 mt-2">
+              <div className="flex items-baseline space-x-2">
+                <div className="text-sm font-semibold text-black">{globalPercentage.toString()} %</div>
+                <div className="text-sm text-gray-500">~ $49.06</div>
+              </div>
+            </div>
             <div className="mt-1 h-2 border-2 border-black bg-white relative">
+
               <div
-                className="absolute top-0 left-0 h-full bg-black"
+                className="absolute top-0 left-0 h-full bg-purple-300"
+                style={{ width: `${globalPercentage}%` }}
               ></div>
             </div>
             <div className="flex justify-start items-center text-gray-500 mt-2">
@@ -1242,47 +1180,82 @@ export function TokenCard({ account }: { account: any }) {
             </div>
             {/* GS Balance */}
             {publicKey != null ? (
-              <div className="flex flex-col space-y-2 mt-4">
-                {/* Total GS */}
-                <div className="flex items-baseline space-x-2">
-                  <div className="text-sm font-semibold text-black">50,000 {symbol}</div>
-                  <div className="text-sm text-gray-500">(Total)</div>
-                </div>
+              <div className="flex flex-col space-y-2 mt-2">
+                {bondedTime < new BN(0) ? (
+                  <>
+                    {/* When bondedTime is negative so hasnt bonded */}
+                    <div className="flex items-baseline space-x-2">
+                      <div className="text-sm font-semibold text-black">
+                        {simplifyBN(fromLamports(userLockedAmountBN))} {symbol.toString()}
+                      </div>
+                      <div className="text-sm text-gray-500">~ $12.24</div>
+                    </div>
 
-                {/* Color-Coded Bar */}
-                <div className="mt-1 h-2 border-2 border-black bg-white relative">
-                  {/* Locked Amount */}
-                  <div
-                    className="absolute top-0 left-0 h-full bg-gray-400"
-                    style={{ width: "50%" }} // Adjust dynamically
-                  ></div>
-                  {/* Unlocked Amount */}
-                  <div
-                    className="absolute top-0 left-0 h-full bg-blue-500"
-                    style={{ width: "30%", marginLeft: "50%" }} // Adjust dynamically
-                  ></div>
-                  {/* Claimable Amount */}
-                  <div
-                    className="absolute top-0 left-0 h-full bg-green-500"
-                    style={{ width: "20%", marginLeft: "80%" }} // Adjust dynamically
-                  ></div>
-                </div>
+                    <div className="h-2 border-2 border-black bg-white relative">
+                      <div
+                        className="absolute top-0 left-0 h-full bg-purple-500"
+                        style={{ width: "100%" }}
+                      ></div>
+                    </div>
 
-                {/* Labels with Color Codes */}
-                <div className="flex justify-between text-xs mt-1">
-                  <div className="flex items-center space-x-1">
-                    <div className="h-2 w-2 bg-gray-400 rounded-full"></div>
-                    <span className="text-gray-600">Locked: {userLockedAmountBN.toNumber()}</span>
-                  </div>
-                  <div className="flex items-center space-x-1">
-                    <div className="h-2 w-2 bg-blue-500 rounded-full"></div>
-                    <span className="text-blue-600">Unlocked: {tokenBalanceUi}</span>
-                  </div>
-                  <div className="flex items-center space-x-1">
-                    <div className="h-2 w-2 bg-green-500 rounded-full"></div>
-                    <span className="text-green-600">Claimmable: {claimmableBN.toNumber()}</span>
-                  </div>
-                </div>
+                    <div className="flex justify-between text-xs mt-1">
+                      <div className="flex items-center space-x-1">
+                        <div className="h-2 w-2 bg-purple-500 rounded-full"></div>
+                        <span className="text-purple-600">
+                          Invested: {simplifyBN(fromLamports(userLockedAmountBN))}
+                        </span>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    {/* When bondedTime is positive */}
+                    <div className="flex items-baseline space-x-2">
+                      <div className="text-sm font-semibold text-black">
+                        {totalTokens.toString()} {symbol.toString()}
+                      </div>
+                      <div className="text-sm text-gray-500">~ $49.22</div>
+                    </div>
+
+                    <div className="h-2 border-2 border-black bg-white relative">
+                      <div
+                        className="absolute top-0 left-0 h-full bg-gray-400"
+                        style={{ width: `${lockedPercentage}%` }}
+                      ></div>
+                      <div
+                        className="absolute top-0 left-0 h-full bg-blue-500"
+                        style={{
+                          width: `${unlockedPercentage}%`,
+                          marginLeft: `${lockedPercentage}%`,
+                        }}
+                      ></div>
+                      <div
+                        className="absolute top-0 left-0 h-full bg-green-500"
+                        style={{
+                          width: `${claimmablePercentage}%`,
+                          marginLeft: `${lockedPercentage.add(unlockedPercentage)}%`,
+                        }}
+                      ></div>
+                    </div>
+
+                    <div className="flex justify-between text-xs mt-1">
+                      <div className="flex items-center space-x-1">
+                        <div className="h-2 w-2 bg-gray-400 rounded-full"></div>
+                        <span className="text-gray-600">Locked: {simplifyBN(userLockedAmountBN)}</span>
+                      </div>
+                      <div className="flex items-center space-x-1">
+                        <div className="h-2 w-2 bg-blue-500 rounded-full"></div>
+                        <span className="text-blue-600">
+                          Unlocked: {toLamports(tokenBalanceBN).toString()}
+                        </span>
+                      </div>
+                      <div className="flex items-center space-x-1">
+                        <div className="h-2 w-2 bg-green-500 rounded-full"></div>
+                        <span className="text-green-600">Claimable: {toLamports(claimmableBN).toString()}</span>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             ) : null}
           </div>

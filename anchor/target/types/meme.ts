@@ -97,27 +97,8 @@ export type Meme = {
         },
         {
           "name": "treasury",
-          "docs": [
-            "Its validity is ensured by the PDA derivation logic and Anchor constraints."
-          ],
           "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  116,
-                  114,
-                  101,
-                  97,
-                  115,
-                  117,
-                  114,
-                  121
-                ]
-              }
-            ]
-          }
+          "signer": true
         },
         {
           "name": "systemProgram",
@@ -175,27 +156,7 @@ export type Meme = {
         },
         {
           "name": "treasury",
-          "docs": [
-            "Its validity is ensured by the PDA derivation logic and Anchor constraints."
-          ],
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  116,
-                  114,
-                  101,
-                  97,
-                  115,
-                  117,
-                  114,
-                  121
-                ]
-              }
-            ]
-          }
+          "writable": true
         },
         {
           "name": "signer",
@@ -314,27 +275,8 @@ export type Meme = {
         },
         {
           "name": "treasury",
-          "docs": [
-            "Its validity is ensured by the PDA derivation logic and Anchor constraints."
-          ],
           "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  116,
-                  114,
-                  101,
-                  97,
-                  115,
-                  117,
-                  114,
-                  121
-                ]
-              }
-            ]
-          }
+          "signer": true
         },
         {
           "name": "treasuryTokenAccount",
@@ -687,27 +629,7 @@ export type Meme = {
         },
         {
           "name": "treasury",
-          "docs": [
-            "Its validity is ensured by the PDA derivation logic and Anchor constraints."
-          ],
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  116,
-                  114,
-                  101,
-                  97,
-                  115,
-                  117,
-                  114,
-                  121
-                ]
-              }
-            ]
-          }
+          "writable": true
         },
         {
           "name": "memeEntry",
@@ -812,6 +734,11 @@ export type Meme = {
       "code": 6006,
       "name": "notBonded",
       "msg": "Hasn't bonded"
+    },
+    {
+      "code": 6007,
+      "name": "invalidBump",
+      "msg": "Invalid Bump"
     }
   ],
   "types": [
@@ -874,6 +801,10 @@ export type Meme = {
         "fields": [
           {
             "name": "user",
+            "type": "pubkey"
+          },
+          {
+            "name": "mint",
             "type": "pubkey"
           },
           {

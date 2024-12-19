@@ -86,7 +86,6 @@ pub mod meme {
         name: String,
     ) -> Result<()> {
         let seeds = &["mint".as_bytes(), &symbol.as_bytes(), &name.as_bytes(), &[ctx.bumps.mint]];
-        //let seeds = &["treasury".as_bytes(), &[ctx.bumps.treasury]];
         let signer = [&seeds[..]];
 
         mint_to(
@@ -124,6 +123,7 @@ pub mod meme {
         require!(amount != 0, CustomError::InvalidAmount);
 
         user_account.user = ctx.accounts.signer.key();
+        user_account.user = ctx.accounts.mint.key();
 
         require!(
             meme_entry.bonded_time > 0,
@@ -201,6 +201,7 @@ pub mod meme {
         require!(amount != 0, CustomError::InvalidAmount);
 
         user_account.user = ctx.accounts.signer.key();
+        user_account.user = ctx.accounts.mint.key();
 
         require!(
             meme_entry.bonded_time < 0,
@@ -250,8 +251,7 @@ pub mod meme {
                 .checked_sub(spl_deduction)
                 .ok_or(CustomError::Underflow)?;
 
-            //if everything good, user receives amount sol lamports from treasury
-
+            
             let transfer_instruction = system_instruction::transfer(
                 &ctx.accounts.treasury.key(),
                 &ctx.accounts.signer.key(),
@@ -324,16 +324,9 @@ pub struct InitToken<'info>{
         mint::authority = mint,
     )]
     pub mint: Account<'info, Mint>,
-    /// CHECK: This is the treasury account derived using a PDA with seeds [b"treasury"].
-    /// Its validity is ensured by the PDA derivation logic and Anchor constraints.
-    #[account(
-        init_if_needed,
-        payer = signer,
-        space = 8,
-        seeds = [b"treasury"],
-        bump,
-    )]
-    pub treasury: AccountInfo<'info>,
+    #[account(mut)]
+    pub treasury: SystemAccount<'info>,
+
     #[account(mut)]
     pub signer: Signer<'info>, // The signer who sends SOL
     pub rent: Sysvar<'info, Rent>,
@@ -373,16 +366,9 @@ pub struct MintTokens<'info>{
     )]
     pub treasury_token_account: Account<'info, TokenAccount>,
 
-    /// CHECK: This is the treasury account derived using a PDA with seeds [b"treasury"].
-    /// Its validity is ensured by the PDA derivation logic and Anchor constraints.
-    #[account(
-        init_if_needed,
-        space = 8,
-        payer = signer,
-        seeds = [b"treasury"],
-        bump,
-    )]
-    pub treasury:  AccountInfo<'info>,
+    #[account(mut)]
+    pub treasury: SystemAccount<'info>,
+
 
     #[account(
         init,
@@ -391,9 +377,10 @@ pub struct MintTokens<'info>{
         space = 8 + MemeEntryState::INIT_SPACE,
         payer = signer,
     )]
-    pub meme_entry: Account<'info, MemeEntryState>,   
+    pub meme_entry: Box<Account<'info, MemeEntryState>>,   
 
 }
+
 
 
 #[derive(Accounts)]
@@ -409,14 +396,9 @@ pub struct UpdateMemeEntry<'info> {
     #[account(mut)]
     pub signer: Signer<'info>,
 
-    /// CHECK: This is the treasury account derived using a PDA with seeds [b"treasury"].
-    /// Its validity is ensured by the PDA derivation logic and Anchor constraints.
-    #[account(
-        mut,
-        seeds = [b"treasury"],
-        bump,
-    )]
-    pub treasury: AccountInfo<'info>,
+    #[account(mut)]
+    pub treasury: SystemAccount<'info>,
+
 
     pub system_program: Program<'info, System>,
 
@@ -438,6 +420,8 @@ pub enum CustomError {
     HasBonded,
     #[msg("Hasn't bonded")]
     NotBonded,
+    #[msg("Invalid Bump")]
+    InvalidBump,
 }
 
 
@@ -447,7 +431,7 @@ pub struct MemeEntryState { //8
     pub dev: Pubkey, //32
     pub mint: Pubkey, //32
 
-    pub locked_amount: u64, //8
+    pub locked_amount: u64, //8 billion * billion
 
     pub creation_time: i64, // 8
     pub bonded_time: i64,  // -1 for none (8)
@@ -455,10 +439,11 @@ pub struct MemeEntryState { //8
 
 #[account]
 #[derive(InitSpace)]
-pub struct UserAccount {
-    pub user: Pubkey,
-    pub locked_amount: u64,
-    pub claimmable: u64,
+pub struct UserAccount { //8
+    pub user: Pubkey, //32
+    pub mint: Pubkey, //32
+    pub locked_amount: u64, //8
+    pub claimmable: u64, //8
 }
 
 #[derive(Accounts)]
@@ -486,14 +471,9 @@ pub struct LockUnlockAfterBonding<'info> {
     )]
     pub mint: Account<'info, Mint>,
 
-    /// CHECK: This is the treasury account derived using a PDA with seeds [b"treasury"].
-    /// Its validity is ensured by the PDA derivation logic and Anchor constraints.
-    #[account(
-        mut,
-        seeds = [b"treasury"],
-        bump,
-    )]
-    pub treasury: AccountInfo<'info>,
+    #[account(mut, signer)]
+    pub treasury: SystemAccount<'info>,
+
 
     #[account(
         mut,
@@ -538,14 +518,9 @@ pub struct BuySellBeforeBonding<'info> {
     )]
     pub mint: Account<'info, Mint>,
 
-    /// CHECK: This is the treasury account derived using a PDA with seeds [b"treasury"].
-    /// Its validity is ensured by the PDA derivation logic and Anchor constraints.
-    #[account(
-        mut,
-        seeds = [b"treasury"],
-        bump,
-    )]
-    pub treasury: AccountInfo<'info>,
+    #[account(mut, signer)]
+    pub treasury: SystemAccount<'info>,
+
 
     pub system_program: Program<'info, System>,
 }
@@ -566,14 +541,9 @@ pub struct BondToRaydium<'info> {
     )]
     pub mint: Account<'info, Mint>,
 
-    /// CHECK: This is the treasury account derived using a PDA with seeds [b"treasury"].
-    /// Its validity is ensured by the PDA derivation logic and Anchor constraints.
-    #[account(
-        mut,
-        seeds = [b"treasury"],
-        bump,
-    )]
-    pub treasury: AccountInfo<'info>,
+    #[account(mut, signer)]
+    pub treasury: SystemAccount<'info>,
+
 
     pub system_program: Program<'info, System>,
 }

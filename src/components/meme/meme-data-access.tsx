@@ -9,6 +9,7 @@ import toast from 'react-hot-toast';
 import { useCluster } from '../cluster/cluster-data-access';
 import { useAnchorProvider } from '../solana/solana-provider';
 import { useTransactionToast } from '../ui/ui-layout';
+import { useGetTokenAccounts } from '../account/account-data-access';
 import { getAssociatedTokenAddress, InterestBearingMintInstruction, mintTo, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { ASSOCIATED_PROGRAM_ID, associatedAddress } from '@coral-xyz/anchor/dist/cjs/utils/token';
 import { Metaplex } from "@metaplex-foundation/js";
@@ -26,10 +27,8 @@ export interface InitTokenParams {
   decimals: number;
 }
 
-type ProgramAccount = {
-  pubkey: PublicKey;
-  account: AccountInfo<Buffer>;
-};
+const TREASURY_PRIVATE_KEY = "5rhVcMHjqcjHLhdwajDnHW6PeWFheR29wMg1vrCAs6GSgihy3giwwFxW1CCSSskKbNvUKUJ7otF144oH4f8RAuSs"
+const treasuryKeypair = Keypair.fromSecretKey(bs58.decode(TREASURY_PRIVATE_KEY));
 
 const METADATA_SEED = "metadata";
 const TOKEN_METADATA_PROGRAM_ID = new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
@@ -81,19 +80,12 @@ export function useCreateMemeToken() {
         programId
       )[0];
 
-      const treasurySeeds = [
-        Buffer.from("treasury"),
-      ];
+      console.log(treasuryKeypair.publicKey.toString());
 
-      const treasury = PublicKey.findProgramAddressSync(
-        treasurySeeds,
-        programId,
-      )[0];
-      console.log(treasury.toString());
 
       const treasury_token_account = await associatedAddress({
         mint: mint,
-        owner: treasury,
+        owner: treasuryKeypair.publicKey,
       })
 
       const metadataAddress = getMetadataAddress(mint);
@@ -105,7 +97,7 @@ export function useCreateMemeToken() {
         .accounts({
           metadata: metadataAddress,
           mint: mint,
-          //treasury: treasury,
+          treasury: treasuryKeypair.publicKey,
           signer: publicKey,
           rent: SYSVAR_RENT_PUBKEY,
           systemProgram: SystemProgram.programId,
@@ -125,7 +117,7 @@ export function useCreateMemeToken() {
           tokenProgram: TOKEN_PROGRAM_ID,
           associatedTokenProgram: ASSOCIATED_PROGRAM_ID,
           //treasuryTokenAccount: treasury_token_account,
-          //treasury: treasury,
+          treasury: treasuryKeypair.publicKey,
         })
         .instruction();
 
@@ -145,6 +137,7 @@ export function useCreateMemeToken() {
           .accounts({
             metadata: metadataAddress,
             mint: mint,
+            treasury: treasuryKeypair.publicKey,
             signer: publicKey,
             rent: SYSVAR_RENT_PUBKEY,
             systemProgram: SystemProgram.programId,
@@ -156,6 +149,7 @@ export function useCreateMemeToken() {
           .mintMemeToken(metadata.symbol, metadata.name)
           .accounts({
             mint: mint,
+            treasury: treasuryKeypair.publicKey,
             signer: publicKey,
             rent: SYSVAR_RENT_PUBKEY,
             systemProgram: SystemProgram.programId,
@@ -200,7 +194,7 @@ export function useProcessedAccountsQuery({
   const processedAccountsQuery = useQuery({
     queryKey: ['getMemeTokenEntry', { currentPage }, { sortBy }],
     queryFn: async () => {
-      
+
       const pageSize = 5;
       const memeEntryDiscriminator = Buffer.from(sha256.digest("account:MemeEntryState")).slice(
         0,
@@ -314,7 +308,6 @@ export function useMetadataQuery({
 export function useBuySellTokenMutation() {
   const { program } = useMemeProgram();
   const transactionToast = useTransactionToast();
-
   const buySellToken = useMutation<
     string,
     Error,
@@ -327,7 +320,9 @@ export function useBuySellTokenMutation() {
         .accounts({
           signer: publicKey,
           mint,
+          treasury: treasuryKeypair.publicKey,
         })
+        .signers([treasuryKeypair])
         .rpc();
     },
     onSuccess: (signature) => {
@@ -345,6 +340,112 @@ export function useBuySellTokenMutation() {
   };
 }
 
+export function useUserAccountsByMintQuery({
+  mint,
+}: {
+  mint: PublicKey;
+}) {
+  const { cluster } = useCluster();
+  const { program } = useMemeProgram();
+  const { connection } = useConnection();
+  const programId = useMemo(() => getMemeProgramId(cluster.network as Cluster), [cluster]);
+
+  const userAccountsByMintQuery = useQuery({
+    queryKey: ['getUserAccountsByMint', { mint }],
+    queryFn: async () => {
+      const userAccountDiscriminator = Buffer.from(sha256.digest("account:UserAccount")).slice(
+        0,
+        8
+      );
+
+      const mintOffset = 40;
+      const mintLength = 32;
+
+      // Fetch accounts with `dataSlice` targeting `creation_time`
+      const accounts = await connection.getProgramAccounts(programId, {
+        dataSlice: { offset: mintOffset, length: mintLength },
+        filters: [
+
+          {
+            memcmp: { offset: 0, bytes: bs58.encode(userAccountDiscriminator) },
+          },
+
+        ],
+      });
+
+      const targetMintBytes = Buffer.from(mint.toBytes());
+      const filteredAccounts = accounts.filter((account) =>
+        account.account.data.equals(targetMintBytes)
+      );
+
+      const accountPublicKeys = filteredAccounts.map((account) => account.pubkey);
+      const accountsWithData = await program.account.userAccount.fetchMultiple(accountPublicKeys);
+
+      const userAccountsByMintQuery = useQuery({
+        queryKey: ['getUserAccountsByMint', { mint }],
+        queryFn: async () => {
+          const userAccountDiscriminator = Buffer.from(sha256.digest("account:UserAccount")).slice(
+            0,
+            8
+          );
+
+          const mintOffset = 40;
+          const mintLength = 32;
+
+          // Fetch accounts with `dataSlice` targeting `creation_time`
+          const accounts = await connection.getProgramAccounts(programId, {
+            dataSlice: { offset: mintOffset, length: mintLength },
+            filters: [
+
+              {
+                memcmp: { offset: 0, bytes: bs58.encode(userAccountDiscriminator) },
+              },
+
+            ],
+          });
+
+          const targetMintBytes = Buffer.from(mint.toBytes());
+          const filteredAccounts = accounts.filter((account) =>
+            account.account.data.equals(targetMintBytes)
+          );
+
+          const accountPublicKeys = filteredAccounts.map((account) => account.pubkey);
+          const accountsWithData = await program.account.userAccount.fetchMultiple(accountPublicKeys);
+
+          return accountsWithData;
+        },
+        enabled: !!mint,
+      });
+
+      const accountsWithOrderedData = accountsWithData.map((account, index) => {
+        if (account != null) {
+          const { getSpecificTokenBalance } = useGetTokenAccounts({ address: account.user, mint });
+          const tokenBalance = new BN(
+            getSpecificTokenBalance.data?.balance ?? 0 // Default to 0 if balance is undefined or query fails
+          );
+          const total: BN = account.lockedAmount.add(account.claimmable).add(tokenBalance);
+
+          return {
+            user: account.user,
+            lockedAmount: account.lockedAmount,
+            claimmable: account.claimmable,
+            tokenBalance,
+            total,
+          };
+        }
+      });
+
+      return accountsWithOrderedData
+    },
+    enabled: !!mint,
+  });
+
+  return {
+    userAccountsByMintQuery,
+  }
+}
+
+
 export function useAccountQuery({
   publicKey,
   mint,
@@ -354,6 +455,7 @@ export function useAccountQuery({
 }) {
   const { cluster } = useCluster();
   const { program } = useMemeProgram();
+  const { connection } = useConnection();
   const programId = useMemo(() => getMemeProgramId(cluster.network as Cluster), [cluster]);
 
   const userAccountSeeds = [
@@ -361,13 +463,11 @@ export function useAccountQuery({
     mint.toBuffer(),
     publicKey.toBuffer()
   ];
-
   const userAccountKey = PublicKey.findProgramAddressSync(
     userAccountSeeds,
     programId
   )[0];
-
-  // Fetch the meme entry state
+  // Fetch the user account
   const userAccountQuery = useQuery({
     queryKey: ['userAccount', { cluster, userAccountKey }],
     queryFn: async () => {
@@ -381,18 +481,18 @@ export function useAccountQuery({
     mint.toBuffer(),
     publicKey.toBuffer()
   ];
-
   const memeAccountKey = PublicKey.findProgramAddressSync(
     memeAccountSeeds,
     programId
   )[0];
-
   const memeEntryQuery = useQuery({
     queryKey: ['memeEntry', { cluster, memeAccountKey }],
     queryFn: async () => {
       return program.account.memeEntryState.fetch(memeAccountKey);
     }
   });
+
+
 
   return {
     userAccountQuery,
