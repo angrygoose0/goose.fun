@@ -1,9 +1,9 @@
 'use client'
 
 import { ChangeEvent, useCallback, useMemo, useState, useEffect } from 'react'
-import { useMemeProgram, useMetadataQuery, useBuySellTokenMutation, useAccountQuery, useCreateMemeToken, useProcessedAccountsQuery, useUserAccountsByMintQuery } from './meme-data-access'
+import { useMemeProgram, useMetadataQuery, useBuySellTokenMutation, useAccountQuery, useCreateMemeToken, useProcessedAccountsQuery, useUserAccountsByMintQuery, useBondToRaydium } from './meme-data-access'
 import { useGetBalance, useGetTokenAccounts } from '../account/account-data-access';
-import { toLamports, fromLamports, calculatePercentage, timeAgo, simplifyBN } from './meme-helper-functions';
+import { toLamports, fromLamports, calculatePercentage, timeAgo, simplifyBN, convertTokensToSol, convertSolToTokens, fromLamportsDecimals, ToLamportsDecimals } from './meme-helper-functions';
 import { InputView } from "../helper-ui";
 import axios from "axios";
 import toast from "react-hot-toast";
@@ -312,27 +312,19 @@ export enum ActionType {
   Claim = "Claim"
 }
 
+const ZERO = new BN(0);
 
-const INITIAL_PRICE = 2.5 * 1_000_000; // 2.5 million tokens per SOL
-
-
-// Conversion functions
-const convertTokensToSol = (tokens: number): number => {
-  return tokens / INITIAL_PRICE;
-};
-
-const convertSolToTokens = (sol: number): number => {
-  return sol * INITIAL_PRICE;
-};
 
 
 export function BalanceCard({ publicKey, mint, account, bondedTime, symbol, userLockedAmountBN, claimmableBN, tokenBalanceBN }: { publicKey: PublicKey, mint: PublicKey, account: PublicKey, bondedTime: BN, symbol: string, userLockedAmountBN: BN, claimmableBN: BN, tokenBalanceBN: BN }) {
   const { buySellToken } = useBuySellTokenMutation();
 
   const balanceQuery = useGetBalance({ address: publicKey })
-  const solBalance = balanceQuery.data
-    ? Math.round((balanceQuery.data / LAMPORTS_PER_SOL) * 100000) / 100000
-    : 0;
+  const solBalanceBN = balanceQuery.data
+    ? new BN(balanceQuery.data)
+    : ZERO;
+
+
 
   const totalTokens = tokenBalanceBN
     .add(userLockedAmountBN)
@@ -343,8 +335,22 @@ export function BalanceCard({ publicKey, mint, account, bondedTime, symbol, user
   const claimmablePercentage = calculatePercentage(claimmableBN, totalTokens);
 
 
+  useEffect(() => {
+    if (bondedTime.lt(new BN(0))) {
+      handleActionChange(ActionType.Buy);
+    } else {
+      handleActionChange(ActionType.RaydiumBuy);
+    }
+  }, [bondedTime]);
 
-  const [amount, setAmount] = useState(0);
+  const [selectedAction, setSelectedAction] = useState<ActionType>(ActionType.Buy);
+
+  const handleActionChange = (action: ActionType) => {
+    setSelectedAction(action);
+    setAmount(ZERO);
+  };
+
+  const [amount, setAmount] = useState(ZERO);
   const [showingSol, setShowingSol] = useState(true); // true for showing SOL, false for showing token
   const toggleSolOrToken = () => {
     setShowingSol((prevMode) => {
@@ -358,25 +364,38 @@ export function BalanceCard({ publicKey, mint, account, bondedTime, symbol, user
   };
 
 
-  const setAmountWithLimits = (numericValue: number, showingSolOverride?: boolean) => {
+  const setAmountWithLimits = (numericValue: BN, showingSolOverride?: boolean) => {
     const useShowingSol = showingSolOverride !== undefined ? showingSolOverride : showingSol;
 
-    if (numericValue < 0) {
-      setAmount(0);
+    if (numericValue < ZERO) {
+      setAmount(ZERO);
       return;
     }
 
-    if (selectedAction === ActionType.Buy) {
+    if (selectedAction === ActionType.Buy || ActionType.RaydiumBuy) {
       if (useShowingSol) {
-        setAmount(Math.min(numericValue, solBalance));
+        console.log("solBalanceBN", solBalanceBN.toString());
+        console.log('numericValue', numericValue.toString())
+        setAmount(numericValue.cmp(solBalanceBN) === -1 ? numericValue : solBalanceBN);
       } else {
-        setAmount(Math.min(numericValue, convertSolToTokens(solBalance)));
+        setAmount(numericValue.cmp(convertSolToTokens(solBalanceBN)) === -1 ? numericValue : convertSolToTokens(solBalanceBN));
       }
     } else if (selectedAction === ActionType.Sell) {
       if (useShowingSol) {
-        setAmount(Math.min(numericValue, convertTokensToSol(fromLamports(userLockedAmountBN).toNumber())));
+        setAmount(numericValue.cmp(convertTokensToSol(userLockedAmountBN)) === -1 ? numericValue : convertTokensToSol(userLockedAmountBN));
       } else {
-        setAmount(Math.min(numericValue, fromLamports(userLockedAmountBN).toNumber()));
+        setAmount(numericValue.cmp(userLockedAmountBN) === -1 ? numericValue : userLockedAmountBN);
+      }
+    } else if (selectedAction === ActionType.RaydiumSell || ActionType.Lock) {
+      if (useShowingSol) {
+        setAmount(numericValue.cmp(convertTokensToSol(tokenBalanceBN)) === -1 ? numericValue : convertTokensToSol(tokenBalanceBN));
+      }
+
+    } else if (selectedAction === ActionType.Claim) {
+      if (useShowingSol) {
+        setAmount(numericValue.cmp(convertTokensToSol(claimmableBN)) === -1 ? numericValue : convertTokensToSol(claimmableBN));
+      } else {
+        setAmount(numericValue.cmp(claimmableBN) === -1 ? numericValue : claimmableBN);
       }
     } else {
       setAmount(numericValue);
@@ -385,51 +404,122 @@ export function BalanceCard({ publicKey, mint, account, bondedTime, symbol, user
 
   const handleFormFieldChange = (event: { target: { value: any; }; }) => {
     const value = event.target.value;
-    const numericValue = value === "" ? 0 : parseFloat(value); // raw value from user.
-    setAmountWithLimits(numericValue);
+
+    if (value === "") {
+      setAmount(ZERO); // You might want to keep ZERO or a null state
+      return;
+    }
+    setAmountWithLimits(ToLamportsDecimals(value));
   };
 
-
-
-  const [selectedAction, setSelectedAction] = useState<ActionType>(ActionType.Buy);
-  const handleActionChange = (action: ActionType) => {
-    setSelectedAction(action);
-  };
 
   const handleBuySellFormSubmit = useCallback(async () => {
     try {
-      let amountSentToSolana: number;
+      let amountSentToSolana: BN; //sol lamports
 
       // Validate amount based on selected action
       if (selectedAction === ActionType.Buy) {
-        const solRequired = showingSol ? amount : convertTokensToSol(amount);
 
-        if (solRequired > solBalance) {
+        const solRequiredBN = showingSol ? amount : convertTokensToSol(amount);
+
+        if (solRequiredBN > solBalanceBN) {
           throw new Error("SOL balance too low.");
         }
 
-        amountSentToSolana = solRequired;
+        amountSentToSolana = solRequiredBN;
       } else if (selectedAction === ActionType.Sell) {
-        const tokensRequired = showingSol ? convertSolToTokens(amount) : amount;
+        const tokensRequiredBN = showingSol ? convertSolToTokens(amount) : amount;
 
-        if (new BN(tokensRequired).gt(userLockedAmountBN)) {
+        if (tokensRequiredBN > userLockedAmountBN) {
           throw new Error("You can't claim more than you invested.");
         }
 
-        amountSentToSolana = showingSol ? -amount : -convertTokensToSol(amount);
+        amountSentToSolana = showingSol ? amount.neg() : convertTokensToSol(amount).neg();
       }
       else {
-        throw new Error("coming soon");
+        throw new Error("wrong action type");
       }
 
       // Perform the buy/sell operation
-      await buySellToken.mutateAsync({ publicKey, amount: toLamports(new BN(amountSentToSolana)).toNumber(), mint });
+      await buySellToken.mutateAsync({ publicKey, amount: amountSentToSolana, mint });
       toast.success("Success!");
     } catch (error: any) {
       console.error(error);
       toast.error(error.message || "An error occurred.");
     }
-  }, [publicKey, amount, showingSol, selectedAction, solBalance, userLockedAmountBN, mint]);
+  }, [publicKey, amount, showingSol, selectedAction, solBalanceBN, userLockedAmountBN, mint]);
+
+  const handleLockClaimFormSubmit = useCallback(async () => {
+    try {
+      let amountSentToSolana: BN; //token lamports
+
+      // Validate amount based on selected action
+      if (selectedAction === ActionType.Lock) {
+
+        const tokensRequiredBN = showingSol ? convertSolToTokens(amount) : amount;
+
+        if (tokensRequiredBN > tokenBalanceBN) {
+          throw new Error("token balance too low.");
+        }
+
+        amountSentToSolana = tokensRequiredBN;
+      } else if (selectedAction === ActionType.Claim) {
+        const tokensRequiredBN = showingSol ? convertSolToTokens(amount) : amount;
+
+        if (tokensRequiredBN > claimmableBN) {
+          throw new Error("You can't claim more than claimmable");
+        }
+
+        amountSentToSolana = showingSol ? convertSolToTokens(amount).neg() :amount.neg();
+      }
+      else {
+        throw new Error("wrong action type");
+      }
+
+      // Perform the buy/sell operation
+      await lockClaimToken.mutateAsync({ publicKey, amount: amountSentToSolana, mint });
+      toast.success("Success!");
+    } catch (error: any) {
+      console.error(error);
+      toast.error(error.message || "An error occurred.");
+    }
+  }, [publicKey, amount, showingSol, selectedAction, claimmableBN, tokenBalanceBN, mint]);
+
+  const handleRaydiumBuySellFormSubmit = useCallback(async () => {
+    try {
+      let amountSentToSolana: BN; //sol lamports
+
+      // Validate amount based on selected action
+      if (selectedAction === ActionType.RaydiumBuy) {
+
+        const solRequiredBN = showingSol ? amount : convertTokensToSol(amount);
+
+        if (solRequiredBN > solBalanceBN) {
+          throw new Error("SOL balance too low.");
+        }
+
+        amountSentToSolana = solRequiredBN;
+      } else if (selectedAction === ActionType.RaydiumSell) {
+        const tokensRequiredBN = showingSol ? convertSolToTokens(amount) : amount;
+
+        if (tokensRequiredBN > tokenBalanceBN) {
+          throw new Error("You can't claim more than you invested.");
+        }
+
+        amountSentToSolana = showingSol ? amount.neg() : convertTokensToSol(amount).neg();
+      }
+      else {
+        throw new Error("wrong action type");
+      }
+
+      // Perform the buy/sell operation
+      await raydiumBuySellToken.mutateAsync({ publicKey, amount: amountSentToSolana, mint });
+      toast.success("Success!");
+    } catch (error: any) {
+      console.error(error);
+      toast.error(error.message || "An error occurred.");
+    }
+  }, [publicKey, amount, showingSol, selectedAction, solBalanceBN, tokenBalanceBN, mint]);
 
 
   return (
@@ -442,7 +532,7 @@ export function BalanceCard({ publicKey, mint, account, bondedTime, symbol, user
       }}
     >
       <div className="flex mb-4">
-        {bondedTime < new BN(0) ? (
+        {bondedTime < ZERO ? (
           <>
             {/* Two buttons: Buy and Sell */}
             <button
@@ -514,7 +604,7 @@ export function BalanceCard({ publicKey, mint, account, bondedTime, symbol, user
 
       <div className="mb-4">
         <div className="flex items-baseline space-x-2">
-          <div className="text-sm font-semibold text-black">{solBalance} SOL</div>
+          <div className="text-sm font-semibold text-black">{fromLamportsDecimals(solBalanceBN)} SOL</div>
           <div className="text-sm text-gray-500">~ $499</div>
         </div>
 
@@ -527,7 +617,7 @@ export function BalanceCard({ publicKey, mint, account, bondedTime, symbol, user
       </div>
 
       <div className="flex flex-col space-y-2 mt-2">
-        {bondedTime < new BN(0) ? (
+        {bondedTime < ZERO ? (
           <>
             {/* When bondedTime is negative so hasnt bonded */}
             <div className="flex items-baseline space-x-2">
@@ -558,7 +648,7 @@ export function BalanceCard({ publicKey, mint, account, bondedTime, symbol, user
             {/* When bondedTime is positive */}
             <div className="flex items-baseline space-x-2">
               <div className="text-sm font-semibold text-black">
-                {totalTokens.toString()} {symbol.toString()}
+                {simplifyBN(fromLamports(totalTokens))} {symbol.toString()}
               </div>
               <div className="text-sm text-gray-500">~ $12.52</div>
             </div>
@@ -579,7 +669,7 @@ export function BalanceCard({ publicKey, mint, account, bondedTime, symbol, user
                 className="absolute top-0 left-0 h-full bg-green-500"
                 style={{
                   width: `${claimmablePercentage}%`,
-                  marginLeft: `${lockedPercentage.add(unlockedPercentage)}%`,
+                  marginLeft: `${lockedPercentage + unlockedPercentage}%`,
                 }}
               ></div>
             </div>
@@ -588,17 +678,17 @@ export function BalanceCard({ publicKey, mint, account, bondedTime, symbol, user
               <div className="flex items-center space-x-1">
                 <div className="h-2 w-2 bg-gray-400 rounded-full"></div>
 
-                <span className="text-gray-600">Locked: {simplifyBN(userLockedAmountBN)}</span>
+                <span className="text-gray-600">Locked: {simplifyBN(fromLamports(userLockedAmountBN))}</span>
               </div>
               <div className="flex items-center space-x-1">
                 <div className="h-2 w-2 bg-blue-500 rounded-full"></div>
                 <span className="text-blue-600">
-                  Unlocked: {simplifyBN(tokenBalanceBN)}
+                  Unlocked: {simplifyBN(fromLamports(tokenBalanceBN))}
                 </span>
               </div>
               <div className="flex items-center space-x-1">
                 <div className="h-2 w-2 bg-green-500 rounded-full"></div>
-                <span className="text-green-600">Claimable: {simplifyBN(claimmableBN)}</span>
+                <span className="text-green-600">Claimable: {simplifyBN(fromLamports(claimmableBN))}</span>
               </div>
             </div>
           </>
@@ -609,12 +699,12 @@ export function BalanceCard({ publicKey, mint, account, bondedTime, symbol, user
       <div className="relative flex items-center mb-2 mt-2">
         <input
           type="number"
-          value={amount || ""}
+          value={amount === ZERO ? "" : fromLamportsDecimals(amount)}
           className="w-full border-2 border-gray-200 p-2 pr-16 text-sm focus:outline-none focus:border-black appearance-none"
-          placeholder={solBalance?.toString()}
+          placeholder={fromLamportsDecimals(solBalanceBN).toString()}
           onChange={handleFormFieldChange}
-
         />
+
 
         <button
           className="absolute right-2 top-1/2 -translate-y-1/2 bg-gray-200 text-gray-600 text-sm px-4 py-1 rounded focus:outline-none"
@@ -631,19 +721,19 @@ export function BalanceCard({ publicKey, mint, account, bondedTime, symbol, user
           <>
             <button
               className="w-8 h-6 border border-black bg-white text-xs text-black hover:bg-gray-100 flex items-center justify-center"
-              onClick={() => setAmountWithLimits(0.1)}
+              onClick={() => setAmountWithLimits(new BN(0.1))}
             >
               0.1
             </button>
             <button
               className="w-8 h-6 border border-black bg-white text-xs text-black hover:bg-gray-100 flex items-center justify-center"
-              onClick={() => setAmountWithLimits(1)}
+              onClick={() => setAmountWithLimits(new BN(0.1))}
             >
               1
             </button>
             <button
               className="w-8 h-6 border border-black bg-white text-xs text-black hover:bg-gray-100 flex items-center justify-center"
-              onClick={() => setAmountWithLimits(2)}
+              onClick={() => setAmountWithLimits(new BN(0.1))}
             >
               2
             </button>
@@ -652,19 +742,19 @@ export function BalanceCard({ publicKey, mint, account, bondedTime, symbol, user
           <>
             <button
               className="w-8 h-6 border border-black bg-white text-xs text-black hover:bg-gray-100 flex items-center justify-center"
-              onClick={() => setAmountWithLimits(0.1)}
+              onClick={() => setAmountWithLimits(new BN(0.1))}
             >
               0.1
             </button>
             <button
               className="w-8 h-6 border border-black bg-white text-xs text-black hover:bg-gray-100 flex items-center justify-center"
-              onClick={() => setAmountWithLimits(0.1)}
+              onClick={() => setAmountWithLimits(new BN(0.1))}
             >
               0.1
             </button>
             <button
               className="w-8 h-6 border border-black bg-white text-xs text-black hover:bg-gray-100 flex items-center justify-center"
-              onClick={() => setAmountWithLimits(0.1)}
+              onClick={() => setAmountWithLimits(new BN(0.1))}
             >
               0.1
             </button>
@@ -730,9 +820,9 @@ export function TokenCard({ account }: { account: any }) {
   const divisor = bondedTime.isNeg() ? new BN('800000000000000000') : new BN('1000000000000000000');
   const globalPercentage = calculatePercentage(lockedAmount, divisor);
 
-  let userLockedAmountBN = new BN(0);
-  let claimmableBN = new BN(0);
-  let tokenBalanceBN = new BN(0);
+  let userLockedAmountBN = ZERO;
+  let claimmableBN = ZERO;
+  let tokenBalanceBN = ZERO;
 
   if (publicKey != null) {
     const { userAccountQuery } = useAccountQuery({ publicKey, mint });
@@ -757,6 +847,20 @@ export function TokenCard({ account }: { account: any }) {
   const lockedPercentage = calculatePercentage(userLockedAmountBN, totalTokens);
   const unlockedPercentage = calculatePercentage(tokenBalanceBN, totalTokens);
   const claimmablePercentage = calculatePercentage(claimmableBN, totalTokens);
+
+  const { bondToRaydium } = useBondToRaydium();
+
+  const bondButton = useCallback(async () => {
+    try {
+      // Perform the buy/sell operation
+      await bondToRaydium.mutateAsync({ mint });
+      toast.success("Success!");
+    } catch (error: any) {
+      console.error(error);
+      toast.error(error.message || "An error occurred.");
+    }
+  }, [mint]);
+
 
   const renderGridCards = () => {
     const cards = [];
@@ -844,9 +948,6 @@ export function TokenCard({ account }: { account: any }) {
           </div>
         </div>
       );
-
-
-
     }
 
     cards.push(
@@ -858,6 +959,12 @@ export function TokenCard({ account }: { account: any }) {
           gridColumn: hideRight ? "1 / 4" : (hideLeft ? "1 / 3" : "2 / 3")
         }}
       >
+        <button
+          className="btn btn-xs lg:btn-md btn-primary"
+          onClick={bondButton}
+        >
+          bond to ray
+        </button>
         <div className="absolute top-2 right-2 text-gray-500 text-xs">{timeAgo(creationTime.toNumber())} ago</div>
         <div className="flex items-start mb-2">
           <img
@@ -1181,7 +1288,7 @@ export function TokenCard({ account }: { account: any }) {
             {/* GS Balance */}
             {publicKey != null ? (
               <div className="flex flex-col space-y-2 mt-2">
-                {bondedTime < new BN(0) ? (
+                {bondedTime < ZERO ? (
                   <>
                     {/* When bondedTime is negative so hasnt bonded */}
                     <div className="flex items-baseline space-x-2">
@@ -1233,7 +1340,7 @@ export function TokenCard({ account }: { account: any }) {
                         className="absolute top-0 left-0 h-full bg-green-500"
                         style={{
                           width: `${claimmablePercentage}%`,
-                          marginLeft: `${lockedPercentage.add(unlockedPercentage)}%`,
+                          marginLeft: `${lockedPercentage + unlockedPercentage}%`,
                         }}
                       ></div>
                     </div>
@@ -1241,17 +1348,17 @@ export function TokenCard({ account }: { account: any }) {
                     <div className="flex justify-between text-xs mt-1">
                       <div className="flex items-center space-x-1">
                         <div className="h-2 w-2 bg-gray-400 rounded-full"></div>
-                        <span className="text-gray-600">Locked: {simplifyBN(userLockedAmountBN)}</span>
+                        <span className="text-gray-600">Locked: {simplifyBN(fromLamports(userLockedAmountBN))}</span>
                       </div>
                       <div className="flex items-center space-x-1">
                         <div className="h-2 w-2 bg-blue-500 rounded-full"></div>
                         <span className="text-blue-600">
-                          Unlocked: {toLamports(tokenBalanceBN).toString()}
+                          Unlocked: {simplifyBN(fromLamports(tokenBalanceBN))}
                         </span>
                       </div>
                       <div className="flex items-center space-x-1">
                         <div className="h-2 w-2 bg-green-500 rounded-full"></div>
-                        <span className="text-green-600">Claimable: {toLamports(claimmableBN).toString()}</span>
+                        <span className="text-green-600">Claimable: {simplifyBN(fromLamports(claimmableBN))}</span>
                       </div>
                     </div>
                   </>

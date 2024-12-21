@@ -8,6 +8,62 @@
   },
   "instructions": [
     {
+      "name": "bond_to_raydium",
+      "discriminator": [
+        33,
+        214,
+        133,
+        224,
+        69,
+        21,
+        41,
+        113
+      ],
+      "accounts": [
+        {
+          "name": "meme_entry",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  101,
+                  109,
+                  101,
+                  95,
+                  101,
+                  110,
+                  116,
+                  114,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ]
+          }
+        },
+        {
+          "name": "mint",
+          "writable": true
+        },
+        {
+          "name": "treasury",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "buy_sell",
       "discriminator": [
         110,
@@ -733,6 +789,11 @@
       "code": 6007,
       "name": "InvalidBump",
       "msg": "Invalid Bump"
+    },
+    {
+      "code": 6008,
+      "name": "AlreadyBonded",
+      "msg": "Already Bonded"
     }
   ],
   "types": [

@@ -14,6 +14,62 @@ export type Meme = {
   },
   "instructions": [
     {
+      "name": "bondToRaydium",
+      "discriminator": [
+        33,
+        214,
+        133,
+        224,
+        69,
+        21,
+        41,
+        113
+      ],
+      "accounts": [
+        {
+          "name": "memeEntry",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  101,
+                  109,
+                  101,
+                  95,
+                  101,
+                  110,
+                  116,
+                  114,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ]
+          }
+        },
+        {
+          "name": "mint",
+          "writable": true
+        },
+        {
+          "name": "treasury",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "buySell",
       "discriminator": [
         110,
@@ -739,6 +795,11 @@ export type Meme = {
       "code": 6007,
       "name": "invalidBump",
       "msg": "Invalid Bump"
+    },
+    {
+      "code": 6008,
+      "name": "alreadyBonded",
+      "msg": "Already Bonded"
     }
   ],
   "types": [

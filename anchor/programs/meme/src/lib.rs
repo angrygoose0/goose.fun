@@ -271,29 +271,33 @@ pub mod meme {
         Ok(())
     }
 
-    /*
-    pub fn bond_to_raydiym<'info>(    
+    pub fn bond_to_raydium<'info>(    
         ctx: Context<BondToRaydium>,
     ) -> Result<()> {
         let meme_entry = &mut ctx.accounts.meme_entry;
-        meme_entry.bonded_time = bonded_time;
+
+        require!(meme_entry.bonded_time < 0, CustomError::AlreadyBonded);
+
+        meme_entry.bonded_time = Clock::get()?.unix_timestamp as i64;
         // send sol from treasury to liquidity pool in raydium
         Ok(())
     }
 
+    
     pub fn unlock_tokens_in_treasury<'info>(
-        ctx: Context<UnlockTokens>,
+        ctx: Context<UnlockInTreasury>,
     ) -> Result<()> {
         let meme_entry = &mut ctx.accounts.meme_entry;
         //meme_entry.locked_amount // take off 10%
     }
 
     pub fn unlock_tokens_in_user<'info>(
-        ctx: Context<UnlockTokens>,
+        ctx: Context<UnlockInUser>,
+        user: PublicKey,
     ) -> Result<()> {
 
     }
-    */
+    
 
 }
 
@@ -382,10 +386,8 @@ pub struct MintTokens<'info>{
 }
 
 
-
 #[derive(Accounts)]
-#[instruction(mint: Pubkey)]
-pub struct UpdateMemeEntry<'info> {
+pub struct UnlockInTreasury<'info> {
     #[account(
         mut,
         seeds = [b"meme_entry", mint.key().as_ref()],
@@ -393,15 +395,39 @@ pub struct UpdateMemeEntry<'info> {
     )]
     pub meme_entry: Account<'info, MemeEntryState>,
 
-    #[account(mut)]
-    pub signer: Signer<'info>,
+    #[account(
+        mut,
+    )]
+    pub mint: Account<'info, Mint>,
 
     #[account(mut)]
     pub treasury: SystemAccount<'info>,
 
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+#[instruction(user: Pubkey)]
+pub struct UnlockInUser<'info> {
+    #[account(
+        mut,
+        seeds = [b"meme_entry", mint.key().as_ref()],
+        bump,
+    )]
+    pub meme_entry: Account<'info, MemeEntryState>,
+
+    #[account(
+        mut,
+        space = 8 + UserAccount::INIT_SPACE,
+        seeds = [b"user_account", mint.key().as_ref(), user.key().as_ref()], // PDA seed
+        bump,
+    )]
+    pub user_account:Box<Account<'info, UserAccount>>,
+
+    #[account(mut)]
+    pub treasury: SystemAccount<'info>,
 
     pub system_program: Program<'info, System>,
-
 }
 
 #[error_code]
@@ -422,6 +448,9 @@ pub enum CustomError {
     NotBonded,
     #[msg("Invalid Bump")]
     InvalidBump,
+    #[msg("Already Bonded")]
+    AlreadyBonded,
+    
 }
 
 
@@ -533,8 +562,6 @@ pub struct BondToRaydium<'info> {
         bump,
     )]
     pub meme_entry: Account<'info, MemeEntryState>,
-    #[account(mut)]
-    pub signer: Signer<'info>,
 
     #[account(
         mut,
@@ -543,7 +570,6 @@ pub struct BondToRaydium<'info> {
 
     #[account(mut, signer)]
     pub treasury: SystemAccount<'info>,
-
 
     pub system_program: Program<'info, System>,
 }

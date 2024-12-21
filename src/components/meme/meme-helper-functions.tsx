@@ -1,16 +1,40 @@
 import BN from "bn.js";
 
 export const toLamports = (amount: BN): BN => {
-    const billion = new BN(10).pow(new BN(9));
-    return amount.mul(billion);
+    return amount.mul(BILLION);
 };
+
+
+export const ToLamportsDecimals = (num: number): BN => {
+    const numStr = num.toString(); // Convert the number to a string to handle decimals
+    const [wholePart, decimalPart = ''] = numStr.split('.'); // Split into whole and decimal parts
+
+    // Handle the decimal part by padding or trimming to 9 digits (1 billion precision)
+    const decimalBN = new BN(
+        (decimalPart + '0'.repeat(9)).slice(0, 9) // Ensure exactly 9 decimal places
+    );
+
+    const wholeBN = new BN(wholePart); // Convert the whole number part to BN
+    const lamports = wholeBN.mul(BILLION).add(decimalBN); // Combine whole and fractional parts
+
+    return lamports;
+};
+
 
 export const fromLamports = (amount: BN): BN => {
-    const billion = new BN(10).pow(new BN(9));
-    return amount.div(billion);
+    return amount.div(BILLION);
 };
 
-const INITIAL_PRICE: BN = new BN (2_500_000); // 2.5 million tokens per SOL
+export const fromLamportsDecimals = (amount: BN): number => {
+    if (amount.gt(new BN(Number.MAX_SAFE_INTEGER))) {
+        return fromLamports(amount).toNumber();
+    }
+    return amount.toNumber() / BILLION.toNumber();
+};
+
+const BILLION = new BN(10).pow(new BN(9));
+
+const INITIAL_PRICE: BN = new BN(2_500_000); // 2.5 million tokens per SOL
 const SOL_PRICE: BN = new BN(250_000_000_000); // $250 * 10^9 per SOL lamport
 
 // Conversion functions
@@ -40,14 +64,15 @@ export function simplifyBN(value: BN): string {
     return value.toString();
 }
 
-export const calculatePercentage = (numerator: BN, denominator: BN): BN => {
+export const calculatePercentage = (numerator: BN, denominator: BN): number => {
+    const scale = new BN(10000); // Use a higher scale for precision
     const percentage = denominator.isZero() || numerator.isZero()
         ? new BN(0)
         : numerator
-            .mul(new BN(100)) // Multiply numerator by 100 first
+            .mul(scale) // Multiply numerator by 100 first
             .div(denominator); // Then perform division
 
-    return percentage;
+    return percentage.toNumber()/100;
 }
 
 export function timeAgo(from: number): string {
