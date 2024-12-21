@@ -2,7 +2,7 @@
 
 import { getMemeProgram, getMemeProgramId } from '@project/anchor';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
-import { AccountInfo, SystemProgram, Cluster, Transaction, Keypair, PublicKey, SYSVAR_RENT_PUBKEY } from '@solana/web3.js';
+import { AccountInfo, SystemProgram, Cluster, Transaction, Keypair, PublicKey, SYSVAR_RENT_PUBKEY, ComputeBudgetProgram } from '@solana/web3.js';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
@@ -254,72 +254,87 @@ export function useProcessedAccountsQuery({
 
 
 
-  export function useMemeProgram() {
-    const { connection } = useConnection();
-    const { cluster } = useCluster();
-    const provider = useAnchorProvider();
-    const programId = useMemo(() => getMemeProgramId(cluster.network as Cluster), [cluster]);
-    const program = getMemeProgram(provider);
+export function useMemeProgram() {
+  const { connection } = useConnection();
+  const { cluster } = useCluster();
+  const provider = useAnchorProvider();
+  const programId = useMemo(() => getMemeProgramId(cluster.network as Cluster), [cluster]);
+  const program = getMemeProgram(provider);
 
-    const getProgramAccount = useQuery({
-      queryKey: ["get-program-account", { cluster }],
-      queryFn: () => connection.getParsedAccountInfo(programId),
-    });
+  const getProgramAccount = useQuery({
+    queryKey: ["get-program-account", { cluster }],
+    queryFn: () => connection.getParsedAccountInfo(programId),
+  });
 
-    return {
-      program,
-      programId,
-      getProgramAccount,
-      connection,
-    };
-  }
+  return {
+    program,
+    programId,
+    getProgramAccount,
+    connection,
+  };
+}
 
-  export function useMetadataQuery({
-    mint,
-  }: {
-    mint: PublicKey;
-  }) {
-    const { connection } = useConnection();
-    const metaplex = Metaplex.make(connection);
+export function useMetadataQuery({
+  mint,
+}: {
+  mint: PublicKey;
+}) {
+  const { connection } = useConnection();
+  const metaplex = Metaplex.make(connection);
 
-    const metadataQuery = useQuery({
-      queryKey: ['metadata', { mint }],
-      queryFn: async () => {
-        const metadataAddress = getMetadataAddress(mint);
+  const metadataQuery = useQuery({
+    queryKey: ['metadata', { mint }],
+    queryFn: async () => {
+      const metadataAddress = getMetadataAddress(mint);
 
-        const accountInfo = await connection.getAccountInfo(metadataAddress);
-        if (!accountInfo) {
-          throw new Error('Metadata account not found');
-        }
+      const accountInfo = await connection.getAccountInfo(metadataAddress);
+      if (!accountInfo) {
+        throw new Error('Metadata account not found');
+      }
 
-        const token = await metaplex.nfts().findByMint({ mintAddress: mint });
+      const token = await metaplex.nfts().findByMint({ mintAddress: mint });
 
-        const response = await fetch(token.uri);
-        if (!response.ok) {
-          throw new Error(`Failed to fetch metadata JSON from ${token.uri}`);
-        }
+      const response = await fetch(token.uri);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch metadata JSON from ${token.uri}`);
+      }
 
-        return response.json();
-      },
-      enabled: !!mint, // Run only if mint is provided
-    });
+      return response.json();
+    },
+    enabled: !!mint, // Run only if mint is provided
+  });
 
-    return {
-      metadataQuery,
-    };
-  }
+  return {
+    metadataQuery,
+  };
+}
 
-  export function useBuySellTokenMutation() {
-    const { program } = useMemeProgram();
-    const transactionToast = useTransactionToast();
-    const buySellToken = useMutation<
-      string,
-      Error,
-      { publicKey: PublicKey; amount: BN; mint: PublicKey }
-    >({
-      mutationKey: ['buySellToken'],
-      mutationFn: ({ publicKey, mint, amount }) => {
-        return program.methods
+export function useBuySellTokenMutation() {
+  const { program } = useMemeProgram();
+  const transactionToast = useTransactionToast();
+  const { connection } = useConnection();
+  const { sendTransaction, publicKey } = useWallet();
+  const buySellToken = useMutation<
+    string,
+    Error,
+    { amount: BN; mint: PublicKey }
+  >({
+    mutationKey: ['buySellToken'],
+    mutationFn: async ({ mint, amount }) => {
+      try {
+        const modifyComputeUnits = ComputeBudgetProgram.setComputeUnitLimit({
+          units: 16000,
+        });
+
+        const recentPriorityFees = await connection.getRecentPrioritizationFees({
+        });
+        const minFee = Math.min(...recentPriorityFees.map(fee => fee.prioritizationFee));
+
+        const addPriorityFee = ComputeBudgetProgram.setComputeUnitPrice({
+          microLamports: minFee + 1,
+        });
+
+        const buySell = await program.methods
           .buySell(amount)
           .accounts({
             signer: publicKey,
@@ -328,21 +343,58 @@ export function useProcessedAccountsQuery({
           })
           .signers([treasuryKeypair])
           .rpc();
-      },
-      onSuccess: (signature) => {
-        transactionToast(signature);
-        console.log(signature);
-      },
-      onError: (error) => {
-        toast.error(`Error buy/selling token: ${error.message}`);
-        console.error('Toast error:', error);
-      },
-    });
 
-    return {
-      buySellToken,
-    };
-  }
+        /*
+        const blockhashContext = await connection.getLatestBlockhashAndContext();
+
+        console.log("Blockhash context:", blockhashContext);
+        console.log("Fee payer public key:", publicKey);
+
+        const transaction = new Transaction({
+          feePayer: publicKey,
+          blockhash: blockhashContext.value.blockhash,
+          lastValidBlockHeight: blockhashContext.value.lastValidBlockHeight,
+        })
+          //.add(modifyComputeUnits)
+          //.add(addPriorityFee)
+          .add(buySell);
+        transaction.sign(treasuryKeypair)
+        
+
+
+        console.log("Prepared transaction:", transaction);
+
+        const simulation = await connection.simulateTransaction(transaction);
+        console.log("Simulation logs:", simulation.value.logs);
+
+
+        const signature = await sendTransaction(transaction, connection, {
+        });
+        console.log("Transaction signature:", signature);
+        */
+
+        return buySell;
+
+      } catch (error) {
+        console.error("Error during transaction processing:", error);
+        throw error;
+      }
+    },
+
+    onSuccess: (signature) => {
+      transactionToast(signature);
+      console.log(signature);
+    },
+    onError: (error) => {
+      toast.error(`Error buy/selling token: ${error.message}`);
+      console.error('Toast error:', error);
+    },
+  });
+
+  return {
+    buySellToken,
+  };
+}
 
 export function useBondToRaydium() {
   const { program } = useMemeProgram();
@@ -379,165 +431,165 @@ export function useBondToRaydium() {
   };
 }
 
-  export function useUserAccountsByMintQuery({
-    mint,
-  }: {
-    mint: PublicKey;
-  }) {
-    const { cluster } = useCluster();
-    const { program } = useMemeProgram();
-    const { connection } = useConnection();
-    const programId = useMemo(() => getMemeProgramId(cluster.network as Cluster), [cluster]);
+export function useUserAccountsByMintQuery({
+  mint,
+}: {
+  mint: PublicKey;
+}) {
+  const { cluster } = useCluster();
+  const { program } = useMemeProgram();
+  const { connection } = useConnection();
+  const programId = useMemo(() => getMemeProgramId(cluster.network as Cluster), [cluster]);
 
-    const userAccountsByMintQuery = useQuery({
-      queryKey: ['getUserAccountsByMint', { mint }],
-      queryFn: async () => {
-        const userAccountDiscriminator = Buffer.from(sha256.digest("account:UserAccount")).slice(
-          0,
-          8
-        );
+  const userAccountsByMintQuery = useQuery({
+    queryKey: ['getUserAccountsByMint', { mint }],
+    queryFn: async () => {
+      const userAccountDiscriminator = Buffer.from(sha256.digest("account:UserAccount")).slice(
+        0,
+        8
+      );
 
-        const mintOffset = 40;
-        const mintLength = 32;
+      const mintOffset = 40;
+      const mintLength = 32;
 
-        // Fetch accounts with `dataSlice` targeting `creation_time`
-        const accounts = await connection.getProgramAccounts(programId, {
-          dataSlice: { offset: mintOffset, length: mintLength },
-          filters: [
+      // Fetch accounts with `dataSlice` targeting `creation_time`
+      const accounts = await connection.getProgramAccounts(programId, {
+        dataSlice: { offset: mintOffset, length: mintLength },
+        filters: [
 
-            {
-              memcmp: { offset: 0, bytes: bs58.encode(userAccountDiscriminator) },
-            },
-
-          ],
-        });
-
-        const targetMintBytes = Buffer.from(mint.toBytes());
-        const filteredAccounts = accounts.filter((account) =>
-          account.account.data.equals(targetMintBytes)
-        );
-
-        const accountPublicKeys = filteredAccounts.map((account) => account.pubkey);
-        const accountsWithData = await program.account.userAccount.fetchMultiple(accountPublicKeys);
-
-        const userAccountsByMintQuery = useQuery({
-          queryKey: ['getUserAccountsByMint', { mint }],
-          queryFn: async () => {
-            const userAccountDiscriminator = Buffer.from(sha256.digest("account:UserAccount")).slice(
-              0,
-              8
-            );
-
-            const mintOffset = 40;
-            const mintLength = 32;
-
-            // Fetch accounts with `dataSlice` targeting `creation_time`
-            const accounts = await connection.getProgramAccounts(programId, {
-              dataSlice: { offset: mintOffset, length: mintLength },
-              filters: [
-
-                {
-                  memcmp: { offset: 0, bytes: bs58.encode(userAccountDiscriminator) },
-                },
-
-              ],
-            });
-
-            const targetMintBytes = Buffer.from(mint.toBytes());
-            const filteredAccounts = accounts.filter((account) =>
-              account.account.data.equals(targetMintBytes)
-            );
-
-            const accountPublicKeys = filteredAccounts.map((account) => account.pubkey);
-            const accountsWithData = await program.account.userAccount.fetchMultiple(accountPublicKeys);
-
-            return accountsWithData;
+          {
+            memcmp: { offset: 0, bytes: bs58.encode(userAccountDiscriminator) },
           },
-          enabled: !!mint,
-        });
 
-        const accountsWithOrderedData = accountsWithData.map((account, index) => {
-          if (account != null) {
-            const { getSpecificTokenBalance } = useGetTokenAccounts({ address: account.user, mint });
-            const tokenBalance = new BN(
-              getSpecificTokenBalance.data?.balance ?? 0 // Default to 0 if balance is undefined or query fails
-            );
-            const total: BN = account.lockedAmount.add(account.claimmable).add(tokenBalance);
+        ],
+      });
 
-            return {
-              user: account.user,
-              lockedAmount: account.lockedAmount,
-              claimmable: account.claimmable,
-              tokenBalance,
-              total,
-            };
-          }
-        });
+      const targetMintBytes = Buffer.from(mint.toBytes());
+      const filteredAccounts = accounts.filter((account) =>
+        account.account.data.equals(targetMintBytes)
+      );
 
-        return accountsWithOrderedData
-      },
-      enabled: !!mint,
-    });
+      const accountPublicKeys = filteredAccounts.map((account) => account.pubkey);
+      const accountsWithData = await program.account.userAccount.fetchMultiple(accountPublicKeys);
 
-    return {
-      userAccountsByMintQuery,
+      const userAccountsByMintQuery = useQuery({
+        queryKey: ['getUserAccountsByMint', { mint }],
+        queryFn: async () => {
+          const userAccountDiscriminator = Buffer.from(sha256.digest("account:UserAccount")).slice(
+            0,
+            8
+          );
+
+          const mintOffset = 40;
+          const mintLength = 32;
+
+          // Fetch accounts with `dataSlice` targeting `creation_time`
+          const accounts = await connection.getProgramAccounts(programId, {
+            dataSlice: { offset: mintOffset, length: mintLength },
+            filters: [
+
+              {
+                memcmp: { offset: 0, bytes: bs58.encode(userAccountDiscriminator) },
+              },
+
+            ],
+          });
+
+          const targetMintBytes = Buffer.from(mint.toBytes());
+          const filteredAccounts = accounts.filter((account) =>
+            account.account.data.equals(targetMintBytes)
+          );
+
+          const accountPublicKeys = filteredAccounts.map((account) => account.pubkey);
+          const accountsWithData = await program.account.userAccount.fetchMultiple(accountPublicKeys);
+
+          return accountsWithData;
+        },
+        enabled: !!mint,
+      });
+
+      const accountsWithOrderedData = accountsWithData.map((account, index) => {
+        if (account != null) {
+          const { getSpecificTokenBalance } = useGetTokenAccounts({ address: account.user, mint });
+          const tokenBalance = new BN(
+            getSpecificTokenBalance.data?.balance ?? 0 // Default to 0 if balance is undefined or query fails
+          );
+          const total: BN = account.lockedAmount.add(account.claimmable).add(tokenBalance);
+
+          return {
+            user: account.user,
+            lockedAmount: account.lockedAmount,
+            claimmable: account.claimmable,
+            tokenBalance,
+            total,
+          };
+        }
+      });
+
+      return accountsWithOrderedData
+    },
+    enabled: !!mint,
+  });
+
+  return {
+    userAccountsByMintQuery,
+  }
+}
+
+
+export function useAccountQuery({
+  publicKey,
+  mint,
+}: {
+  publicKey: PublicKey;
+  mint: PublicKey;
+}) {
+  const { cluster } = useCluster();
+  const { program } = useMemeProgram();
+  const { connection } = useConnection();
+  const programId = useMemo(() => getMemeProgramId(cluster.network as Cluster), [cluster]);
+
+  const userAccountSeeds = [
+    Buffer.from("user_account"),
+    mint.toBuffer(),
+    publicKey.toBuffer()
+  ];
+  const userAccountKey = PublicKey.findProgramAddressSync(
+    userAccountSeeds,
+    programId
+  )[0];
+  // Fetch the user account
+  const userAccountQuery = useQuery({
+    queryKey: ['userAccount', { cluster, userAccountKey }],
+    queryFn: async () => {
+      return program.account.userAccount.fetch(userAccountKey);
     }
-  }
+  });
 
 
-  export function useAccountQuery({
-    publicKey,
-    mint,
-  }: {
-    publicKey: PublicKey;
-    mint: PublicKey;
-  }) {
-    const { cluster } = useCluster();
-    const { program } = useMemeProgram();
-    const { connection } = useConnection();
-    const programId = useMemo(() => getMemeProgramId(cluster.network as Cluster), [cluster]);
-
-    const userAccountSeeds = [
-      Buffer.from("user_account"),
-      mint.toBuffer(),
-      publicKey.toBuffer()
-    ];
-    const userAccountKey = PublicKey.findProgramAddressSync(
-      userAccountSeeds,
-      programId
-    )[0];
-    // Fetch the user account
-    const userAccountQuery = useQuery({
-      queryKey: ['userAccount', { cluster, userAccountKey }],
-      queryFn: async () => {
-        return program.account.userAccount.fetch(userAccountKey);
-      }
-    });
-
-
-    const memeAccountSeeds = [
-      Buffer.from("user_account"),
-      mint.toBuffer(),
-      publicKey.toBuffer()
-    ];
-    const memeAccountKey = PublicKey.findProgramAddressSync(
-      memeAccountSeeds,
-      programId
-    )[0];
-    const memeEntryQuery = useQuery({
-      queryKey: ['memeEntry', { cluster, memeAccountKey }],
-      queryFn: async () => {
-        return program.account.memeEntryState.fetch(memeAccountKey);
-      }
-    });
+  const memeAccountSeeds = [
+    Buffer.from("user_account"),
+    mint.toBuffer(),
+    publicKey.toBuffer()
+  ];
+  const memeAccountKey = PublicKey.findProgramAddressSync(
+    memeAccountSeeds,
+    programId
+  )[0];
+  const memeEntryQuery = useQuery({
+    queryKey: ['memeEntry', { cluster, memeAccountKey }],
+    queryFn: async () => {
+      return program.account.memeEntryState.fetch(memeAccountKey);
+    }
+  });
 
 
 
-    return {
-      userAccountQuery,
-      memeEntryQuery,
-    };
-  }
+  return {
+    userAccountQuery,
+    memeEntryQuery,
+  };
+}
 
 
 

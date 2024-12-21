@@ -441,7 +441,7 @@ export function BalanceCard({ publicKey, mint, account, bondedTime, symbol, user
       }
 
       // Perform the buy/sell operation
-      await buySellToken.mutateAsync({ publicKey, amount: amountSentToSolana, mint });
+      await buySellToken.mutateAsync({amount: amountSentToSolana, mint });
       toast.success("Success!");
     } catch (error: any) {
       console.error(error);

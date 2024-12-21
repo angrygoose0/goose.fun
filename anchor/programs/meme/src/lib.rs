@@ -283,18 +283,15 @@ pub mod meme {
         Ok(())
     }
 
-    
-    pub fn unlock_tokens_in_treasury<'info>(
-        ctx: Context<UnlockInTreasury>,
-    ) -> Result<()> {
-        let meme_entry = &mut ctx.accounts.meme_entry;
-        //meme_entry.locked_amount // take off 10%
-    }
+
 
     pub fn unlock_tokens_in_user<'info>(
         ctx: Context<UnlockInUser>,
-        user: PublicKey,
+        _user: Pubkey,
     ) -> Result<()> {
+        let meme_entry = &mut ctx.accounts.meme_entry;
+        let user_account = &mut ctx.accounts.user_account;
+        Ok(())
 
     }
     
@@ -387,26 +384,6 @@ pub struct MintTokens<'info>{
 
 
 #[derive(Accounts)]
-pub struct UnlockInTreasury<'info> {
-    #[account(
-        mut,
-        seeds = [b"meme_entry", mint.key().as_ref()],
-        bump,
-    )]
-    pub meme_entry: Account<'info, MemeEntryState>,
-
-    #[account(
-        mut,
-    )]
-    pub mint: Account<'info, Mint>,
-
-    #[account(mut)]
-    pub treasury: SystemAccount<'info>,
-
-    pub system_program: Program<'info, System>,
-}
-
-#[derive(Accounts)]
 #[instruction(user: Pubkey)]
 pub struct UnlockInUser<'info> {
     #[account(
@@ -418,7 +395,6 @@ pub struct UnlockInUser<'info> {
 
     #[account(
         mut,
-        space = 8 + UserAccount::INIT_SPACE,
         seeds = [b"user_account", mint.key().as_ref(), user.key().as_ref()], // PDA seed
         bump,
     )]
@@ -426,6 +402,11 @@ pub struct UnlockInUser<'info> {
 
     #[account(mut)]
     pub treasury: SystemAccount<'info>,
+
+    #[account(
+        mut,
+    )]
+    pub mint: Account<'info, Mint>,
 
     pub system_program: Program<'info, System>,
 }
