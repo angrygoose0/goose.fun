@@ -27,7 +27,9 @@ declare_id!("5BpjFeNvcyvFWYYQg1G8o2dYpwSbZzi8qbVPAfxPiFbP");
 pub mod meme {
     use super::*;
 
-    pub const INITIAL_PRICE: u64 = 2_500_000; //tokens per sol 
+    pub const INITIAL_PRICE: u64 = 250000000; //tokens per sol (mul by 100 temp)
+    pub const TOKEN_SUPPLY_BEFORE_BONDING: u64 = 800_000_000_000_000_000;
+
     pub const MINT_DECIMALS: u8 = 9;
     pub const MINT_SUPPLY: u64 = 1_000_000_000_000_000_000; // 1billion times 10^9
 
@@ -210,7 +212,14 @@ pub mod meme {
 
         if amount > 0 {
             // token lamport amount
-            let tokens_owed = (amount as u64) * INITIAL_PRICE;
+            let mut tokens_owed = (amount as u64) * INITIAL_PRICE;
+            let mut sol_sent: u64 = amount as u64;
+
+            // Adjust tokens_owed to fit within TOKEN_SUPPLY_BEFORE_BONDING
+            if meme_entry.locked_amount + tokens_owed > TOKEN_SUPPLY_BEFORE_BONDING {
+                tokens_owed = TOKEN_SUPPLY_BEFORE_BONDING - meme_entry.locked_amount;
+                sol_sent = (tokens_owed / INITIAL_PRICE);
+            }
 
             user_account.locked_amount = user_account
                 .locked_amount
@@ -227,7 +236,7 @@ pub mod meme {
             let transfer_instruction = system_instruction::transfer(
                 &ctx.accounts.signer.key(),
                 &ctx.accounts.treasury.key(),
-                amount as u64,
+                sol_sent,
             );
 
             invoke_signed(
@@ -276,7 +285,7 @@ pub mod meme {
     ) -> Result<()> {
         let meme_entry = &mut ctx.accounts.meme_entry;
 
-        require!(meme_entry.bonded_time < 0, CustomError::AlreadyBonded);
+        //require!(meme_entry.bonded_time < 0, CustomError::AlreadyBonded);
 
         meme_entry.bonded_time = Clock::get()?.unix_timestamp as i64;
         // send sol from treasury to liquidity pool in raydium

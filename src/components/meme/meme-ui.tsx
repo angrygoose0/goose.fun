@@ -14,7 +14,7 @@ import { FaXTwitter } from 'react-icons/fa6';
 import { BN } from '@coral-xyz/anchor';
 import { AccountBalance } from '../account/account-ui';
 import { WalletButton } from '../solana/solana-provider'
-
+import { useCreatePool, useFetchPools } from '../raydium/raydium-data-access'
 
 export function MemeCreate() {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -157,7 +157,7 @@ export function MemeCreate() {
         console.log("ready");
 
         // Await the mutation to ensure the process completes before showing success toast
-        await createMemeToken.mutateAsync({ metadata, publicKey });
+        await createMemeToken.mutateAsync({ metadata });
 
         // Show success message
         toast.success("Meme token created successfully!");
@@ -422,8 +422,10 @@ export function BalanceCard({ publicKey, mint, account, bondedTime, symbol, user
 
         const solRequiredBN = showingSol ? amount : convertTokensToSol(amount);
 
-        if (solRequiredBN > solBalanceBN) {
-          throw new Error("SOL balance too low.");
+        if (solRequiredBN.gte(solBalanceBN)) {
+          console.log('required', solRequiredBN.toString());
+          console.log('balance', solBalanceBN.toString());
+          throw new Error("SOL balance too low1.");
         }
 
         amountSentToSolana = solRequiredBN;
@@ -441,7 +443,7 @@ export function BalanceCard({ publicKey, mint, account, bondedTime, symbol, user
       }
 
       // Perform the buy/sell operation
-      await buySellToken.mutateAsync({amount: amountSentToSolana, mint });
+      await buySellToken.mutateAsync({ amount: amountSentToSolana, mint });
       toast.success("Success!");
     } catch (error: any) {
       console.error(error);
@@ -449,6 +451,7 @@ export function BalanceCard({ publicKey, mint, account, bondedTime, symbol, user
     }
   }, [publicKey, amount, showingSol, selectedAction, solBalanceBN, userLockedAmountBN, mint]);
 
+  /*
   const handleLockClaimFormSubmit = useCallback(async () => {
     try {
       let amountSentToSolana: BN; //token lamports
@@ -470,7 +473,7 @@ export function BalanceCard({ publicKey, mint, account, bondedTime, symbol, user
           throw new Error("You can't claim more than claimmable");
         }
 
-        amountSentToSolana = showingSol ? convertSolToTokens(amount).neg() :amount.neg();
+        amountSentToSolana = showingSol ? convertSolToTokens(amount).neg() : amount.neg();
       }
       else {
         throw new Error("wrong action type");
@@ -521,6 +524,7 @@ export function BalanceCard({ publicKey, mint, account, bondedTime, symbol, user
     }
   }, [publicKey, amount, showingSol, selectedAction, solBalanceBN, tokenBalanceBN, mint]);
 
+  */
 
   return (
     <div
@@ -850,16 +854,28 @@ export function TokenCard({ account }: { account: any }) {
 
   const { bondToRaydium } = useBondToRaydium();
 
+  const { createPool } = useCreatePool();
+
+  const { fetchPoolListByMint } = useFetchPools({ mint });
+  console.log(symbol, fetchPoolListByMint, "POOLIST");
+
+
   const bondButton = useCallback(async () => {
     try {
-      // Perform the buy/sell operation
+      // Call bondToRaydium first
       await bondToRaydium.mutateAsync({ mint });
-      toast.success("Success!");
+      toast.success("Bond to Raydium succeeded!");
+
+      // Call createPool after bondToRaydium succeeds
+      await createPool.mutateAsync({
+        mint,
+      });
+      toast.success("Pool created successfully!");
     } catch (error: any) {
       console.error(error);
       toast.error(error.message || "An error occurred.");
     }
-  }, [mint]);
+  }, [mint]); // Ensure dependencies like `mint` are listed here
 
 
   const renderGridCards = () => {

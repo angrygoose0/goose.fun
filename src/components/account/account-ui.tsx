@@ -100,7 +100,7 @@ export function AccountTokens({ address }: { address: PublicKey }) {
   const { getAllTokenAccounts } = useGetTokenAccounts({ address })
   const client = useQueryClient()
   const items = useMemo(() => {
-    if (showAll) return query.data
+    if (showAll) return getAllTokenAccounts.data
     return getAllTokenAccounts.data?.slice(0, 5)
   }, [getAllTokenAccounts.data, showAll])
 
@@ -128,7 +128,7 @@ export function AccountTokens({ address }: { address: PublicKey }) {
           </div>
         </div>
       </div>
-      {getAllTokenAccounts.isError && <pre className="alert alert-error">Error: {query.error?.message.toString()}</pre>}
+      {getAllTokenAccounts.isError && <pre className="alert alert-error">Error: {getAllTokenAccounts.error?.message.toString()}</pre>}
       {getAllTokenAccounts.isSuccess && (
         <div>
           {getAllTokenAccounts.data.length === 0 ? (
@@ -168,7 +168,7 @@ export function AccountTokens({ address }: { address: PublicKey }) {
                   </tr>
                 ))}
 
-                {(query.data?.length ?? 0) > 5 && (
+                {(getAllTokenAccounts.data?.length ?? 0) > 5 && (
                   <tr>
                     <td colSpan={4} className="text-center">
                       <button className="btn btn-xs btn-outline" onClick={() => setShowAll(!showAll)}>

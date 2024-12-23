@@ -32,9 +32,13 @@ export const fromLamportsDecimals = (amount: BN): number => {
     return amount.toNumber() / BILLION.toNumber();
 };
 
-const BILLION = new BN(10).pow(new BN(9));
+export const INITIAL_PRICE: BN = new BN(250000000); // 2.5 million tokens per SOL (mul by 100 temp)
 
-const INITIAL_PRICE: BN = new BN(2_500_000); // 2.5 million tokens per SOL
+export const BILLION = new BN(10).pow(new BN(9));
+export const TOKEN_SUPPLY_BEFORE_BONDING = new BN(800000000).mul(BILLION);
+export const INITIAL_SOL_AMOUNT = TOKEN_SUPPLY_BEFORE_BONDING.div(INITIAL_PRICE); //320 * billion
+
+
 const SOL_PRICE: BN = new BN(250_000_000_000); // $250 * 10^9 per SOL lamport
 
 // Conversion functions
@@ -72,7 +76,7 @@ export const calculatePercentage = (numerator: BN, denominator: BN): number => {
             .mul(scale) // Multiply numerator by 100 first
             .div(denominator); // Then perform division
 
-    return percentage.toNumber()/100;
+    return percentage.toNumber() / 100;
 }
 
 export function timeAgo(from: number): string {

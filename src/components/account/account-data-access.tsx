@@ -33,7 +33,7 @@ export function useGetSignatures({ address }: { address: PublicKey }) {
   })
 }
 
-export function useGetTokenAccounts({ address, mint }: { address: PublicKey, mint: PublicKey }) {
+export function useGetTokenAccounts({ address, mint }: { address: PublicKey, mint?: PublicKey }) {
   const { connection } = useConnection();
 
   // Fetch all token accounts

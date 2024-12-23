@@ -18,6 +18,7 @@ import { BN } from '@coral-xyz/anchor';
 import { sha256 } from "js-sha256";
 import bs58 from 'bs58';
 import { create } from 'domain';
+import { fetchRpcPoolInfo } from '../raydium/fetchRpcPoolInfo';
 
 
 export interface InitTokenParams {
@@ -52,87 +53,38 @@ export function useCreateMemeToken() {
   const provider = useAnchorProvider();
   const program = getMemeProgram(provider);
   const transactionToast = useTransactionToast();
+  const { publicKey, sendTransaction } = useWallet();
 
   const createMemeToken = useMutation<
     string,
     Error,
-    { metadata: InitTokenParams, publicKey: PublicKey }
+    { metadata: InitTokenParams }
   >({ //publicKey is user's key
     mutationKey: ["createMemeTokenEntry"],
-    mutationFn: async ({ metadata, publicKey }) => {
-
-      const tokenMetadata = {
-        name: metadata.name,
-        symbol: metadata.symbol,
-        uri: metadata.uri,
-        decimals: metadata.decimals,
-      };
-
-      const mintSeeds = [
-        Buffer.from("mint"),
-        Buffer.from(metadata.symbol),
-        Buffer.from(metadata.name),
-
-      ];
-
-      const mint = PublicKey.findProgramAddressSync(
-        mintSeeds,
-        programId
-      )[0];
-
-      console.log(treasuryKeypair.publicKey.toString());
-
-
-      const treasury_token_account = await associatedAddress({
-        mint: mint,
-        owner: treasuryKeypair.publicKey,
-      })
-
-      const metadataAddress = getMetadataAddress(mint);
-
-
-      const transaction = new Transaction();
-      const initTokenInstruction = await program.methods
-        .initMemeToken(tokenMetadata)
-        .accounts({
-          metadata: metadataAddress,
-          mint: mint,
-          treasury: treasuryKeypair.publicKey,
-          signer: publicKey,
-          rent: SYSVAR_RENT_PUBKEY,
-          systemProgram: SystemProgram.programId,
-          tokenProgram: TOKEN_PROGRAM_ID,
-          tokenMetadataProgram: TOKEN_METADATA_PROGRAM_ID,
-
-        })
-        .instruction();
-
-      const mintTokenInstruction = await program.methods
-        .mintMemeToken(metadata.symbol, metadata.name)
-        .accounts({
-          mint: mint,
-          signer: publicKey,
-          rent: SYSVAR_RENT_PUBKEY,
-          systemProgram: SystemProgram.programId,
-          tokenProgram: TOKEN_PROGRAM_ID,
-          associatedTokenProgram: ASSOCIATED_PROGRAM_ID,
-          //treasuryTokenAccount: treasury_token_account,
-          treasury: treasuryKeypair.publicKey,
-        })
-        .instruction();
-
-      transaction.add(initTokenInstruction, mintTokenInstruction);
-      transaction.feePayer = publicKey;
-
-      const { value } = await connection.simulateTransaction(transaction);
-      console.log("Simulation result:", value);
-      if (value.err) {
-        console.error("Simulation error:", value.err);
-      }
-
+    mutationFn: async ({ metadata }) => {
       try {
-        console.log("try");
-        const tx1 = await program.methods
+        const tokenMetadata = {
+          name: metadata.name,
+          symbol: metadata.symbol,
+          uri: metadata.uri,
+          decimals: metadata.decimals,
+        };
+
+        const mintSeeds = [
+          Buffer.from("mint"),
+          Buffer.from(metadata.symbol),
+          Buffer.from(metadata.name),
+
+        ];
+
+        const mint = PublicKey.findProgramAddressSync(
+          mintSeeds,
+          programId
+        )[0];
+
+        const metadataAddress = getMetadataAddress(mint);
+
+        const initTokenInstruction = await program.methods
           .initMemeToken(tokenMetadata)
           .accounts({
             metadata: metadataAddress,
@@ -144,8 +96,9 @@ export function useCreateMemeToken() {
             tokenProgram: TOKEN_PROGRAM_ID,
             tokenMetadataProgram: TOKEN_METADATA_PROGRAM_ID,
           })
-          .rpc();
-        const tx2 = await program.methods
+          .instruction();
+
+        const mintTokenInstruction = await program.methods
           .mintMemeToken(metadata.symbol, metadata.name)
           .accounts({
             mint: mint,
@@ -156,11 +109,29 @@ export function useCreateMemeToken() {
             tokenProgram: TOKEN_PROGRAM_ID,
             associatedTokenProgram: ASSOCIATED_PROGRAM_ID,
           })
-          .rpc();
-      } catch (err) {
-        console.error("Detailed error:", err);
+          .instruction();
+
+
+        const blockhashContext = await connection.getLatestBlockhashAndContext();
+
+        const transaction = new Transaction({
+          feePayer: publicKey,
+          blockhash: blockhashContext.value.blockhash,
+          lastValidBlockHeight: blockhashContext.value.lastValidBlockHeight,
+        })
+          .add(initTokenInstruction)
+          .add(mintTokenInstruction);
+
+        const signature = await sendTransaction(transaction, connection, {
+        });
+
+        return signature;
+      } catch (error) {
+        console.error("Error during transaction processing:", error);
+        throw error;
       }
     },
+
     onSuccess: (signature) => {
       transactionToast(signature);
       console.log(signature);
@@ -252,14 +223,13 @@ export function useProcessedAccountsQuery({
 }
 
 
-
-
 export function useMemeProgram() {
   const { connection } = useConnection();
   const { cluster } = useCluster();
   const provider = useAnchorProvider();
   const programId = useMemo(() => getMemeProgramId(cluster.network as Cluster), [cluster]);
   const program = getMemeProgram(provider);
+
 
   const getProgramAccount = useQuery({
     queryKey: ["get-program-account", { cluster }],
@@ -342,13 +312,9 @@ export function useBuySellTokenMutation() {
             treasury: treasuryKeypair.publicKey,
           })
           .signers([treasuryKeypair])
-          .rpc();
+          .instruction();
 
-        /*
         const blockhashContext = await connection.getLatestBlockhashAndContext();
-
-        console.log("Blockhash context:", blockhashContext);
-        console.log("Fee payer public key:", publicKey);
 
         const transaction = new Transaction({
           feePayer: publicKey,
@@ -359,21 +325,11 @@ export function useBuySellTokenMutation() {
           //.add(addPriorityFee)
           .add(buySell);
         transaction.sign(treasuryKeypair)
-        
-
-
-        console.log("Prepared transaction:", transaction);
-
-        const simulation = await connection.simulateTransaction(transaction);
-        console.log("Simulation logs:", simulation.value.logs);
-
 
         const signature = await sendTransaction(transaction, connection, {
         });
-        console.log("Transaction signature:", signature);
-        */
 
-        return buySell;
+        return signature;
 
       } catch (error) {
         console.error("Error during transaction processing:", error);
@@ -406,28 +362,38 @@ export function useBondToRaydium() {
     { mint: PublicKey }
   >({
     mutationKey: ['bondToRaydium'],
-    mutationFn: ({ mint }) => {
-      return program.methods
-        .bondToRaydium()
-        .accounts({
-          mint,
-          treasury: treasuryKeypair.publicKey,
-        })
-        .signers([treasuryKeypair])
-        .rpc();
+    mutationFn: async ({ mint }) => {
+      try {
+        // Call the bondToRaydium method first
+
+        const signature = await program.methods
+          .bondToRaydium()
+          .accounts({
+            mint,
+            treasury: treasuryKeypair.publicKey,
+          })
+          .signers([treasuryKeypair])
+          .rpc();
+        return signature;
+
+        //return signature;
+      } catch (error) {
+        console.error('Error in bondToRaydium', error);
+        throw error;
+      }
     },
     onSuccess: (signature) => {
       transactionToast(signature);
-      console.log(signature);
+      console.log('Bonded to Raydium', signature);
     },
     onError: (error) => {
-      toast.error(`Error bonding to raydium ${error.message}`);
-      console.error('Error bonding to raydium:', error);
+      toast.error(`Error bonding to Raydium or creating pool: ${error.message}`);
+      console.error('Error bonding to Raydium or creating pool:', error);
     },
   });
 
   return {
-    bondToRaydium
+    bondToRaydium,
   };
 }
 
@@ -582,6 +548,7 @@ export function useAccountQuery({
       return program.account.memeEntryState.fetch(memeAccountKey);
     }
   });
+
 
 
 
