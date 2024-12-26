@@ -103,13 +103,14 @@ pub mod meme {
             MINT_SUPPLY,
         )?;
 
-        // Create meme_entry account
-        let meme_entry = &mut ctx.accounts.meme_entry;
-        meme_entry.dev = ctx.accounts.signer.key();
-        meme_entry.mint = ctx.accounts.mint.key();
-        meme_entry.creation_time = Clock::get()?.unix_timestamp as i64;
-        meme_entry.locked_amount = 0;
-        meme_entry.bonded_time = -1;
+        // Create meme_account account
+        let meme_account = &mut ctx.accounts.meme_account;
+        meme_account.dev = ctx.accounts.signer.key();
+        meme_account.mint = ctx.accounts.mint.key();
+        meme_account.creation_time = Clock::get()?.unix_timestamp as i64;
+        meme_account.locked_amount = 0;
+        meme_account.bonded_time = -1;
+        meme_account.pool_id = None;
 
         Ok(())
     }
@@ -120,7 +121,7 @@ pub mod meme {
         amount: i64, //amount in SPL lamports.
     ) -> Result<()> {
         let user_account = &mut ctx.accounts.user_account;
-        let meme_entry = &mut ctx.accounts.meme_entry;
+        let meme_account = &mut ctx.accounts.meme_account;
 
         require!(amount != 0, CustomError::InvalidAmount);
 
@@ -128,7 +129,7 @@ pub mod meme {
         user_account.user = ctx.accounts.mint.key();
 
         require!(
-            meme_entry.bonded_time > 0,
+            meme_account.bonded_time > 0,
             CustomError::NotBonded,
         );
 
@@ -139,7 +140,7 @@ pub mod meme {
                 .checked_add(amount as u64)
                 .ok_or(CustomError::Overflow)?;
 
-            meme_entry.locked_amount = meme_entry
+            meme_account.locked_amount = meme_account
                 .locked_amount
                 .checked_add(amount as u64)
                 .ok_or(CustomError::Overflow)?;
@@ -166,7 +167,7 @@ pub mod meme {
                 .checked_sub(deduction)
                 .ok_or(CustomError::Underflow)?;
 
-            meme_entry.locked_amount = meme_entry
+            meme_account.locked_amount = meme_account
                 .locked_amount
                 .checked_sub(deduction)
                 .ok_or(CustomError::Underflow)?;
@@ -198,7 +199,7 @@ pub mod meme {
         amount: i64, // sol lamports
     ) -> Result<()> {
         let user_account = &mut ctx.accounts.user_account;
-        let meme_entry = &mut ctx.accounts.meme_entry;
+        let meme_account = &mut ctx.accounts.meme_account;
 
         require!(amount != 0, CustomError::InvalidAmount);
 
@@ -206,7 +207,7 @@ pub mod meme {
         user_account.user = ctx.accounts.mint.key();
 
         require!(
-            meme_entry.bonded_time < 0,
+            meme_account.bonded_time < 0,
             CustomError::HasBonded,
         );
 
@@ -216,9 +217,9 @@ pub mod meme {
             let mut sol_sent: u64 = amount as u64;
 
             // Adjust tokens_owed to fit within TOKEN_SUPPLY_BEFORE_BONDING
-            if meme_entry.locked_amount + tokens_owed > TOKEN_SUPPLY_BEFORE_BONDING {
-                tokens_owed = TOKEN_SUPPLY_BEFORE_BONDING - meme_entry.locked_amount;
-                sol_sent = (tokens_owed / INITIAL_PRICE);
+            if meme_account.locked_amount + tokens_owed > TOKEN_SUPPLY_BEFORE_BONDING {
+                tokens_owed = TOKEN_SUPPLY_BEFORE_BONDING - meme_account.locked_amount;
+                sol_sent = tokens_owed / INITIAL_PRICE;
             }
 
             user_account.locked_amount = user_account
@@ -226,7 +227,7 @@ pub mod meme {
                 .checked_add(tokens_owed)
                 .ok_or(CustomError::Overflow)?;
 
-            meme_entry.locked_amount = meme_entry
+            meme_account.locked_amount = meme_account
                 .locked_amount
                 .checked_add(tokens_owed)
                 .ok_or(CustomError::Overflow)?;
@@ -255,7 +256,7 @@ pub mod meme {
                 .checked_sub(spl_deduction)
                 .ok_or(CustomError::Underflow)?;
 
-            meme_entry.locked_amount = meme_entry
+            meme_account.locked_amount = meme_account
                 .locked_amount
                 .checked_sub(spl_deduction)
                 .ok_or(CustomError::Underflow)?;
@@ -282,13 +283,14 @@ pub mod meme {
 
     pub fn bond_to_raydium<'info>(    
         ctx: Context<BondToRaydium>,
+        pool_id: Pubkey,
     ) -> Result<()> {
-        let meme_entry = &mut ctx.accounts.meme_entry;
+        let meme_account = &mut ctx.accounts.meme_account;
 
-        //require!(meme_entry.bonded_time < 0, CustomError::AlreadyBonded);
+        //require!(meme_account.bonded_time < 0, CustomError::AlreadyBonded);
 
-        meme_entry.bonded_time = Clock::get()?.unix_timestamp as i64;
-        // send sol from treasury to liquidity pool in raydium
+        meme_account.bonded_time = Clock::get()?.unix_timestamp as i64;
+        meme_account.pool_id = Some(pool_id);
         Ok(())
     }
 
@@ -298,7 +300,7 @@ pub mod meme {
         ctx: Context<UnlockInUser>,
         _user: Pubkey,
     ) -> Result<()> {
-        let meme_entry = &mut ctx.accounts.meme_entry;
+        let meme_account = &mut ctx.accounts.meme_account;
         let user_account = &mut ctx.accounts.user_account;
         Ok(())
 
@@ -382,12 +384,12 @@ pub struct MintTokens<'info>{
 
     #[account(
         init,
-        seeds = [b"meme_entry", mint.key().as_ref()],
+        seeds = [b"meme_account", mint.key().as_ref()],
         bump,
-        space = 8 + MemeEntryState::INIT_SPACE,
+        space = 8 + MemeAccount::INIT_SPACE,
         payer = signer,
     )]
-    pub meme_entry: Box<Account<'info, MemeEntryState>>,   
+    pub meme_account: Box<Account<'info, MemeAccount>>,   
 
 }
 
@@ -397,10 +399,10 @@ pub struct MintTokens<'info>{
 pub struct UnlockInUser<'info> {
     #[account(
         mut,
-        seeds = [b"meme_entry", mint.key().as_ref()],
+        seeds = [b"meme_account", mint.key().as_ref()],
         bump,
     )]
-    pub meme_entry: Account<'info, MemeEntryState>,
+    pub meme_account: Account<'info, MemeAccount>,
 
     #[account(
         mut,
@@ -446,7 +448,7 @@ pub enum CustomError {
 
 #[account]
 #[derive(InitSpace)]
-pub struct MemeEntryState { //8
+pub struct MemeAccount { //8
     pub dev: Pubkey, //32
     pub mint: Pubkey, //32
 
@@ -454,6 +456,7 @@ pub struct MemeEntryState { //8
 
     pub creation_time: i64, // 8
     pub bonded_time: i64,  // -1 for none (8)
+    pub pool_id: Option<Pubkey>,
 }
 
 #[account]
@@ -477,10 +480,10 @@ pub struct LockUnlockAfterBonding<'info> {
     pub user_account:Box<Account<'info, UserAccount>>,
     #[account(
         mut,
-        seeds = [b"meme_entry", mint.key().as_ref()],
+        seeds = [b"meme_account", mint.key().as_ref()],
         bump,
     )]
-    pub meme_entry: Box<Account<'info, MemeEntryState>>,
+    pub meme_account: Box<Account<'info, MemeAccount>>,
     #[account(mut)]
     pub signer: Signer<'info>,
 
@@ -525,10 +528,10 @@ pub struct BuySellBeforeBonding<'info> {
     pub user_account: Account<'info, UserAccount>,
     #[account(
         mut,
-        seeds = [b"meme_entry", mint.key().as_ref()],
+        seeds = [b"meme_account", mint.key().as_ref()],
         bump,
     )]
-    pub meme_entry: Account<'info, MemeEntryState>,
+    pub meme_account: Account<'info, MemeAccount>,
     #[account(mut)]
     pub signer: Signer<'info>,
 
@@ -548,10 +551,10 @@ pub struct BuySellBeforeBonding<'info> {
 pub struct BondToRaydium<'info> {
     #[account(
         mut,
-        seeds = [b"meme_entry", mint.key().as_ref()],
+        seeds = [b"meme_account", mint.key().as_ref()],
         bump,
     )]
-    pub meme_entry: Account<'info, MemeEntryState>,
+    pub meme_account: Account<'info, MemeAccount>,
 
     #[account(
         mut,

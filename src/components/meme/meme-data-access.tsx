@@ -18,7 +18,6 @@ import { BN } from '@coral-xyz/anchor';
 import { sha256 } from "js-sha256";
 import bs58 from 'bs58';
 import { create } from 'domain';
-import { fetchRpcPoolInfo } from '../raydium/fetchRpcPoolInfo';
 
 
 export interface InitTokenParams {
@@ -96,7 +95,7 @@ export function useCreateMemeToken() {
             tokenProgram: TOKEN_PROGRAM_ID,
             tokenMetadataProgram: TOKEN_METADATA_PROGRAM_ID,
           })
-          .instruction();
+          .rpc();
 
         const mintTokenInstruction = await program.methods
           .mintMemeToken(metadata.symbol, metadata.name)
@@ -109,9 +108,9 @@ export function useCreateMemeToken() {
             tokenProgram: TOKEN_PROGRAM_ID,
             associatedTokenProgram: ASSOCIATED_PROGRAM_ID,
           })
-          .instruction();
+          .rpc();
 
-
+        /*
         const blockhashContext = await connection.getLatestBlockhashAndContext();
 
         const transaction = new Transaction({
@@ -122,10 +121,12 @@ export function useCreateMemeToken() {
           .add(initTokenInstruction)
           .add(mintTokenInstruction);
 
+        
         const signature = await sendTransaction(transaction, connection, {
         });
 
         return signature;
+        */
       } catch (error) {
         console.error("Error during transaction processing:", error);
         throw error;
@@ -148,7 +149,6 @@ export function useCreateMemeToken() {
   }
 }
 
-
 export function useProcessedAccountsQuery({
   currentPage,
   sortBy,
@@ -166,8 +166,8 @@ export function useProcessedAccountsQuery({
     queryKey: ['getMemeTokenEntry', { currentPage }, { sortBy }],
     queryFn: async () => {
 
-      const pageSize = 5;
-      const memeEntryDiscriminator = Buffer.from(sha256.digest("account:MemeEntryState")).slice(
+      const pageSize = 2;
+      const MemeAccountDiscriminator = Buffer.from(sha256.digest("account:MemeAccount")).slice(
         0,
         8
       );
@@ -181,16 +181,12 @@ export function useProcessedAccountsQuery({
         filters: [
 
           {
-            memcmp: { offset: 0, bytes: bs58.encode(memeEntryDiscriminator) },
+            memcmp: { offset: 0, bytes: bs58.encode(MemeAccountDiscriminator) },
           },
 
         ],
       });
-
-      const accounts1 = program.account.memeEntryState.all()
-
       console.log(accounts);
-      console.log(accounts1);
 
       // Parse `creation_time` and sort accounts
       const accountsWithCreationTime = accounts.map(({ pubkey, account }) => {
@@ -210,7 +206,7 @@ export function useProcessedAccountsQuery({
       );
 
       const accountPublicKeys = paginatedAccounts.map((account) => account.pubkey);
-      const accountsWithData = await program.account.memeEntryState.fetchMultiple(accountPublicKeys);
+      const accountsWithData = await program.account.memeAccount.fetchMultiple(accountPublicKeys);
 
       return accountsWithData;
     },
@@ -221,7 +217,6 @@ export function useProcessedAccountsQuery({
     processedAccountsQuery,
   };
 }
-
 
 export function useMemeProgram() {
   const { connection } = useConnection();
@@ -359,15 +354,14 @@ export function useBondToRaydium() {
   const bondToRaydium = useMutation<
     string,
     Error,
-    { mint: PublicKey }
+    { mint: PublicKey, poolId: PublicKey }
   >({
     mutationKey: ['bondToRaydium'],
-    mutationFn: async ({ mint }) => {
+    mutationFn: async ({ mint, poolId }) => {
       try {
-        // Call the bondToRaydium method first
 
         const signature = await program.methods
-          .bondToRaydium()
+          .bondToRaydium(poolId)
           .accounts({
             mint,
             treasury: treasuryKeypair.publicKey,
@@ -502,7 +496,6 @@ export function useUserAccountsByMintQuery({
   }
 }
 
-
 export function useAccountQuery({
   publicKey,
   mint,
@@ -511,9 +504,10 @@ export function useAccountQuery({
   mint: PublicKey;
 }) {
   const { cluster } = useCluster();
+  const programId = useMemo(() => getMemeProgramId(cluster.network as Cluster), [cluster]);
   const { program } = useMemeProgram();
   const { connection } = useConnection();
-  const programId = useMemo(() => getMemeProgramId(cluster.network as Cluster), [cluster]);
+
 
   const userAccountSeeds = [
     Buffer.from("user_account"),
@@ -542,10 +536,10 @@ export function useAccountQuery({
     memeAccountSeeds,
     programId
   )[0];
-  const memeEntryQuery = useQuery({
-    queryKey: ['memeEntry', { cluster, memeAccountKey }],
+  const MemeAccountQuery = useQuery({
+    queryKey: ['MemeAccount', { cluster, memeAccountKey }],
     queryFn: async () => {
-      return program.account.memeEntryState.fetch(memeAccountKey);
+      return program.account.MemeAccount.fetch(memeAccountKey);
     }
   });
 
@@ -554,7 +548,7 @@ export function useAccountQuery({
 
   return {
     userAccountQuery,
-    memeEntryQuery,
+    MemeAccountQuery,
   };
 }
 
@@ -562,9 +556,9 @@ export function useAccountQuery({
 
 /*
 const updateMemeToken = useMutation<string, Error, CreateMemeTokenArgs>({
-  mutationKey: [`memeEntry`, `update`, (cluster)],
+  mutationKey: [`MemeAccount`, `update`, (cluster)],
   mutationFn: async ({ mint, twitter_link, telegram_link, website_link }) => {
-    return program.methods.updateMemeEntry(mint, twitter_link, telegram_link, website_link).rpc();
+    return program.methods.updateMemeAccount(mint, twitter_link, telegram_link, website_link).rpc();
   },
   onSuccess: (signature) => {
     transactionToast(signature);

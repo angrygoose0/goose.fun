@@ -21,7 +21,7 @@
       ],
       "accounts": [
         {
-          "name": "meme_entry",
+          "name": "meme_account",
           "writable": true,
           "pda": {
             "seeds": [
@@ -33,11 +33,13 @@
                   109,
                   101,
                   95,
-                  101,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
                   110,
-                  116,
-                  114,
-                  121
+                  116
                 ]
               },
               {
@@ -61,7 +63,12 @@
           "address": "11111111111111111111111111111111"
         }
       ],
-      "args": []
+      "args": [
+        {
+          "name": "pool_id",
+          "type": "pubkey"
+        }
+      ]
     },
     {
       "name": "buy_sell",
@@ -110,7 +117,7 @@
           }
         },
         {
-          "name": "meme_entry",
+          "name": "meme_account",
           "writable": true,
           "pda": {
             "seeds": [
@@ -122,11 +129,13 @@
                   109,
                   101,
                   95,
-                  101,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
                   110,
-                  116,
-                  114,
-                  121
+                  116
                 ]
               },
               {
@@ -288,7 +297,7 @@
           }
         },
         {
-          "name": "meme_entry",
+          "name": "meme_account",
           "writable": true,
           "pda": {
             "seeds": [
@@ -300,11 +309,13 @@
                   109,
                   101,
                   95,
-                  101,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
                   110,
-                  116,
-                  114,
-                  121
+                  116
                 ]
               },
               {
@@ -682,7 +693,7 @@
           "writable": true
         },
         {
-          "name": "meme_entry",
+          "name": "meme_account",
           "writable": true,
           "pda": {
             "seeds": [
@@ -694,11 +705,13 @@
                   109,
                   101,
                   95,
-                  101,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
                   110,
-                  116,
-                  114,
-                  121
+                  116
                 ]
               },
               {
@@ -734,7 +747,7 @@
       ],
       "accounts": [
         {
-          "name": "meme_entry",
+          "name": "meme_account",
           "writable": true,
           "pda": {
             "seeds": [
@@ -746,11 +759,13 @@
                   109,
                   101,
                   95,
-                  101,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
                   110,
-                  116,
-                  114,
-                  121
+                  116
                 ]
               },
               {
@@ -816,16 +831,16 @@
   ],
   "accounts": [
     {
-      "name": "MemeEntryState",
+      "name": "MemeAccount",
       "discriminator": [
-        173,
-        102,
-        51,
-        94,
-        104,
-        136,
-        90,
-        68
+        197,
+        39,
+        187,
+        208,
+        216,
+        74,
+        13,
+        254
       ]
     },
     {
@@ -915,7 +930,7 @@
       }
     },
     {
-      "name": "MemeEntryState",
+      "name": "MemeAccount",
       "type": {
         "kind": "struct",
         "fields": [
@@ -938,6 +953,12 @@
           {
             "name": "bonded_time",
             "type": "i64"
+          },
+          {
+            "name": "pool_id",
+            "type": {
+              "option": "pubkey"
+            }
           }
         ]
       }

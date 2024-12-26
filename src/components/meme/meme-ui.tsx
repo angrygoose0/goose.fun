@@ -14,7 +14,7 @@ import { FaXTwitter } from 'react-icons/fa6';
 import { BN } from '@coral-xyz/anchor';
 import { AccountBalance } from '../account/account-ui';
 import { WalletButton } from '../solana/solana-provider'
-import { useCreatePool, useFetchPools } from '../raydium/raydium-data-access'
+import { useCreatePool, useFetchRpcPoolInfo, useInitRaydiumSdk } from '../raydium/raydium-data-access'
 
 export function MemeCreate() {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -154,7 +154,6 @@ export function MemeCreate() {
           uri: metadataUrl,
           decimals: 9,
         };
-        console.log("ready");
 
         // Await the mutation to ensure the process completes before showing success toast
         await createMemeToken.mutateAsync({ metadata });
@@ -246,58 +245,138 @@ export function MemeCreate() {
   );
 }
 
+export function MemeFilter() {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const openModal = () => setIsModalOpen(true);
+  const closeModal = () => setIsModalOpen(false);
+
+
+  const [loading, setLoading] = useState(false);
+
+
+  return (
+    <div>
+      <button
+        className="bg-gray-300 text-black px-3 py-2 rounded hover:bg-gray-400"
+        onClick={openModal}
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="h-5 w-5 text-black"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={2}
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707l-6 6V19a1 1 0 01-.553.894l-4 2A1 1 0 017 21v-8.293l-6-6A1 1 0 011 6V4z"
+          />
+        </svg>
+      </button>
+
+      {isModalOpen && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-10"
+          onClick={closeModal}
+        >
+          <div
+            className="relative border-2 border-black bg-white shadow-lg p-6 z-15"
+            onClick={(e) => e.stopPropagation()}
+          >
+            abc
+          </div>
+        </div>
+
+      )}
+    </div>
+  );
+}
+
 export function MemeList() {
   const [currentPage, setCurrentPage] = useState(1);
   const [sortBy, setSortBy] = useState("creation_time");
   const { processedAccountsQuery } = useProcessedAccountsQuery({ currentPage, sortBy });
   const { data: accounts, isLoading, error } = processedAccountsQuery;
-  console.log("accounts data:", accounts);
 
+  const { initRaydiumSdk } = useInitRaydiumSdk({ loadToken: true });
 
+  // Handle loading and error states with a message, but keep the pagination controls visible
+  let content;
 
-  if (!accounts || accounts.length < 1 || accounts == null || error || isLoading) {
-    return (<div>
-      <span className="loading loading-spinner"></span>
-    </div>);
+  if (isLoading || initRaydiumSdk.isLoading) {
+    content = (
+      <div>
+        <span className="loading loading-spinner"></span>
+        <p>Loading...</p>
+      </div>
+    );
+  } else if (error || initRaydiumSdk.isError) {
+    content = (
+      <div>
+        <p>Error: {error ? error.message : initRaydiumSdk.error.message}</p>
+      </div>
+    );
+  } else if (!accounts || accounts.length < 1) {
+    content = <p>No accounts found.</p>;
+  } else {
+    content = (
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 p-6">
+        {accounts.map((account) => (
+          account != null ? (
+            <TokenCard key={account.mint.toString()} account={account} />
+          ) : null
+        ))}
+      </div>
+    );
   }
 
-  //
   return (
     <div>
+      {/* Sorting controls */}
+      <div className="flex mt-6 space-x-4">
+        <label htmlFor="sort" className="font-medium">Sort By:</label>
+        <select
+          id="sort"
+          className="select select-bordered"
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value)}
+        >
+          <option value="creation_time">Creation Time</option>
+          <option value="name">Name</option>
+          <option value="balance">Balance</option>
+        </select>
+      </div>
       <div className="space-y-6">
-
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 p-6">
-          {accounts.map((account) => (
-            account != null ? (
-              <TokenCard key={account.mint.toString()} account={account} />
-            ) : null
-          ))}
-        </div>
+        {content}
       </div>
 
+
+
+      {/* Pagination controls */}
       <div className="flex justify-center mt-6 space-x-4">
         <button
-          className="btn btn-secondary"
+          className="btn rounded-none border-2 border-black text-black bg-white hover:bg-gray-100"
           onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
           disabled={currentPage === 1}
         >
           Previous
         </button>
         <span>Page {currentPage}</span>
+
+
         <button
-          className="btn btn-secondary"
+          className="btn rounded-none border-2 border-black text-black bg-white hover:bg-gray-100"
           onClick={() => setCurrentPage((prev) => prev + 1)}
-          disabled={!accounts || accounts.length < 5} // Disable if no more pages
+          disabled={!accounts || accounts.length < 2} // Disable if no more pages
         >
           Next
         </button>
       </div>
-    </div>
+    </div >
   );
-
-
 }
-
 
 
 
@@ -454,10 +533,10 @@ export function BalanceCard({ publicKey, mint, account, bondedTime, symbol, user
   /*
   const handleLockClaimFormSubmit = useCallback(async () => {
     try {
-      let amountSentToSolana: BN; //token lamports
+          let amountSentToSolana: BN; //token lamports
 
-      // Validate amount based on selected action
-      if (selectedAction === ActionType.Lock) {
+        // Validate amount based on selected action
+        if (selectedAction === ActionType.Lock) {
 
         const tokensRequiredBN = showingSol ? convertSolToTokens(amount) : amount;
 
@@ -475,25 +554,25 @@ export function BalanceCard({ publicKey, mint, account, bondedTime, symbol, user
 
         amountSentToSolana = showingSol ? convertSolToTokens(amount).neg() : amount.neg();
       }
-      else {
+        else {
         throw new Error("wrong action type");
       }
 
-      // Perform the buy/sell operation
-      await lockClaimToken.mutateAsync({ publicKey, amount: amountSentToSolana, mint });
-      toast.success("Success!");
+        // Perform the buy/sell operation
+        await lockClaimToken.mutateAsync({publicKey, amount: amountSentToSolana, mint });
+        toast.success("Success!");
     } catch (error: any) {
-      console.error(error);
-      toast.error(error.message || "An error occurred.");
+          console.error(error);
+        toast.error(error.message || "An error occurred.");
     }
   }, [publicKey, amount, showingSol, selectedAction, claimmableBN, tokenBalanceBN, mint]);
 
   const handleRaydiumBuySellFormSubmit = useCallback(async () => {
     try {
-      let amountSentToSolana: BN; //sol lamports
+          let amountSentToSolana: BN; //sol lamports
 
-      // Validate amount based on selected action
-      if (selectedAction === ActionType.RaydiumBuy) {
+        // Validate amount based on selected action
+        if (selectedAction === ActionType.RaydiumBuy) {
 
         const solRequiredBN = showingSol ? amount : convertTokensToSol(amount);
 
@@ -511,20 +590,20 @@ export function BalanceCard({ publicKey, mint, account, bondedTime, symbol, user
 
         amountSentToSolana = showingSol ? amount.neg() : convertTokensToSol(amount).neg();
       }
-      else {
+        else {
         throw new Error("wrong action type");
       }
 
-      // Perform the buy/sell operation
-      await raydiumBuySellToken.mutateAsync({ publicKey, amount: amountSentToSolana, mint });
-      toast.success("Success!");
+        // Perform the buy/sell operation
+        await raydiumBuySellToken.mutateAsync({publicKey, amount: amountSentToSolana, mint });
+        toast.success("Success!");
     } catch (error: any) {
-      console.error(error);
-      toast.error(error.message || "An error occurred.");
+          console.error(error);
+        toast.error(error.message || "An error occurred.");
     }
   }, [publicKey, amount, showingSol, selectedAction, solBalanceBN, tokenBalanceBN, mint]);
 
-  */
+        */
 
   return (
     <div
@@ -806,7 +885,7 @@ export function TokenCard({ account }: { account: any }) {
   }, []);
 
   // ignore this, as i've specified that memeAccountQuery is for the memeaccount, not useraccount.
-  const { dev, mint, lockedAmount, creationTime, bondedTime } = account;
+  const { dev, mint, lockedAmount, creationTime, bondedTime, poolId } = account;
   const { metadataQuery } = useMetadataQuery({ mint });
   const symbol = metadataQuery.data?.symbol || "";
   const name = metadataQuery.data?.name || "";
@@ -820,6 +899,7 @@ export function TokenCard({ account }: { account: any }) {
 
   const holderData = userAccountsByMintQuery.data ?? null;
 
+  //const {fetchRpcPoolInfo} = useFetchRpcPoolInfo({poolId});
 
   const divisor = bondedTime.isNeg() ? new BN('800000000000000000') : new BN('1000000000000000000');
   const globalPercentage = calculatePercentage(lockedAmount, divisor);
@@ -856,20 +936,25 @@ export function TokenCard({ account }: { account: any }) {
 
   const { createPool } = useCreatePool();
 
-  const { fetchPoolListByMint } = useFetchPools({ mint });
-  console.log(symbol, fetchPoolListByMint, "POOLIST");
+  //const {fetchRpcPoolInfo} = useFetchRpcPoolInfo({poolId});
+  //console.log(fetchRpcPoolInfo, symbol);
 
 
   const bondButton = useCallback(async () => {
     try {
-      // Call bondToRaydium first
-      await bondToRaydium.mutateAsync({ mint });
-      toast.success("Bond to Raydium succeeded!");
 
-      // Call createPool after bondToRaydium succeeds
-      await createPool.mutateAsync({
+      const { txId, poolId } = await createPool.mutateAsync({
         mint,
       });
+
+      if (!poolId) {
+        throw new Error("poolId is undefined");
+      }
+
+      // Call bondToRaydium first
+      await bondToRaydium.mutateAsync({ mint, poolId: new PublicKey(poolId) });
+      toast.success("Bond to Raydium succeeded!");
+
       toast.success("Pool created successfully!");
     } catch (error: any) {
       console.error(error);
@@ -1093,7 +1178,7 @@ export function TokenCard({ account }: { account: any }) {
     if (!hideRight) {
       cards.push(
         publicKey ? (
-          <BalanceCard publicKey={publicKey} mint={mint} account={account} bondedTime={bondedTime} symbol={symbol} userLockedAmountBN={userLockedAmountBN} claimmableBN={claimmableBN} tokenBalanceBN={tokenBalanceBN} />
+          <BalanceCard key={mint.toString()} publicKey={publicKey} mint={mint} account={account} bondedTime={bondedTime} symbol={symbol} userLockedAmountBN={userLockedAmountBN} claimmableBN={claimmableBN} tokenBalanceBN={tokenBalanceBN} />
         ) : (
           <div
             key="right-top"
@@ -1335,7 +1420,7 @@ export function TokenCard({ account }: { account: any }) {
                     {/* When bondedTime is positive */}
                     <div className="flex items-baseline space-x-2">
                       <div className="text-sm font-semibold text-black">
-                        {totalTokens.toString()} {symbol.toString()}
+                        {simplifyBN(fromLamports(totalTokens))} {symbol.toString()}
                       </div>
                       <div className="text-sm text-gray-500">~ $49.22</div>
                     </div>

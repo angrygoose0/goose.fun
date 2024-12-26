@@ -9,17 +9,13 @@ import toast, { Toaster } from 'react-hot-toast'
 import { AccountChecker } from '../account/account-ui'
 import { ClusterChecker, ClusterUiSelect, ExplorerLink } from '../cluster/cluster-ui'
 import { WalletButton } from '../solana/solana-provider'
-import { MemeCreate, MemeList, TokenCard } from '../meme/meme-ui'
+import { MemeCreate, MemeFilter, MemeList, TokenCard } from '../meme/meme-ui'
 import { NavbarCard, NavbarFilters } from './extra-ui'
 
-
-export function UiLayout({ children }: { children: ReactNode }) {
-
-  return (
-    <div className="h-full flex">
-      {/* Sidebar (Vertical Navbar) */}
+{/* Sidebar (Vertical Navbar) */ }
+{/*}
       <div
-        className="navbar bg-white text-black border-2 items-start border-black flex flex-col space-y-4 p-4"
+        className="navbar bg-gray-200 text-black items-start border-black flex flex-col space-y-4 p-4"
         style={{ width: '256px', minHeight: '100vh', position: 'fixed' }}
       >
         <div className="flex-none">
@@ -36,16 +32,31 @@ export function UiLayout({ children }: { children: ReactNode }) {
         </div>
 
       </div>
+      */}
+export function UiLayout({ children }: { children: ReactNode }) {
 
+  return (
+    <div className="h-full flex">
+
+      <div className="fixed top-4 left-4 flex space-x-4 z-50">
+
+        <MemeFilter />
+        <MemeCreate />
+
+      </div>
       {/* Floating Buttons */}
       <div className="fixed top-4 right-4 flex space-x-4 z-50">
 
         <WalletButton />
         <ClusterUiSelect />
+        <button>
+          create
+        </button>
+
       </div>
 
       {/* Main Content */}
-      <div className="flex flex-col flex-grow overflow-auto" style={{ marginLeft: '256px' }}>
+      <div className="flex flex-col flex-grow overflow-auto" /*style={{ marginLeft: '256px' }} bc of navbar*/>
         {/* Hero Section */}
         <div className="hero py-[64px]">
           <div className="hero-content text-center">
@@ -54,15 +65,18 @@ export function UiLayout({ children }: { children: ReactNode }) {
               <p className="py-6">subtitle</p>
               {/* Search Bar */}
 
-              <input
-                type="text"
-                className="w-96 border-2 border-black p-2 text-l focus:outline-none"
-                placeholder="Search"
-              />
+              {/* Search Bar with Filters Button */}
+              <div className="flex items-center justify-center space-x-2">
+                <input
+                  type="text"
+                  className="w-96 border-2 border-black p-2 text-l focus:outline-none"
+                  placeholder="Search"
+                />
+
+              </div>
             </div>
           </div>
         </div>
-        <MemeCreate />
         <MemeList />
 
 

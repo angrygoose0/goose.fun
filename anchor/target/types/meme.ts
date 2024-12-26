@@ -27,7 +27,7 @@ export type Meme = {
       ],
       "accounts": [
         {
-          "name": "memeEntry",
+          "name": "memeAccount",
           "writable": true,
           "pda": {
             "seeds": [
@@ -39,11 +39,13 @@ export type Meme = {
                   109,
                   101,
                   95,
-                  101,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
                   110,
-                  116,
-                  114,
-                  121
+                  116
                 ]
               },
               {
@@ -67,7 +69,12 @@ export type Meme = {
           "address": "11111111111111111111111111111111"
         }
       ],
-      "args": []
+      "args": [
+        {
+          "name": "poolId",
+          "type": "pubkey"
+        }
+      ]
     },
     {
       "name": "buySell",
@@ -116,7 +123,7 @@ export type Meme = {
           }
         },
         {
-          "name": "memeEntry",
+          "name": "memeAccount",
           "writable": true,
           "pda": {
             "seeds": [
@@ -128,11 +135,13 @@ export type Meme = {
                   109,
                   101,
                   95,
-                  101,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
                   110,
-                  116,
-                  114,
-                  121
+                  116
                 ]
               },
               {
@@ -294,7 +303,7 @@ export type Meme = {
           }
         },
         {
-          "name": "memeEntry",
+          "name": "memeAccount",
           "writable": true,
           "pda": {
             "seeds": [
@@ -306,11 +315,13 @@ export type Meme = {
                   109,
                   101,
                   95,
-                  101,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
                   110,
-                  116,
-                  114,
-                  121
+                  116
                 ]
               },
               {
@@ -688,7 +699,7 @@ export type Meme = {
           "writable": true
         },
         {
-          "name": "memeEntry",
+          "name": "memeAccount",
           "writable": true,
           "pda": {
             "seeds": [
@@ -700,11 +711,13 @@ export type Meme = {
                   109,
                   101,
                   95,
-                  101,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
                   110,
-                  116,
-                  114,
-                  121
+                  116
                 ]
               },
               {
@@ -740,7 +753,7 @@ export type Meme = {
       ],
       "accounts": [
         {
-          "name": "memeEntry",
+          "name": "memeAccount",
           "writable": true,
           "pda": {
             "seeds": [
@@ -752,11 +765,13 @@ export type Meme = {
                   109,
                   101,
                   95,
-                  101,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
                   110,
-                  116,
-                  114,
-                  121
+                  116
                 ]
               },
               {
@@ -822,16 +837,16 @@ export type Meme = {
   ],
   "accounts": [
     {
-      "name": "memeEntryState",
+      "name": "memeAccount",
       "discriminator": [
-        173,
-        102,
-        51,
-        94,
-        104,
-        136,
-        90,
-        68
+        197,
+        39,
+        187,
+        208,
+        216,
+        74,
+        13,
+        254
       ]
     },
     {
@@ -921,7 +936,7 @@ export type Meme = {
       }
     },
     {
-      "name": "memeEntryState",
+      "name": "memeAccount",
       "type": {
         "kind": "struct",
         "fields": [
@@ -944,6 +959,12 @@ export type Meme = {
           {
             "name": "bondedTime",
             "type": "i64"
+          },
+          {
+            "name": "poolId",
+            "type": {
+              "option": "pubkey"
+            }
           }
         ]
       }
