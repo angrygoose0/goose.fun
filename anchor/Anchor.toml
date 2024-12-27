@@ -6,7 +6,7 @@ resolution = true
 skip-lint = false
 
 [programs.devnet]
-meme = "5BpjFeNvcyvFWYYQg1G8o2dYpwSbZzi8qbVPAfxPiFbP"
+meme = "6uhUTWZRFWtf7WhKLmni9x1K3hiwxDaFP8WnpsZuVDw8"
 
 [registry]
 url = "https://api.apr.dev"

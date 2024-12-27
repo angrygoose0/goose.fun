@@ -20,7 +20,7 @@ use anchor_spl::{
 
 
 // 2. Declare Program ID (SolPG will automatically update this when you deploy)
-declare_id!("5BpjFeNvcyvFWYYQg1G8o2dYpwSbZzi8qbVPAfxPiFbP");
+declare_id!("6uhUTWZRFWtf7WhKLmni9x1K3hiwxDaFP8WnpsZuVDw8");
 
 
 #[program]
