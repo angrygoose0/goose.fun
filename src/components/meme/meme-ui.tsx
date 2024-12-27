@@ -356,23 +356,13 @@ const EMPTY_PUBLIC_KEY = new PublicKey("11111111111111111111111111111111");
 
 
 
-export function BalanceCard({ publicKey, memeAccount, memeMetadata, userAccount }: { publicKey: PublicKey, memeAccount: any, memeMetadata: any, userAccount: any }) {
+export function BalanceCard({ publicKey, memeAccount, memeMetadata, userAccount, tokenDistribution }: { publicKey: PublicKey, memeAccount: any, memeMetadata: any, userAccount: any, tokenDistribution: any }) {
   const { buySellToken } = useBuySellTokenMutation();
 
   const balanceQuery = useGetBalance({ address: publicKey })
   const solBalanceBN = balanceQuery.data
     ? new BN(balanceQuery.data)
     : ZERO;
-
-
-
-  const totalTokens = tokenBalanceBN
-    .add(userLockedAmountBN)
-    .add(claimmableBN);
-
-  const lockedPercentage = calculatePercentage(userLockedAmountBN, totalTokens);
-  const unlockedPercentage = calculatePercentage(tokenBalanceBN, totalTokens);
-  const claimmablePercentage = calculatePercentage(claimmableBN, totalTokens);
 
 
   useEffect(() => {
@@ -428,7 +418,7 @@ export function BalanceCard({ publicKey, memeAccount, memeMetadata, userAccount 
       }
     } else if (selectedAction === ActionType.RaydiumSell || ActionType.Lock) {
       if (useShowingSol) {
-        setAmount(numericValue.cmp(convertTokensToSol(tokenBalanceBN)) === -1 ? numericValue : convertTokensToSol(tokenBalanceBN));
+        setAmount(numericValue.cmp(convertTokensToSol(tokenDistribution.userTokenBalance)) === -1 ? numericValue : convertTokensToSol(tokenDistribution.userTokenBalance));
       }
 
     } else if (selectedAction === ActionType.Claim) {
@@ -576,7 +566,7 @@ export function BalanceCard({ publicKey, memeAccount, memeMetadata, userAccount 
       }}
     >
       <div className="flex mb-4">
-        {bondedTime < ZERO ? (
+        {memeAccount.bondedTime < ZERO ? (
           <>
             {/* Two buttons: Buy and Sell */}
             <button
@@ -661,12 +651,12 @@ export function BalanceCard({ publicKey, memeAccount, memeMetadata, userAccount 
       </div>
 
       <div className="flex flex-col space-y-2 mt-2">
-        {bondedTime < ZERO ? (
+        {memeAccount.bondedTime < ZERO ? (
           <>
             {/* When bondedTime is negative so hasnt bonded */}
             <div className="flex items-baseline space-x-2">
               <div className="text-sm font-semibold text-black">
-                {simplifyBN(fromLamports(userLockedAmountBN))} {symbol.toString()}
+                {simplifyBN(fromLamports(userAccount.lockedAmount))} {memeMetadata.symbol}
               </div>
               <div className="text-sm text-gray-500">~ $92.21</div>
             </div>
@@ -869,14 +859,28 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
   });
 
   const [userAccount, setuserAccount] = useState<{
-    lockedAmount: BN,
-    claimmable: BN,
+    lockedAmount: BN;
+    claimmable: BN;
   }>({
     lockedAmount: ZERO,
     claimmable: ZERO,
   })
 
-  const [userTokenBalance, setuserTokenBalance] = useState(ZERO);
+  const [globalPercentage, setGlobalPercentage] = useState(ZERO);
+
+  const [tokenDistribution, setTokenDistribution] = useState<{
+    totalTokens: BN;
+    userTokenBalance: BN;
+    lockedPercentage: number;
+    unlockedPercentage: number;
+    claimmablePercentage: number;
+  }>({
+    totalTokens: ZERO,
+    userTokenBalance: ZERO,
+    lockedPercentage: 0,
+    unlockedPercentage: 0,
+    claimmablePercentage: 0,
+  });
 
   useEffect(() => {
     const handleResize = () => {
@@ -924,26 +928,11 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
 
   //const {fetchRpcPoolInfo} = useFetchRpcPoolInfo({poolId});
 
-  const divisor = memeAccount.bondedTime.isNeg() ? new BN('800000000000000000') : new BN('1000000000000000000');
-  const globalPercentage = calculatePercentage(memeAccount.lockedAmount, divisor);
-
-  const [tokenDistribution, setTokenDistribution] = useState<{
-    totalTokens: PublicKey;
-    mint: PublicKey;
-    lockedAmount: BN;
-    creationTime: BN;
-    bondedTime: BN;
-    poolId: PublicKey;
-  }>({
-    dev: EMPTY_PUBLIC_KEY,
-    mint: EMPTY_PUBLIC_KEY,
-    lockedAmount: ZERO,
-    creationTime: ZERO,
-    bondedTime: ZERO,
-    poolId: EMPTY_PUBLIC_KEY,
-  });
+  //const divisor = memeAccount.bondedTime.isNeg() ? new BN('800000000000000000') : new BN('1000000000000000000');
+  //const globalPercentage = calculatePercentage(memeAccount.lockedAmount, divisor);
 
 
+  /*
   const totalTokens = userTokenBalance
     .add(userAccount.lockedAmount)
     .add(userAccount.claimmable);
@@ -954,6 +943,9 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
 
   const { bondToRaydium } = useBondToRaydium();
   const { createPool } = useCreatePool();
+  */
+
+  
 
   //const {fetchRpcPoolInfo} = useFetchRpcPoolInfo({poolId});
   //console.log(fetchRpcPoolInfo, symbol);
@@ -1106,7 +1098,7 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
         </div>
         <div className="flex space-x-2">
           {/* Telegram Icon */}
-          {memeMetadata.telegramLink && (
+          {memeMetadata.telegramLink !== "" && (
             <a
               href={memeMetadata.telegramLink}
               target="_blank"
@@ -1118,7 +1110,7 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
           )}
 
           {/* Twitter (X) Icon */}
-          {memeMetadata.twitterLink && (
+          {memeMetadata.twitterLink !== "" && (
             <a
               href={memeMetadata.twitterLink}
               target="_blank"
@@ -1130,7 +1122,7 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
           )}
 
           {/* Website Icon */}
-          {memeMetadata.websiteLink && (
+          {memeMetadata.websiteLink !== "" && (
             <a
               href={memeMetadata.websiteLink}
               target="_blank"
@@ -1197,7 +1189,7 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
     if (!hideRight) {
       cards.push(
         publicKey ? (
-          <BalanceCard key={mint.toString()} publicKey={publicKey} mint={mint} account={account} bondedTime={bondedTime} symbol={symbol} userLockedAmountBN={userLockedAmountBN} claimmableBN={claimmableBN} tokenBalanceBN={tokenBalanceBN} />
+          <BalanceCard publicKey={publicKey} memeAccount={memeAccount} memeMetadata={memeMetadata} userAccount={userAccount} tokenDistribution={tokenDistribution} />
         ) : (
           <div
             key="right-top"
@@ -1311,35 +1303,35 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
           className="max-w-lg mx-auto mt-10 cursor-pointer"
           onClick={() => setIsVisible(false)}
         >
-          <p>{bondedTime.toNumber()}</p>
+          <p>{memeAccount.bondedTime.toNumber()}</p>
           <div className="relative border-2 border-black bg-white shadow-lg p-6">
             <div className="absolute top-2 right-2 text-gray-500 text-xs">
-              {timeAgo(creationTime.toNumber())} ago
+              {timeAgo(memeAccount.creationTime.toNumber())} ago
             </div>
             <div className="flex items-start mb-2">
               <img
-                src={image}
+                src={memeMetadata.image}
                 alt="Icon"
                 className="w-12 h-12 border-2 border-black object-contain"
               />
               <div className="ml-4">
                 <h2 className="text-xl font-bold">
-                  <span className="font-bold">{symbol}</span>
-                  <span className="font-normal"> {name}
-                    <span className="text-gray-500 text-xs ml-2">{mint.toString().slice(0, 10)}...</span>
+                  <span className="font-bold">{memeMetadata.symbol}</span>
+                  <span className="font-normal"> {memeMetadata.name}
+                    <span className="text-gray-500 text-xs ml-2">{memeMetadata.mint.toString().slice(0, 10)}...</span>
                   </span>
 
                 </h2>
                 <p className="text-gray-700 text-sm mt-2">
-                  {description}
+                  {memeMetadata.description}
                 </p>
               </div>
             </div>
             <div className="flex space-x-2">
               {/* Telegram Icon */}
-              {telegram_link && (
+              {memeMetadata.telegramLink !== "" && (
                 <a
-                  href={telegram_link}
+                  href={memeMetadata.telegramLink}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="w-5 h-5 text-gray-400 hover:text-blue-500"
@@ -1349,9 +1341,9 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
               )}
 
               {/* Twitter (X) Icon */}
-              {twitter_link && (
+              {memeMetadata.twitterLink !== "" && (
                 <a
-                  href={twitter_link}
+                  href={memeMetadata.twitterLink}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="w-5 h-5 text-gray-400 hover:text-blue-400"
@@ -1361,9 +1353,9 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
               )}
 
               {/* Website Icon */}
-              {website_link && (
+              {memeMetadata.websiteLink !== "" && (
                 <a
-                  href={website_link}
+                  href={memeMetadata.websiteLink}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="w-5 h-5 text-gray-400 hover:text-green-500"
@@ -1409,12 +1401,12 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
             {/* GS Balance */}
             {publicKey != null ? (
               <div className="flex flex-col space-y-2 mt-2">
-                {bondedTime < ZERO ? (
+                {memeAccount.bondedTime.lt(ZERO) ? (
                   <>
                     {/* When bondedTime is negative so hasnt bonded */}
                     <div className="flex items-baseline space-x-2">
                       <div className="text-sm font-semibold text-black">
-                        {simplifyBN(fromLamports(userLockedAmountBN))} {symbol.toString()}
+                        {simplifyBN(fromLamports(userAccount.lockedAmount))} {memeMetadata.symbol}
                       </div>
                       <div className="text-sm text-gray-500">~ $12.24</div>
                     </div>
@@ -1430,7 +1422,7 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
                       <div className="flex items-center space-x-1">
                         <div className="h-2 w-2 bg-purple-500 rounded-full"></div>
                         <span className="text-purple-600">
-                          Invested: {simplifyBN(fromLamports(userLockedAmountBN))}
+                          Invested: {simplifyBN(fromLamports(userAccount.lockedAmount))}
                         </span>
                       </div>
                     </div>
@@ -1440,7 +1432,7 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
                     {/* When bondedTime is positive */}
                     <div className="flex items-baseline space-x-2">
                       <div className="text-sm font-semibold text-black">
-                        {simplifyBN(fromLamports(totalTokens))} {symbol.toString()}
+                        {simplifyBN(fromLamports(tokenDistribution.totalTokens))} {memeMetadata.symbol}
                       </div>
                       <div className="text-sm text-gray-500">~ $49.22</div>
                     </div>
@@ -1448,20 +1440,20 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
                     <div className="h-2 border-2 border-black bg-white relative">
                       <div
                         className="absolute top-0 left-0 h-full bg-gray-400"
-                        style={{ width: `${lockedPercentage}%` }}
+                        style={{ width: `${tokenDistribution.lockedPercentage}%` }}
                       ></div>
                       <div
                         className="absolute top-0 left-0 h-full bg-blue-500"
                         style={{
-                          width: `${unlockedPercentage}%`,
-                          marginLeft: `${lockedPercentage}%`,
+                          width: `${tokenDistribution.unlockedPercentage}%`,
+                          marginLeft: `${tokenDistribution.lockedPercentage}%`,
                         }}
                       ></div>
                       <div
                         className="absolute top-0 left-0 h-full bg-green-500"
                         style={{
-                          width: `${claimmablePercentage}%`,
-                          marginLeft: `${lockedPercentage + unlockedPercentage}%`,
+                          width: `${tokenDistribution.claimmablePercentage}%`,
+                          marginLeft: `${tokenDistribution.lockedPercentage + tokenDistribution.unlockedPercentage}%`,
                         }}
                       ></div>
                     </div>
@@ -1469,17 +1461,17 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
                     <div className="flex justify-between text-xs mt-1">
                       <div className="flex items-center space-x-1">
                         <div className="h-2 w-2 bg-gray-400 rounded-full"></div>
-                        <span className="text-gray-600">Locked: {simplifyBN(fromLamports(userLockedAmountBN))}</span>
+                        <span className="text-gray-600">Locked: {simplifyBN(fromLamports(userAccount.lockedAmount))}</span>
                       </div>
                       <div className="flex items-center space-x-1">
                         <div className="h-2 w-2 bg-blue-500 rounded-full"></div>
                         <span className="text-blue-600">
-                          Unlocked: {simplifyBN(fromLamports(tokenBalanceBN))}
+                          Unlocked: {simplifyBN(fromLamports(tokenDistribution.userTokenBalance))}
                         </span>
                       </div>
                       <div className="flex items-center space-x-1">
                         <div className="h-2 w-2 bg-green-500 rounded-full"></div>
-                        <span className="text-green-600">Claimable: {simplifyBN(fromLamports(claimmableBN))}</span>
+                        <span className="text-green-600">Claimable: {simplifyBN(fromLamports(userAccount.claimmable))}</span>
                       </div>
                     </div>
                   </>

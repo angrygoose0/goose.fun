@@ -18,6 +18,7 @@ import { BN } from '@coral-xyz/anchor';
 import { sha256 } from "js-sha256";
 import bs58 from 'bs58';
 import { create } from 'domain';
+import {ZERO, EMPTY_PUBLIC_KEY, BILLION, TOKEN_SUPPLY_BEFORE_BONDING, INITIAL_PRICE, INITIAL_SOL_AMOUNT, treasuryKeypair} from './meme-helper-functions';
 
 
 export interface InitTokenParams {
@@ -27,8 +28,7 @@ export interface InitTokenParams {
   decimals: number;
 }
 
-const TREASURY_PRIVATE_KEY = "5rhVcMHjqcjHLhdwajDnHW6PeWFheR29wMg1vrCAs6GSgihy3giwwFxW1CCSSskKbNvUKUJ7otF144oH4f8RAuSs"
-const treasuryKeypair = Keypair.fromSecretKey(bs58.decode(TREASURY_PRIVATE_KEY));
+
 
 const METADATA_SEED = "metadata";
 const TOKEN_METADATA_PROGRAM_ID = new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
@@ -81,13 +81,14 @@ export function useCreateMemeToken() {
           programId
         )[0];
 
+        console.log(programId.toString(), 'programid');
+
         const metadataAddress = getMetadataAddress(mint);
 
         const initTokenInstruction = await program.methods
           .initMemeToken(tokenMetadata)
           .accounts({
             metadata: metadataAddress,
-            mint: mint,
             treasury: treasuryKeypair.publicKey,
             signer: publicKey,
             rent: SYSVAR_RENT_PUBKEY,
@@ -100,7 +101,6 @@ export function useCreateMemeToken() {
         const mintTokenInstruction = await program.methods
           .mintMemeToken(metadata.symbol, metadata.name)
           .accounts({
-            mint: mint,
             treasury: treasuryKeypair.publicKey,
             signer: publicKey,
             rent: SYSVAR_RENT_PUBKEY,
