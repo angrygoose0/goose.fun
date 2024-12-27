@@ -356,7 +356,7 @@ const EMPTY_PUBLIC_KEY = new PublicKey("11111111111111111111111111111111");
 
 
 
-export function BalanceCard({ publicKey, mint, account, bondedTime, symbol, userLockedAmountBN, claimmableBN, tokenBalanceBN }: { publicKey: PublicKey, mint: PublicKey, account: PublicKey, bondedTime: BN, symbol: string, userLockedAmountBN: BN, claimmableBN: BN, tokenBalanceBN: BN }) {
+export function BalanceCard({ publicKey, memeAccount, memeMetadata, userAccount }: { publicKey: PublicKey, memeAccount: any, memeMetadata: any, userAccount: any }) {
   const { buySellToken } = useBuySellTokenMutation();
 
   const balanceQuery = useGetBalance({ address: publicKey })
@@ -376,12 +376,12 @@ export function BalanceCard({ publicKey, mint, account, bondedTime, symbol, user
 
 
   useEffect(() => {
-    if (bondedTime.lt(new BN(0))) {
+    if (memeAccount.bondedTime.lt(new BN(0))) {
       handleActionChange(ActionType.Buy);
     } else {
       handleActionChange(ActionType.RaydiumBuy);
     }
-  }, [bondedTime]);
+  }, [memeAccount.bondedTime]);
 
   const [selectedAction, setSelectedAction] = useState<ActionType>(ActionType.Buy);
 
@@ -422,9 +422,9 @@ export function BalanceCard({ publicKey, mint, account, bondedTime, symbol, user
       }
     } else if (selectedAction === ActionType.Sell) {
       if (useShowingSol) {
-        setAmount(numericValue.cmp(convertTokensToSol(userLockedAmountBN)) === -1 ? numericValue : convertTokensToSol(userLockedAmountBN));
+        setAmount(numericValue.cmp(convertTokensToSol(userAccount.lockedAmount)) === -1 ? numericValue : convertTokensToSol(userAccount.lockedAmount));
       } else {
-        setAmount(numericValue.cmp(userLockedAmountBN) === -1 ? numericValue : userLockedAmountBN);
+        setAmount(numericValue.cmp(userAccount.lockedAmount) === -1 ? numericValue : userAccount.lockedAmount);
       }
     } else if (selectedAction === ActionType.RaydiumSell || ActionType.Lock) {
       if (useShowingSol) {
@@ -433,9 +433,9 @@ export function BalanceCard({ publicKey, mint, account, bondedTime, symbol, user
 
     } else if (selectedAction === ActionType.Claim) {
       if (useShowingSol) {
-        setAmount(numericValue.cmp(convertTokensToSol(claimmableBN)) === -1 ? numericValue : convertTokensToSol(claimmableBN));
+        setAmount(numericValue.cmp(convertTokensToSol(userAccount.claimmable)) === -1 ? numericValue : convertTokensToSol(userAccount.claimmable));
       } else {
-        setAmount(numericValue.cmp(claimmableBN) === -1 ? numericValue : claimmableBN);
+        setAmount(numericValue.cmp(userAccount.claimmable) === -1 ? numericValue : userAccount.claimmable);
       }
     } else {
       setAmount(numericValue);
@@ -472,7 +472,7 @@ export function BalanceCard({ publicKey, mint, account, bondedTime, symbol, user
       } else if (selectedAction === ActionType.Sell) {
         const tokensRequiredBN = showingSol ? convertSolToTokens(amount) : amount;
 
-        if (tokensRequiredBN > userLockedAmountBN) {
+        if (tokensRequiredBN > userAccount.lockedAmount) {
           throw new Error("You can't claim more than you invested.");
         }
 
@@ -483,13 +483,13 @@ export function BalanceCard({ publicKey, mint, account, bondedTime, symbol, user
       }
 
       // Perform the buy/sell operation
-      await buySellToken.mutateAsync({ amount: amountSentToSolana, mint });
+      await buySellToken.mutateAsync({ amount: amountSentToSolana, mint: memeAccount.mint });
       toast.success("Success!");
     } catch (error: any) {
       console.error(error);
       toast.error(error.message || "An error occurred.");
     }
-  }, [publicKey, amount, showingSol, selectedAction, solBalanceBN, userLockedAmountBN, mint]);
+  }, [publicKey, amount, showingSol, selectedAction, solBalanceBN, memeAccount.lockedAmount, memeAccount.mint]);
 
   /*
   const handleLockClaimFormSubmit = useCallback(async () => {
@@ -825,8 +825,14 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
   const [hideRight, setHideRight] = useState(false);
 
   const { memeAccountQuery } = useMemeAccountQuery({ accountKey });
-  //const { metadataQuery } = useMetadataQuery({ mint });
-  //const { userAccountQuery } = useUserAccountQuery({ publicKey, mint });
+  /*const { metadataQuery } = useMetadataQuery({ mint:memeAccount.mint });
+  const { userAccountQuery } = useUserAccountQuery({ publicKey, mint:memeAccount.mint });
+  const { getSpecificTokenBalance } = useGetTokenAccounts({
+    address: publicKey,
+    mint: memeAccount.mint,
+  });
+  */
+
 
   const [memeAccount, setMemeAccount] = useState<{
     dev: PublicKey;
@@ -843,6 +849,34 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
     bondedTime: ZERO,
     poolId: EMPTY_PUBLIC_KEY,
   });
+
+  const [memeMetadata, setMemeMetadata] = useState<{
+    name: string;
+    symbol: string;
+    image: string;
+    description: string;
+    twitterLink: string;
+    telegramLink: string;
+    websiteLink: string;
+  }>({
+    name: "",
+    symbol: "",
+    image: "", // Default to null
+    description: "",
+    twitterLink: "",
+    telegramLink: "",
+    websiteLink: "",
+  });
+
+  const [userAccount, setuserAccount] = useState<{
+    lockedAmount: BN,
+    claimmable: BN,
+  }>({
+    lockedAmount: ZERO,
+    claimmable: ZERO,
+  })
+
+  const [userTokenBalance, setuserTokenBalance] = useState(ZERO);
 
   useEffect(() => {
     const handleResize = () => {
@@ -883,42 +917,6 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
     }
   }, [memeAccountQuery]); // Re-run when memeAccountQuery changes
 
-  const [memeMetadata, setMemeMetadata] = useState<{
-    name: string;
-    symbol: string;
-    image: string;
-    description: string;
-    twitterLink: string;
-    telegramLink: string;
-    websiteLink: string;
-  }>({
-    name: "",
-    symbol: "",
-    image: "", // Default to null
-    description: "",
-    twitterLink: "",
-    telegramLink: "",
-    websiteLink: "",
-  });
-
-  const [userAccount, setuserAccount] = useState<{
-    lockedAmount: BN,
-    claimmable: BN,
-  }>({
-    lockedAmount: ZERO,
-    claimmable: ZERO,
-  })
-
-  const [useTokenBalance, setuserTokenBalance] = useState(ZERO);
-
-  const divisor = memeAccount.bondedTime.isNeg() ? new BN('800000000000000000') : new BN('1000000000000000000');
-  const globalPercentage = calculatePercentage(memeAccount.lockedAmount, divisor);
-
-
-
-
-
-
 
   //const { userAccountsByMintQuery } = useUserAccountsByMintQuery({ mint });
 
@@ -929,29 +927,32 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
   const divisor = memeAccount.bondedTime.isNeg() ? new BN('800000000000000000') : new BN('1000000000000000000');
   const globalPercentage = calculatePercentage(memeAccount.lockedAmount, divisor);
 
-
-
-  /*
-  const { getSpecificTokenBalance } = useGetTokenAccounts({
-    address: publicKey,
-    mint: mint,
+  const [tokenDistribution, setTokenDistribution] = useState<{
+    totalTokens: PublicKey;
+    mint: PublicKey;
+    lockedAmount: BN;
+    creationTime: BN;
+    bondedTime: BN;
+    poolId: PublicKey;
+  }>({
+    dev: EMPTY_PUBLIC_KEY,
+    mint: EMPTY_PUBLIC_KEY,
+    lockedAmount: ZERO,
+    creationTime: ZERO,
+    bondedTime: ZERO,
+    poolId: EMPTY_PUBLIC_KEY,
   });
-  if (getSpecificTokenBalance.data !== undefined) {
-    tokenBalanceBN = new BN(getSpecificTokenBalance.data.balance);
-  }
-  */
 
 
-  const totalTokens = tokenBalanceBN
-    .add(userLockedAmountBN)
-    .add(claimmableBN);
+  const totalTokens = userTokenBalance
+    .add(userAccount.lockedAmount)
+    .add(userAccount.claimmable);
 
-  const lockedPercentage = calculatePercentage(userLockedAmountBN, totalTokens);
-  const unlockedPercentage = calculatePercentage(tokenBalanceBN, totalTokens);
-  const claimmablePercentage = calculatePercentage(claimmableBN, totalTokens);
+  const lockedPercentage = calculatePercentage(userAccount.lockedAmount, totalTokens);
+  const unlockedPercentage = calculatePercentage(userTokenBalance, totalTokens);
+  const claimmablePercentage = calculatePercentage(userAccount.claimmable, totalTokens);
 
   const { bondToRaydium } = useBondToRaydium();
-
   const { createPool } = useCreatePool();
 
   //const {fetchRpcPoolInfo} = useFetchRpcPoolInfo({poolId});
@@ -962,7 +963,7 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
     try {
 
       const { txId, poolId } = await createPool.mutateAsync({
-        mint,
+        mint: memeAccount.mint,
       });
 
       if (!poolId) {
@@ -970,7 +971,7 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
       }
 
       // Call bondToRaydium first
-      await bondToRaydium.mutateAsync({ mint, poolId: new PublicKey(poolId) });
+      await bondToRaydium.mutateAsync({ mint: memeAccount.mint, poolId: new PublicKey(poolId) });
       toast.success("Bond to Raydium succeeded!");
 
       toast.success("Pool created successfully!");
@@ -978,7 +979,7 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
       console.error(error);
       toast.error(error.message || "An error occurred.");
     }
-  }, [mint]); // Ensure dependencies like `mint` are listed here
+  }, [memeAccount.mint]); // Ensure dependencies like `mint` are listed here
 
 
   const renderGridCards = () => {
@@ -1084,30 +1085,30 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
         >
           bond to ray
         </button>
-        <div className="absolute top-2 right-2 text-gray-500 text-xs">{timeAgo(creationTime.toNumber())} ago</div>
+        <div className="absolute top-2 right-2 text-gray-500 text-xs">{timeAgo(memeAccount.creationTime.toNumber())} ago</div>
         <div className="flex items-start mb-2">
           <img
-            src={image}
+            src={memeMetadata.image}
             alt="Icon"
             className="w-12 h-12 border-2 border-black object-contain"
           />
           <div className="ml-4">
             <h2 className="text-xl font-bold">
-              <span className="font-bold">{symbol}</span>
-              <span className="font-normal"> {name}
-                <span className="text-gray-500 text-xs ml-2">{mint.toString()}</span>
+              <span className="font-bold">{memeMetadata.symbol}</span>
+              <span className="font-normal"> {memeMetadata.name}
+                <span className="text-gray-500 text-xs ml-2">{memeAccount.mint.toString()}</span>
               </span>
             </h2>
             <p className="text-gray-700 text-sm mt-2">
-              {description}
+              {memeMetadata.description}
             </p>
           </div>
         </div>
         <div className="flex space-x-2">
           {/* Telegram Icon */}
-          {telegram_link && (
+          {memeMetadata.telegramLink && (
             <a
-              href={telegram_link}
+              href={memeMetadata.telegramLink}
               target="_blank"
               rel="noopener noreferrer"
               className="w-5 h-5 text-gray-400 hover:text-blue-500"
@@ -1117,9 +1118,9 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
           )}
 
           {/* Twitter (X) Icon */}
-          {twitter_link && (
+          {memeMetadata.twitterLink && (
             <a
-              href={twitter_link}
+              href={memeMetadata.twitterLink}
               target="_blank"
               rel="noopener noreferrer"
               className="w-5 h-5 text-gray-400 hover:text-blue-400"
@@ -1129,9 +1130,9 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
           )}
 
           {/* Website Icon */}
-          {website_link && (
+          {memeMetadata.websiteLink && (
             <a
-              href={website_link}
+              href={memeMetadata.websiteLink}
               target="_blank"
               rel="noopener noreferrer"
               className="w-5 h-5 text-gray-400 hover:text-green-500"
