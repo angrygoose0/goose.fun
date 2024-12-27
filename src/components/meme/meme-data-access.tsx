@@ -3,7 +3,7 @@
 import { getMemeProgram, getMemeProgramId } from '@project/anchor';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { AccountInfo, SystemProgram, Cluster, Transaction, Keypair, PublicKey, SYSVAR_RENT_PUBKEY, ComputeBudgetProgram } from '@solana/web3.js';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import { useCluster } from '../cluster/cluster-data-access';
@@ -149,55 +149,83 @@ export function useCreateMemeToken() {
   }
 }
 
+
 export function useProcessedAccountsQuery({
   currentPage,
   sortBy,
+  searchBy,
 }: {
-  currentPage: number,
-  sortBy: string,
-}
-) {
+  currentPage: number;
+  sortBy: string;
+  searchBy: string;
+}) {
   const { connection } = useConnection();
   const { cluster } = useCluster();
   const { program } = useMemeProgram();
   const programId = useMemo(() => getMemeProgramId(cluster.network as Cluster), [cluster]);
 
   const processedAccountsQuery = useQuery({
-    queryKey: ['getMemeTokenEntry', { currentPage }, { sortBy }],
+    queryKey: ['getMemeTokenEntry', { currentPage, sortBy, searchBy }],
     queryFn: async () => {
-
-      const pageSize = 2;
-      const MemeAccountDiscriminator = Buffer.from(sha256.digest("account:MemeAccount")).slice(
+      const pageSize = 10;
+      const MemeAccountDiscriminator = Buffer.from(sha256.digest('account:MemeAccount')).slice(
         0,
         8
       );
 
-      const creationTimeOffset = 80; // Offset for creation_time (8 + 32 + 32 + 8)
-      const creationTimeLength = 8; // i64 is 8 bytes
+      const partialMintBytes = bs58.encode(Buffer.from(searchBy));
+
+      const filters = [
+        {
+          memcmp: { offset: 0, bytes: bs58.encode(MemeAccountDiscriminator) },
+        },
+        {
+          memcmp: { offset: 40, bytes: partialMintBytes },
+        },
+      ];
+
+      let offset = 0; // Offset for creation_time (8 + 32 + 32 + 8)
+      let length = 0; // i64 is 8 bytes
+      if (sortBy === 'creation_time') {
+        offset = 80;
+        length = 8;
+      }
+      if (sortBy === 'bonded_time') {
+        offset = 88;
+        length = 8;
+        filters.push({
+          memcmp: { offset: 95, bytes: bs58.encode(Buffer.from([0x00])) }, // MSB = 0 for positive
+        });
+      }
+      if (sortBy === 'locked_amount') {
+        offset = 72;
+        length = 8;
+        filters.push({
+          memcmp: { offset: 95, bytes: bs58.encode(Buffer.from([0x00])) }, // MSB = 0 for positive
+        });
+      }
+      if (sortBy === 'invested_amount') {
+        offset = 72;
+        length = 8;
+        filters.push({
+          memcmp: { offset: 88, bytes: bs58.encode(Buffer.from([0xff])) }, // MSB = 1 for negative
+        });
+      }
 
       // Fetch accounts with `dataSlice` targeting `creation_time`
       const accounts = await connection.getProgramAccounts(programId, {
-        dataSlice: { offset: creationTimeOffset, length: creationTimeLength },
-        filters: [
-
-          {
-            memcmp: { offset: 0, bytes: bs58.encode(MemeAccountDiscriminator) },
-          },
-
-        ],
+        dataSlice: { offset, length },
+        filters,
       });
-      console.log(accounts);
 
       // Parse `creation_time` and sort accounts
-      const accountsWithCreationTime = accounts.map(({ pubkey, account }) => {
-        const creationTime = new BN(account.data, "le"); // Parse `creation_time` as BigInt
-        return { pubkey, creationTime };
+      const accountsWithSpecific = accounts.map(({ pubkey, account }) => {
+        const specific = new BN(account.data, 'le'); // Parse `creation_time` as BigInt
+        return { pubkey, specific };
       });
 
       // Sort accounts by `creation_time` in descending order (most recent first)
-      const sortedAccounts = accountsWithCreationTime.sort((a, b) =>
-        b.creationTime.cmp(a.creationTime)
-      );
+      const sortedAccounts = accountsWithSpecific.sort((a, b) => b.specific.cmp(a.specific));
 
       // Paginate results
       const paginatedAccounts = sortedAccounts.slice(
@@ -206,9 +234,8 @@ export function useProcessedAccountsQuery({
       );
 
       const accountPublicKeys = paginatedAccounts.map((account) => account.pubkey);
-      const accountsWithData = await program.account.memeAccount.fetchMultiple(accountPublicKeys);
 
-      return accountsWithData;
+      return accountPublicKeys;
     },
     enabled: !!currentPage && !!sortBy,
   });
@@ -217,6 +244,8 @@ export function useProcessedAccountsQuery({
     processedAccountsQuery,
   };
 }
+
+
 
 export function useMemeProgram() {
   const { connection } = useConnection();
@@ -496,7 +525,7 @@ export function useUserAccountsByMintQuery({
   }
 }
 
-export function useAccountQuery({
+export function useUserAccountQuery({
   publicKey,
   mint,
 }: {
@@ -527,28 +556,59 @@ export function useAccountQuery({
   });
 
 
-  const memeAccountSeeds = [
-    Buffer.from("user_account"),
-    mint.toBuffer(),
-    publicKey.toBuffer()
-  ];
-  const memeAccountKey = PublicKey.findProgramAddressSync(
-    memeAccountSeeds,
-    programId
-  )[0];
-  const MemeAccountQuery = useQuery({
-    queryKey: ['MemeAccount', { cluster, memeAccountKey }],
-    queryFn: async () => {
-      return program.account.MemeAccount.fetch(memeAccountKey);
-    }
-  });
-
 
 
 
   return {
     userAccountQuery,
-    MemeAccountQuery,
+  };
+}
+
+export function useMemeAccountQuery({
+  accountKey
+}: {
+  accountKey: PublicKey;
+}) {
+  const { cluster } = useCluster();
+  const programId = useMemo(() => getMemeProgramId(cluster.network as Cluster), [cluster]);
+  const { program } = useMemeProgram();
+  const { connection } = useConnection();
+  const queryClient = useQueryClient();
+
+
+  // Fetch the meme account
+  const memeAccountQuery = useQuery({
+    queryKey: ['memeAccount', { cluster, accountKey }],
+    queryFn: async () => {
+      return program.account.memeAccount.fetch(accountKey);
+    },
+  });
+
+  useEffect(() => {
+    const subscriptionId = connection.onAccountChange(
+      accountKey,
+      async (updatedAccountInfo) => {
+        try {
+          const updatedData = await program.account.memeAccount.fetch(accountKey);
+          // Update the query with the new data
+          queryClient.setQueryData(['memeAccount', { cluster, accountKey }], updatedData);
+        } catch (error) {
+          console.error('Failed to fetch updated meme account data:', error);
+        }
+      }
+    );
+
+    // Cleanup the subscription when the component unmounts or dependencies change
+    return () => {
+      connection.removeAccountChangeListener(subscriptionId);
+    };
+  }, [connection, accountKey, program, cluster, queryClient]);
+
+
+
+
+  return {
+    memeAccountQuery,
   };
 }
 

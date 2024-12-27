@@ -1,7 +1,7 @@
 'use client'
 
 import { ChangeEvent, useCallback, useMemo, useState, useEffect } from 'react'
-import { useMemeProgram, useMetadataQuery, useBuySellTokenMutation, useAccountQuery, useCreateMemeToken, useProcessedAccountsQuery, useUserAccountsByMintQuery, useBondToRaydium } from './meme-data-access'
+import { useMemeProgram, useMetadataQuery, useBuySellTokenMutation, useUserAccountQuery, useCreateMemeToken, useProcessedAccountsQuery, useUserAccountsByMintQuery, useBondToRaydium, useMemeAccountQuery } from './meme-data-access'
 import { useGetBalance, useGetTokenAccounts } from '../account/account-data-access';
 import { toLamports, fromLamports, calculatePercentage, timeAgo, simplifyBN, convertTokensToSol, convertSolToTokens, fromLamportsDecimals, ToLamportsDecimals } from './meme-helper-functions';
 import { InputView } from "../helper-ui";
@@ -245,87 +245,41 @@ export function MemeCreate() {
   );
 }
 
-export function MemeFilter() {
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const openModal = () => setIsModalOpen(true);
-  const closeModal = () => setIsModalOpen(false);
-
-
-  const [loading, setLoading] = useState(false);
-
-
-  return (
-    <div>
-      <button
-        className="bg-gray-300 text-black px-3 py-2 rounded hover:bg-gray-400"
-        onClick={openModal}
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          className="h-5 w-5 text-black"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={2}
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707l-6 6V19a1 1 0 01-.553.894l-4 2A1 1 0 017 21v-8.293l-6-6A1 1 0 011 6V4z"
-          />
-        </svg>
-      </button>
-
-      {isModalOpen && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-10"
-          onClick={closeModal}
-        >
-          <div
-            className="relative border-2 border-black bg-white shadow-lg p-6 z-15"
-            onClick={(e) => e.stopPropagation()}
-          >
-            abc
-          </div>
-        </div>
-
-      )}
-    </div>
-  );
-}
-
 export function MemeList() {
   const [currentPage, setCurrentPage] = useState(1);
+
   const [sortBy, setSortBy] = useState("creation_time");
-  const { processedAccountsQuery } = useProcessedAccountsQuery({ currentPage, sortBy });
-  const { data: accounts, isLoading, error } = processedAccountsQuery;
+  const [searchBy, setSearchBy] = useState("");
+
+  const { processedAccountsQuery } = useProcessedAccountsQuery({ currentPage, sortBy, searchBy });
 
   const { initRaydiumSdk } = useInitRaydiumSdk({ loadToken: true });
 
   // Handle loading and error states with a message, but keep the pagination controls visible
   let content;
 
-  if (isLoading || initRaydiumSdk.isLoading) {
+  if (processedAccountsQuery.isLoading || initRaydiumSdk.isLoading) {
     content = (
       <div>
         <span className="loading loading-spinner"></span>
         <p>Loading...</p>
       </div>
     );
-  } else if (error || initRaydiumSdk.isError) {
+  } else if (processedAccountsQuery.error || initRaydiumSdk.isError) {
     content = (
       <div>
-        <p>Error: {error ? error.message : initRaydiumSdk.error.message}</p>
+        <p>{processedAccountsQuery.error?.message || "No error with accounts"}</p>
+        <p>{initRaydiumSdk.error?.message || "No error with raydium"}</p>
       </div>
     );
-  } else if (!accounts || accounts.length < 1) {
+  } else if (!initRaydiumSdk || !processedAccountsQuery || (processedAccountsQuery.data ?? []).length < 10) {
     content = <p>No accounts found.</p>;
   } else {
     content = (
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 p-6">
-        {accounts.map((account) => (
-          account != null ? (
-            <TokenCard key={account.mint.toString()} account={account} />
+        {processedAccountsQuery.data?.map((accountKey, index) => (
+          accountKey != null ? (
+            <TokenCard key={index} accountKey={accountKey} />
           ) : null
         ))}
       </div>
@@ -334,25 +288,30 @@ export function MemeList() {
 
   return (
     <div>
-      {/* Sorting controls */}
-      <div className="flex mt-6 space-x-4">
-        <label htmlFor="sort" className="font-medium">Sort By:</label>
+      {/* Search Bar with Filters Button */}
+      <div className="flex items-center justify-center space-x-2">
+        <input
+          type="text"
+          className="w-96 border-2 border-black p-2 text-l focus:outline-none"
+          placeholder="Search by mint"
+          value={searchBy}
+          onChange={(e) => setSearchBy(e.target.value)} // Update searchBy
+        />
         <select
           id="sort"
-          className="select select-bordered"
+          className="border-2 border-black p-2 text-l focus:outline-none"
           value={sortBy}
-          onChange={(e) => setSortBy(e.target.value)}
+          onChange={(e) => setSortBy(e.target.value)} // Update sortBy
         >
           <option value="creation_time">Creation Time</option>
-          <option value="name">Name</option>
-          <option value="balance">Balance</option>
+          <option value="locked_amount">Locked Amount</option>
+          <option value="invested_amount">Invested Amount</option>
+          <option value="bonded_time">Bonded Time</option>
         </select>
       </div>
       <div className="space-y-6">
         {content}
       </div>
-
-
 
       {/* Pagination controls */}
       <div className="flex justify-center mt-6 space-x-4">
@@ -369,7 +328,8 @@ export function MemeList() {
         <button
           className="btn rounded-none border-2 border-black text-black bg-white hover:bg-gray-100"
           onClick={() => setCurrentPage((prev) => prev + 1)}
-          disabled={!accounts || accounts.length < 2} // Disable if no more pages
+          disabled={!processedAccountsQuery || (processedAccountsQuery.data ?? []).length < 10}
+        // Disable if no more pages
         >
           Next
         </button>
@@ -392,6 +352,7 @@ export enum ActionType {
 }
 
 const ZERO = new BN(0);
+const EMPTY_PUBLIC_KEY = new PublicKey("11111111111111111111111111111111");
 
 
 
@@ -856,12 +817,32 @@ export function BalanceCard({ publicKey, mint, account, bondedTime, symbol, user
 }
 
 
-export function TokenCard({ account }: { account: any }) {
+export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
   const { publicKey } = useWallet()
 
   const [isVisible, setIsVisible] = useState(true);
   const [hideLeft, setHideLeft] = useState(false);
   const [hideRight, setHideRight] = useState(false);
+
+  const { memeAccountQuery } = useMemeAccountQuery({ accountKey });
+  //const { metadataQuery } = useMetadataQuery({ mint });
+  //const { userAccountQuery } = useUserAccountQuery({ publicKey, mint });
+
+  const [memeAccount, setMemeAccount] = useState<{
+    dev: PublicKey;
+    mint: PublicKey;
+    lockedAmount: BN;
+    creationTime: BN;
+    bondedTime: BN;
+    poolId: PublicKey;
+  }>({
+    dev: EMPTY_PUBLIC_KEY,
+    mint: EMPTY_PUBLIC_KEY,
+    lockedAmount: ZERO,
+    creationTime: ZERO,
+    bondedTime: ZERO,
+    poolId: EMPTY_PUBLIC_KEY,
+  });
 
   useEffect(() => {
     const handleResize = () => {
@@ -878,51 +859,88 @@ export function TokenCard({ account }: { account: any }) {
     };
 
     window.addEventListener("keydown", handleEscape);
+
     return () => {
       window.removeEventListener("resize", handleResize);
       window.removeEventListener("keydown", handleEscape);
     };
   }, []);
+  useEffect(() => {
+    if (!memeAccountQuery.isLoading) {
+      if (memeAccountQuery.isError) {
+        console.error("Error fetching memeAccount data:", memeAccountQuery.error);
+        // Optionally handle the error state here
+      } else if (memeAccountQuery.data) {
+        setMemeAccount({
+          dev: memeAccountQuery.data.dev || EMPTY_PUBLIC_KEY,
+          mint: memeAccountQuery.data.mint || EMPTY_PUBLIC_KEY,
+          lockedAmount: memeAccountQuery.data.lockedAmount || ZERO,
+          creationTime: memeAccountQuery.data.creationTime || ZERO,
+          bondedTime: memeAccountQuery.data.bondedTime || ZERO,
+          poolId: memeAccountQuery.data.poolId || EMPTY_PUBLIC_KEY,
+        });
+      }
+    }
+  }, [memeAccountQuery]); // Re-run when memeAccountQuery changes
 
-  // ignore this, as i've specified that memeAccountQuery is for the memeaccount, not useraccount.
-  const { dev, mint, lockedAmount, creationTime, bondedTime, poolId } = account;
-  const { metadataQuery } = useMetadataQuery({ mint });
-  const symbol = metadataQuery.data?.symbol || "";
-  const name = metadataQuery.data?.name || "";
-  const image = metadataQuery.data?.image || "";
-  const telegram_link = metadataQuery.data?.telegram_link || "";
-  const website_link = metadataQuery.data?.website_link || "";
-  const twitter_link = metadataQuery.data?.twitter_link || "";
-  const description = metadataQuery.data?.description || "";
+  const [memeMetadata, setMemeMetadata] = useState<{
+    name: string;
+    symbol: string;
+    image: string;
+    description: string;
+    twitterLink: string;
+    telegramLink: string;
+    websiteLink: string;
+  }>({
+    name: "",
+    symbol: "",
+    image: "", // Default to null
+    description: "",
+    twitterLink: "",
+    telegramLink: "",
+    websiteLink: "",
+  });
 
-  const { userAccountsByMintQuery } = useUserAccountsByMintQuery({ mint });
+  const [userAccount, setuserAccount] = useState<{
+    lockedAmount: BN,
+    claimmable: BN,
+  }>({
+    lockedAmount: ZERO,
+    claimmable: ZERO,
+  })
 
-  const holderData = userAccountsByMintQuery.data ?? null;
+  const [useTokenBalance, setuserTokenBalance] = useState(ZERO);
+
+  const divisor = memeAccount.bondedTime.isNeg() ? new BN('800000000000000000') : new BN('1000000000000000000');
+  const globalPercentage = calculatePercentage(memeAccount.lockedAmount, divisor);
+
+
+
+
+
+
+
+  //const { userAccountsByMintQuery } = useUserAccountsByMintQuery({ mint });
+
+  //const holderData = userAccountsByMintQuery.data ?? null;
 
   //const {fetchRpcPoolInfo} = useFetchRpcPoolInfo({poolId});
 
-  const divisor = bondedTime.isNeg() ? new BN('800000000000000000') : new BN('1000000000000000000');
-  const globalPercentage = calculatePercentage(lockedAmount, divisor);
+  const divisor = memeAccount.bondedTime.isNeg() ? new BN('800000000000000000') : new BN('1000000000000000000');
+  const globalPercentage = calculatePercentage(memeAccount.lockedAmount, divisor);
 
-  let userLockedAmountBN = ZERO;
-  let claimmableBN = ZERO;
-  let tokenBalanceBN = ZERO;
 
-  if (publicKey != null) {
-    const { userAccountQuery } = useAccountQuery({ publicKey, mint });
-    if (userAccountQuery.data !== undefined) {
-      userLockedAmountBN = userAccountQuery.data.lockedAmount;
-      claimmableBN = userAccountQuery.data.claimmable;
-    }
 
-    const { getSpecificTokenBalance } = useGetTokenAccounts({
-      address: publicKey,
-      mint: mint,
-    });
-    if (getSpecificTokenBalance.data !== undefined) {
-      tokenBalanceBN = new BN(getSpecificTokenBalance.data.balance);
-    }
+  /*
+  const { getSpecificTokenBalance } = useGetTokenAccounts({
+    address: publicKey,
+    mint: mint,
+  });
+  if (getSpecificTokenBalance.data !== undefined) {
+    tokenBalanceBN = new BN(getSpecificTokenBalance.data.balance);
   }
+  */
+
 
   const totalTokens = tokenBalanceBN
     .add(userLockedAmountBN)
@@ -1292,6 +1310,7 @@ export function TokenCard({ account }: { account: any }) {
           className="max-w-lg mx-auto mt-10 cursor-pointer"
           onClick={() => setIsVisible(false)}
         >
+          <p>{bondedTime.toNumber()}</p>
           <div className="relative border-2 border-black bg-white shadow-lg p-6">
             <div className="absolute top-2 right-2 text-gray-500 text-xs">
               {timeAgo(creationTime.toNumber())} ago

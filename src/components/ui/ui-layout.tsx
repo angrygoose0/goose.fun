@@ -3,44 +3,22 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import * as React from 'react'
-import { ReactNode, Suspense, useEffect, useRef } from 'react'
+import { ReactNode, Suspense, useEffect, useRef, useState } from 'react'
 import toast, { Toaster } from 'react-hot-toast'
 
 import { AccountChecker } from '../account/account-ui'
 import { ClusterChecker, ClusterUiSelect, ExplorerLink } from '../cluster/cluster-ui'
 import { WalletButton } from '../solana/solana-provider'
-import { MemeCreate, MemeFilter, MemeList, TokenCard } from '../meme/meme-ui'
+import { MemeCreate, MemeList, TokenCard } from '../meme/meme-ui'
 import { NavbarCard, NavbarFilters } from './extra-ui'
 
-{/* Sidebar (Vertical Navbar) */ }
-{/*}
-      <div
-        className="navbar bg-gray-200 text-black items-start border-black flex flex-col space-y-4 p-4"
-        style={{ width: '256px', minHeight: '100vh', position: 'fixed' }}
-      >
-        <div className="flex-none">
-          <Link className="btn btn-ghost normal-case text-xl" href="/">
-            <img className="h-6" alt="Logo" src="/logo.png" />
-          </Link>
-        </div>
 
-        <NavbarFilters />
-
-        <div className="mt-3 flex flex-col">
-          <NavbarCard name="duck" />
-          <NavbarCard name="duck" />
-        </div>
-
-      </div>
-      */}
 export function UiLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="h-full flex">
 
       <div className="fixed top-4 left-4 flex space-x-4 z-50">
-
-        <MemeFilter />
         <MemeCreate />
 
       </div>
@@ -58,26 +36,17 @@ export function UiLayout({ children }: { children: ReactNode }) {
       {/* Main Content */}
       <div className="flex flex-col flex-grow overflow-auto" /*style={{ marginLeft: '256px' }} bc of navbar*/>
         {/* Hero Section */}
-        <div className="hero py-[64px]">
+        <div className="hero mt-[64px]">
           <div className="hero-content text-center">
             <div className="max-w-2xl">
               <h1 className="text-5xl font-bold">Goose.fun</h1>
               <p className="py-6">subtitle</p>
-              {/* Search Bar */}
-
-              {/* Search Bar with Filters Button */}
-              <div className="flex items-center justify-center space-x-2">
-                <input
-                  type="text"
-                  className="w-96 border-2 border-black p-2 text-l focus:outline-none"
-                  placeholder="Search"
-                />
-
-              </div>
             </div>
           </div>
         </div>
+        
         <MemeList />
+
 
 
 

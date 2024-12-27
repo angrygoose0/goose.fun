@@ -452,7 +452,7 @@ pub struct MemeAccount { //8
     pub dev: Pubkey, //32
     pub mint: Pubkey, //32
 
-    pub locked_amount: u64, //8 billion * billion
+    pub locked_amount: u64, //8             billion * billion
 
     pub creation_time: i64, // 8
     pub bonded_time: i64,  // -1 for none (8)
