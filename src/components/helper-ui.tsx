@@ -30,24 +30,3 @@ export const InputView: FC<InputViewProps> = ({ name, placeholder, value, clickh
         </div>
     );
 };
-
-export const ButtonView: FC<InputViewProps> = ({ name, placeholder, value, clickhandle }) => {
-    // Fallback to a no-op function if clickhandle is not provided
-    const handleChange = clickhandle || (() => { });
-
-    return (
-        <div className="mb-4">
-            <label htmlFor={`input-${name.toLowerCase()}`} className="block mb-2 font-medium">
-                {name}
-            </label>
-            <input
-                type="text"
-                id={`input-${name.toLowerCase()}`}
-                value={value}
-                onChange={handleChange}
-                placeholder={placeholder}
-                className="w-full border-2 border-gray-200 p-2 text-sm focus:outline-none focus:border-black"
-            />
-        </div>
-    );
-};

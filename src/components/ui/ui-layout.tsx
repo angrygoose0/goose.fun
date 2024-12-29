@@ -10,7 +10,6 @@ import { AccountChecker } from '../account/account-ui'
 import { ClusterChecker, ClusterUiSelect, ExplorerLink } from '../cluster/cluster-ui'
 import { WalletButton } from '../solana/solana-provider'
 import { MemeCreate, MemeList, TokenCard } from '../meme/meme-ui'
-import { NavbarCard, NavbarFilters } from './extra-ui'
 
 
 export function UiLayout({ children }: { children: ReactNode }) {

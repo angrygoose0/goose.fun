@@ -1,7 +1,7 @@
 'use client'
 
 import { ChangeEvent, useCallback, useMemo, useState, useEffect, use } from 'react'
-import { useMemeProgram, useMetadataQuery, useBuySellTokenMutation, useUserAccountQuery, useCreateMemeToken, useProcessedAccountsQuery, useUserAccountsByMintQuery, useBondToRaydium, useMemeAccountQuery, useSolPriceQuery } from './meme-data-access'
+import { useMemeProgram, useMetadataQuery, useBuySellTokenMutation, useUserAccountQuery, useCreateMemeToken, useProcessedAccountsQuery, useUserAccountsByMintQuery, useBondToRaydium, useMemeAccountQuery, useSolPriceQuery, useTransactionsQuery, useLockClaimTokenMutation } from './meme-data-access'
 import { useGetBalance, useGetTokenAccounts } from '../account/account-data-access';
 import { toLamports, fromLamports, calculatePercentage, simplifyBN, fromLamportsDecimals, ToLamportsDecimals, ZERO, EMPTY_PUBLIC_KEY, SOL_MINT, INITIAL_PRICE } from './meme-helper-functions';
 import { InputView } from "../helper-ui";
@@ -15,6 +15,7 @@ import { BN } from '@coral-xyz/anchor';
 import { WalletButton } from '../solana/solana-provider'
 import { useCreatePool, useRaydiumPoolQuery, useInitRaydiumSdk } from '../raydium/raydium-data-access'
 import { ApiV3PoolInfoStandardItemCpmm, CpmmKeys, CpmmRpcData } from '@raydium-io/raydium-sdk-v2';
+import { time } from 'console';
 
 export function MemeCreate() {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -356,6 +357,7 @@ export enum ActionType {
 
 export function BalanceCard({ publicKey, memeAccount, memeMetadata, userAccount, tokenDistribution, userTokenBalance, raydiumSwap, tokensToSol, solToTokens, solToUsd, tokensToUsd }: { publicKey: PublicKey, memeAccount: any, memeMetadata: any, userAccount: any, tokenDistribution: any, userTokenBalance:BN, raydiumSwap:any, tokensToSol:any, solToTokens:any, solToUsd:any, tokensToUsd:any }) {
   const { buySellToken } = useBuySellTokenMutation();
+  const {lockClaimToken} = useLockClaimTokenMutation();
 
   const [solBalance, setSolBalance] = useState(ZERO);
 
@@ -418,11 +420,18 @@ export function BalanceCard({ publicKey, memeAccount, memeMetadata, userAccount,
       } else {
         setAmount(numericValue.cmp(userAccount.lockedAmount) === -1 ? numericValue : userAccount.lockedAmount);
       }
-    } else if (selectedAction === ActionType.RaydiumSell || selectedAction === ActionType.Lock) {
+    } else if (selectedAction === ActionType.RaydiumSell) {
       if (useShowingSol) {
         setAmount(numericValue.cmp(tokensToSol(userTokenBalance)) === -1 ? numericValue : tokensToSol(userTokenBalance));
       } else {
         setAmount(numericValue.cmp(userTokenBalance) === -1 ? numericValue : userTokenBalance);
+      }
+
+    } else if (selectedAction === ActionType.Lock){
+      if (useShowingSol) {
+        setAmount(numericValue.cmp(tokensToSol(userAccount.claimmable.add(userTokenBalance))) === -1 ? numericValue : tokensToSol(userAccount.claimmable.add(userTokenBalance)));
+      } else {
+        setAmount(numericValue.cmp(userAccount.claimmable.add(userTokenBalance)) === -1 ? numericValue : userAccount.claimmable.add(userTokenBalance));
       }
 
     } else if (selectedAction === ActionType.Claim) {
@@ -483,46 +492,44 @@ export function BalanceCard({ publicKey, memeAccount, memeMetadata, userAccount,
       console.error(error);
       toast.error(error.message || "An error occurred.");
     }
-  }, [publicKey, amount, showingSol, selectedAction, solBalance, memeAccount.lockedAmount, memeAccount.mint]);
+  }, [amount, showingSol, selectedAction, solBalance, memeAccount.mint, buySellToken]);
 
-  /*
   const handleLockClaimFormSubmit = useCallback(async () => {
     try {
-          let amountSentToSolana: BN; //token lamports
+      let amountSentToSolana: BN; //token lamports
 
-        // Validate amount based on selected action
-        if (selectedAction === ActionType.Lock) {
-
+      // Validate amount based on selected action
+      if (selectedAction === ActionType.Lock) {
         const tokensRequiredBN = showingSol ? solToTokens(amount) : amount;
 
-        if (tokensRequiredBN > tokenBalanceBN) {
-          throw new Error("token balance too low.");
+        if (tokensRequiredBN.gte(userTokenBalance.add(userAccount.claimmable))) {
+          throw new Error("Token balance too low.");
         }
 
         amountSentToSolana = tokensRequiredBN;
       } else if (selectedAction === ActionType.Claim) {
         const tokensRequiredBN = showingSol ? solToTokens(amount) : amount;
 
-        if (tokensRequiredBN > claimmableBN) {
-          throw new Error("You can't claim more than claimmable");
+        if (tokensRequiredBN.gte(userAccount.claimmable)) {
+          throw new Error("You can't claim more than you can claim.");
         }
 
-        amountSentToSolana = showingSol ? solToTokens(amount).neg() : amount.neg();
+        amountSentToSolana = tokensRequiredBN.neg()
       }
-        else {
+      else {
         throw new Error("wrong action type");
       }
 
-        // Perform the buy/sell operation
-        await lockClaimToken.mutateAsync({publicKey, amount: amountSentToSolana, mint });
-        toast.success("Success!");
+      // Perform the lock/claim operation
+      await lockClaimToken.mutateAsync({ amount: amountSentToSolana, mint: memeAccount.mint });
+      toast.success("Success!");
     } catch (error: any) {
-          console.error(error);
-        toast.error(error.message || "An error occurred.");
+      console.error(error);
+      toast.error(error.message || "An error occurred.");
     }
-  }, [publicKey, amount, showingSol, selectedAction, claimmableBN, tokenBalanceBN, mint]);
-
-  */
+  }, [amount, showingSol, selectedAction, userTokenBalance, userAccount.claimmable, memeAccount.mint, lockClaimToken]);
+  
+  
   const handleRaydiumBuySellFormSubmit = useCallback(async () => {
     try {
           let amountSentToSolana: BN; //sol lamports
@@ -807,6 +814,8 @@ export function BalanceCard({ publicKey, memeAccount, memeMetadata, userAccount,
             handleBuySellFormSubmit();
           } else if (selectedAction === ActionType.RaydiumBuy || selectedAction === ActionType.RaydiumSell) {
             handleRaydiumBuySellFormSubmit();
+          } else if (selectedAction === ActionType.Lock || selectedAction === ActionType.Claim) {
+            handleLockClaimFormSubmit();
           } else {
             console.warn('No handler for selected action');
           }
@@ -875,12 +884,13 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
     tokenBalance: BN;
   }>>([]);
 
-  const [transactionData, setTransactionData] = useState<Array<{
-    user: PublicKey;
-    solAmount: BN;
+  const [transactionsData, setTransactionsData] = useState<Array<{
+    user: string;
+    signature: string;
+    time: number;
     type: string;
-    date: BN;
-    transaction: string;
+    solChange: number;
+    tokenChange: number;
   }>>([]);
 
   const [globalPercentage, setGlobalPercentage] = useState(0);
@@ -949,6 +959,7 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
   });
 
   const { memeAccountQuery } = useMemeAccountQuery({ accountKey });
+  const {transactionsQuery} = useTransactionsQuery({mint: memeAccount.mint});
 
   const { metadataQuery } = useMetadataQuery({
     mint: memeAccount.mint,
@@ -964,6 +975,8 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
 
   const {raydiumPoolQuery, raydiumSwap} = useRaydiumPoolQuery({poolId: memeAccount.poolId});
 
+  
+
   const {solPriceQuery} = useSolPriceQuery();
 
   useEffect(() => {
@@ -976,6 +989,22 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
       setTokensPerSol(new BN(raydiumPoolQuery.data.poolInfo.price));
     }
   }, [raydiumPoolQuery.data]);
+
+  useEffect(() => {
+    if (transactionsQuery.data) {
+      console.log('transactions', transactionsQuery.data);
+      const updatedTransactions = transactionsQuery.data.map((tx: any) =>({
+        user: tx.userPublicKey,
+        signature: tx.signature,
+        time: tx.time,
+        type: tx.type,
+        solChange: tx.solChange,
+        tokenChange: tx.tokenChange,
+      }));
+
+      setTransactionsData(updatedTransactions);
+    }
+  }, [transactionsQuery.data]);
 
   
   useEffect(() => {
@@ -1100,7 +1129,6 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
 
   //const { userAccountsByMintQuery } = useUserAccountsByMintQuery({ mint });
   //const holderData = userAccountsByMintQuery.data ?? null;
-  //const { transactionData } = useTransactionsQuery({ mint });
 
   
 
@@ -1148,17 +1176,18 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
               maxHeight: "250px", // Adjust height as needed
             }}
           >
-            {transactionData.map((entry, index) => (
+
+            {transactionsData.map((entry, index) => (
               <div
                 key={index}
                 className="flex justify-between items-center border-b pb-2"
               >
-                <div className="text-sm font-medium">{entry.user.toString()}</div>
+                <div className="text-sm font-medium">{entry.user}</div>
                 <div className="text-sm">{entry.type}</div>
-                <div className="text-sm text-gray-600">{entry.solAmount.toString()}</div>
-                <div className="text-sm text-gray-400">{entry.solAmount.toString()}</div> //token amount
-                <div className="text-sm text-gray-400">{entry.date.toString()}</div>
-                <div className="text-sm text-gray-400">{entry.transaction}</div>
+                <div className="text-sm text-gray-600">{entry.solChange}</div>
+                <div className="text-sm text-gray-400">{entry.tokenChange}</div> //token amount
+                <div className="text-sm text-gray-400">{timeAgo(entry.time)}</div>
+                <div className="text-sm text-gray-400">{entry.signature}</div>
               </div>
             ))}
           </div>

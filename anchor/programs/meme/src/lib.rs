@@ -135,13 +135,17 @@ pub mod meme {
     
         // wants to lock, amount is SPL lamports
         if amount > 0 {
-            let lock_amount = amount as u64;
-    
-            // Subtract the amount from user_account.claimmable
-            user_account.claimmable = user_account
-                .claimmable
-                .checked_sub(lock_amount)
-                .ok_or(CustomError::Underflow)?;
+            let mut lock_amount = amount as u64;
+
+            if lock_amount > user_account.claimmable {
+                lock_amount -= user_account.claimmable;
+                user_account.claimmable = 0;
+            }
+            else {
+                user_account.claimmable -= lock_amount;
+                lock_amount = 0;
+            }
+                
     
             user_account.locked_amount = user_account
                 .locked_amount
@@ -154,21 +158,25 @@ pub mod meme {
                 .ok_or(CustomError::Overflow)?;
     
             // User sends SPL tokens to treasury
-            transfer_checked(
-                CpiContext::new(
-                    ctx.accounts.token_program.to_account_info(),
-                    TransferChecked {
-                        from: ctx.accounts.user_token_account.to_account_info(),
-                        to: ctx.accounts.treasury_token_account.to_account_info(),
-                        authority: ctx.accounts.signer.to_account_info(),
-                        mint: ctx.accounts.mint.to_account_info(),
-                    }
-                ),
-                lock_amount, // has to be u64 times by decimal amount
-                MINT_DECIMALS,
-            )?;
+            if lock_amount != 0
+            {
+                transfer_checked(
+                    CpiContext::new(
+                        ctx.accounts.token_program.to_account_info(),
+                        TransferChecked {
+                            from: ctx.accounts.user_token_account.to_account_info(),
+                            to: ctx.accounts.treasury_token_account.to_account_info(),
+                            authority: ctx.accounts.signer.to_account_info(),
+                            mint: ctx.accounts.mint.to_account_info(),
+                        }
+                    ),
+                    lock_amount, // has to be u64 times by decimal amount
+                    MINT_DECIMALS,
+                )?;
+            }
+            
         } else if amount < 0 {
-            // Wants to unlock, amount is SPL lamports wanting to take out of treasury
+            // Wants to claim, amount is SPL lamports wanting to take out of treasury
             let deduction = (-amount) as u64;
     
             user_account.claimmable = user_account

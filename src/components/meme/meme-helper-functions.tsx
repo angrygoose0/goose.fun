@@ -10,6 +10,8 @@ export const ZERO = new BN(0);
 export const EMPTY_PUBLIC_KEY = new PublicKey("11111111111111111111111111111111");
 export const SOL_MINT = new PublicKey('So11111111111111111111111111111111111111112');
 
+export const RAYDIUM_DEVNET_CPMM_PROGRAM_ID = new PublicKey('CPMDWBwJDtYax9qW7AyRuVC19Cc4L4Vcy4n2BHAbHkCW')
+
 
 
 export const ToLamportsDecimals = (num: number): BN => {

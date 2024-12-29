@@ -19,7 +19,7 @@ import { sha256 } from "js-sha256";
 import axios from 'axios';
 import bs58 from 'bs58';
 import { create } from 'domain';
-import {ZERO, EMPTY_PUBLIC_KEY, BILLION, TOKEN_SUPPLY_BEFORE_BONDING, INITIAL_PRICE, INITIAL_SOL_AMOUNT} from './meme-helper-functions';
+import {ZERO, EMPTY_PUBLIC_KEY, BILLION, TOKEN_SUPPLY_BEFORE_BONDING, INITIAL_PRICE, INITIAL_SOL_AMOUNT, RAYDIUM_DEVNET_CPMM_PROGRAM_ID} from './meme-helper-functions';
 
 
 export interface InitTokenParams {
@@ -64,6 +64,10 @@ export function useCreateMemeToken() {
     mutationKey: ["createMemeTokenEntry"],
     mutationFn: async ({ metadata }) => {
       try {
+
+        if (publicKey === null) {
+          throw new Error('Wallet not connected');
+        }
         const tokenMetadata = {
           name: metadata.name,
           symbol: metadata.symbol,
@@ -99,7 +103,7 @@ export function useCreateMemeToken() {
             tokenProgram: TOKEN_PROGRAM_ID,
             tokenMetadataProgram: TOKEN_METADATA_PROGRAM_ID,
           })
-          .rpc();
+          .instruction();
 
         const mintTokenInstruction = await program.methods
           .mintMemeToken(metadata.symbol, metadata.name)
@@ -112,9 +116,9 @@ export function useCreateMemeToken() {
             tokenProgram: TOKEN_PROGRAM_ID,
             associatedTokenProgram: ASSOCIATED_PROGRAM_ID,
           })
-          .rpc();
+          .instruction();
 
-        /*
+        
         const blockhashContext = await connection.getLatestBlockhashAndContext();
 
         const transaction = new Transaction({
@@ -130,7 +134,7 @@ export function useCreateMemeToken() {
         });
 
         return signature;
-        */
+        
       } catch (error) {
         console.error("Error during transaction processing:", error);
         throw error;
@@ -176,15 +180,15 @@ export function useProcessedAccountsQuery({
         8
       );
 
-      const partialMintBytes = bs58.encode(Buffer.from(searchBy));
-
       const filters = [
         {
           memcmp: { offset: 0, bytes: bs58.encode(MemeAccountDiscriminator) },
         },
+        
         {
-          memcmp: { offset: 40, bytes: partialMintBytes },
+          memcmp: { offset: 40, bytes: bs58.encode(bs58.decode(searchBy)) },
         },
+        
       ];
 
       let offset = 0; // Offset for creation_time (8 + 32 + 32 + 8)
@@ -320,6 +324,9 @@ export function useBuySellTokenMutation() {
     mutationKey: ['buySellToken'],
     mutationFn: async ({ mint, amount }) => {
       try {
+        if (publicKey === null) {
+          throw new Error('Wallet not connected');
+        }
         const modifyComputeUnits = ComputeBudgetProgram.setComputeUnitLimit({
           units: 16000,
         });
@@ -377,6 +384,82 @@ export function useBuySellTokenMutation() {
 
   return {
     buySellToken,
+  };
+}
+
+export function useLockClaimTokenMutation() {
+  const { program } = useMemeProgram();
+  const transactionToast = useTransactionToast();
+  const { connection } = useConnection();
+  const { sendTransaction, publicKey } = useWallet();
+  const lockClaimToken = useMutation<
+    string,
+    Error,
+    { amount: BN; mint: PublicKey }
+  >({
+    mutationKey: ['lockClaimToken'],
+    mutationFn: async ({ mint, amount }) => {
+      try {
+        if (publicKey === null) {
+          throw new Error('Wallet not connected');
+        }
+        const modifyComputeUnits = ComputeBudgetProgram.setComputeUnitLimit({
+          units: 16000,
+        });
+
+        const recentPriorityFees = await connection.getRecentPrioritizationFees({
+        });
+        const minFee = Math.min(...recentPriorityFees.map(fee => fee.prioritizationFee));
+
+        const addPriorityFee = ComputeBudgetProgram.setComputeUnitPrice({
+          microLamports: minFee + 1,
+        });
+
+        const lockClaim = await program.methods
+          .lockClaim(amount)
+          .accounts({
+            signer: publicKey,
+            mint,
+            treasury: treasuryKeypair.publicKey,
+          })
+          .signers([treasuryKeypair])
+          .instruction();
+
+        const blockhashContext = await connection.getLatestBlockhashAndContext();
+
+        const transaction = new Transaction({
+          feePayer: publicKey,
+          blockhash: blockhashContext.value.blockhash,
+          lastValidBlockHeight: blockhashContext.value.lastValidBlockHeight,
+        })
+          //.add(modifyComputeUnits)
+          //.add(addPriorityFee)
+          .add(lockClaim);
+        transaction.sign(treasuryKeypair)
+
+        const signature = await sendTransaction(transaction, connection, {
+        });
+
+        return signature;
+
+      } catch (error) {
+        console.error("Error during transaction processing:", error);
+        throw error;
+      }
+    },
+
+    onSuccess: (signature) => {
+      transactionToast(signature);
+      console.log(signature);
+    },
+    onError: (error) => {
+      toast.error(`Error lock/claiming token: ${error.message}`);
+      console.error('Toast error:', error);
+    },
+  });
+
+  return {
+    lockClaimToken,
   };
 }
 
@@ -655,5 +738,80 @@ export function useSolPriceQuery() {
     solPriceQuery,
   };
 }
+
+export function useTransactionsQuery({
+  mint,
+}: {
+  mint: PublicKey;
+}) {
+  const { connection } = useConnection();
+  const { cluster } = useCluster();
+
+  
+  const transactionsQuery = useQuery({
+    queryKey: ['getTransactions', { mint }],
+    queryFn: async () => {
+
+      const signatures = await connection.getSignaturesForAddress(RAYDIUM_DEVNET_CPMM_PROGRAM_ID, {
+        limit: 50, // Limit the number of transactions to fetch
+      });
+
+      const filteredTransactions: any[] = [];
+      for (const signatureInfo of signatures) {
+        const tx = await connection.getTransaction(signatureInfo.signature, {
+          maxSupportedTransactionVersion: 0,
+
+        });
+
+        if (tx && tx.meta && tx.meta.postTokenBalances && tx.meta.preTokenBalances) {
+          const involvesMint = tx.meta.postTokenBalances.some(
+            (balance) => balance.mint === mint.toBase58()
+          );
+          if (involvesMint) {
+            const userPublicKey = tx.transaction.message.accountKeys[0];
+            const signature = signatureInfo.signature;
+
+            const solChange = tx.meta.postBalances[0] - tx.meta.preBalances[0];
+            const postToken = tx.meta.postTokenBalances.find(
+              (balance) => balance.mint === mint.toBase58()
+            );
+            
+            const preToken = tx.meta.preTokenBalances.find(
+              (balance) => balance.mint === mint.toBase58()
+            );
+            
+            const tokenChange = postToken
+              ? 
+                (postToken.uiTokenAmount.uiAmount || 0) -
+                (preToken?.uiTokenAmount.uiAmount || 0)
+                
+              : 0;
+
+            const type = solChange < 0 ? 'buy' : 'sell';
+
+
+            filteredTransactions.push({
+              userPublicKey,
+              signature,
+              time: signatureInfo.blockTime,
+              type,
+              solChange,
+              tokenChange,
+            });
+          }
+        }
+      }
+      console.log('filteredTransactions', filteredTransactions);
+      
+     return filteredTransactions
+    },
+    refetchInterval: 10000, enabled: false, //enabled: !!mint,
+  });
+
+  return {
+    transactionsQuery,
+  };
+}
+
 
 
