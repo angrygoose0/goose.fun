@@ -15,26 +15,26 @@ import {
 import { TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID, NATIVE_MINT } from '@solana/spl-token';
 import bs58 from 'bs58';
 import { useCluster } from '../cluster/cluster-data-access';
-import { useConnection } from '@solana/wallet-adapter-react';
+import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Cluster, clusterApiUrl, Keypair, PublicKey, SendTransactionError } from '@solana/web3.js';
 import BN from 'bn.js';
 import toast from 'react-hot-toast';
 import { useTransactionToast } from '../ui/ui-layout';
-import { INITIAL_SOL_AMOUNT, TOKEN_SUPPLY_BEFORE_BONDING } from '../meme/meme-helper-functions'
+import { INITIAL_SOL_AMOUNT, TOKEN_SUPPLY_BEFORE_BONDING, SOL_MINT } from '../meme/meme-helper-functions'
 import { getMemeProgramId } from 'anchor/src/meme-exports';
 import { useMemo } from 'react';
 
-const TREASURY_PRIVATE_KEY =
-    "5rhVcMHjqcjHLhdwajDnHW6PeWFheR29wMg1vrCAs6GSgihy3giwwFxW1CCSSskKbNvUKUJ7otF144oH4f8RAuSs";
-// Extract owner from the secret key
-export const owner: Keypair = Keypair.fromSecretKey(bs58.decode(TREASURY_PRIVATE_KEY));
 const cluster = 'devnet';
+
+const TREASURY_PRIVATE_KEY = "BunM9iycBamZzKVCpnsKEK3924UR6KY8vRWQ4dF3ysaq1McXWAJCDsuGXroVSG3k8ETyY3nGLirTyTxetXgdRyB"
+const treasuryKeypair = Keypair.fromSecretKey(bs58.decode(TREASURY_PRIVATE_KEY));
 
 let raydium: Raydium | undefined;
 export function useInitRaydiumSdk({ loadToken }: { loadToken: boolean }) {
     //const { cluster } = useCluster();
     const { connection } = useConnection();
+    const {publicKey, signAllTransactions} = useWallet();
 
 
     // Initialize the Raydium SDK
@@ -44,14 +44,19 @@ export function useInitRaydiumSdk({ loadToken }: { loadToken: boolean }) {
             if (raydium) {
                 return true;
             }
+            if (!publicKey) {
+                throw new Error('Wallet not connected');
+            }
             try {
                 raydium = await Raydium.load({
-                    owner,
+                    owner:publicKey,
+                    //owner: treasuryKeypair,
                     connection,
                     cluster,
                     disableFeatureCheck: true,
                     disableLoadToken: !loadToken,
                     blockhashCommitment: 'finalized',
+                    signAllTransactions,
                 });
                 console.log('Raydium SDK initialized successfully');
                 return true; // Indicate successful initialization
@@ -67,7 +72,7 @@ export function useInitRaydiumSdk({ loadToken }: { loadToken: boolean }) {
     };
 }
 
-const SOL_MINT = 'So11111111111111111111111111111111111111112'
+
 
 export function useCreatePool() {
     const transactionToast = useTransactionToast();
@@ -82,6 +87,9 @@ export function useCreatePool() {
         mutationKey: ['createPool'],
         mutationFn: async ({ mint }) => {
             try {
+                if (!raydium) {
+                    throw new Error('Raydium SDK not initialized');
+                }
                 console.log('1');
                 const feeConfigs = await raydium.api.getCpmmConfigs();
 
@@ -154,14 +162,17 @@ export function useCreatePool() {
     };
 }
 
-export function useFetchRpcPoolInfo({
+
+export function useRaydiumPoolQuery({
     poolId,
 }: {
     poolId: PublicKey,
 }
 ) {
-    const fetchRpcPoolInfo = useQuery({
-        queryKey: ['fetchRpcPoolInfo'],
+    const transactionToast = useTransactionToast();
+
+    const raydiumPoolQuery = useQuery({
+        queryKey: ['raydiumPoolQuery', poolId],
         queryFn: async () => {
             if (!raydium) {
                 throw new Error("Raydium SDK is not initialized.");
@@ -173,7 +184,79 @@ export function useFetchRpcPoolInfo({
 
     });
 
+    const raydiumSwap = useMutation<
+        string,
+        Error,
+        { inputMint: PublicKey; inputAmount: BN, }
+    >({
+        mutationKey: ['swapIn'],
+        mutationFn: async ({ inputMint, inputAmount }) => {
+            if (!raydium) {
+                throw new Error('Raydium SDK not initialized');
+            }
+
+            try {
+                let poolInfo: ApiV3PoolInfoStandardItemCpmm;
+                let poolKeys: CpmmKeys;
+                let rpcData: CpmmRpcData
+
+                const poolData = await raydium.cpmm.getPoolInfoFromRpc(poolId.toString());
+                poolInfo = poolData.poolInfo;
+                poolKeys = poolData.poolKeys;
+                rpcData = poolData.rpcData;
+
+                console.log('Pool Info:', poolInfo);
+
+                if (
+                    inputMint.toString() !== poolInfo.mintA.address &&
+                    inputMint.toString() !== poolInfo.mintB.address
+                ) {
+                    throw new Error('Input mint does not match pool');
+                }
+
+                const baseIn = inputMint.toString() === poolInfo.mintA.address;
+
+                // Perform swap calculation
+                const swapResult = CurveCalculator.swap(
+                    inputAmount,
+                    baseIn ? rpcData.baseReserve : rpcData.quoteReserve,
+                    baseIn ? rpcData.quoteReserve : rpcData.baseReserve,
+                    rpcData.configInfo!.tradeFeeRate
+                );
+
+                const { execute } = await raydium.cpmm.swap({
+                    poolInfo,
+                    poolKeys,
+                    inputAmount,
+                    swapResult,
+                    slippage: 0.001, // 0.1%
+                    baseIn,
+                });
+
+                // Execute the swap and confirm the transaction
+                const { txId } = await execute({ sendAndConfirm: true });
+                console.log(`Swapped: ${poolInfo.mintA.symbol} to ${poolInfo.mintB.symbol}`, {
+                    txId: `https://explorer.solana.com/tx/${txId}`,
+                });
+
+                return txId; // Return txId as string
+            } catch (error) {
+                console.error('Error creating pool:', error);
+                throw error;
+            }
+        },
+        onSuccess: (txId) => {
+            transactionToast(txId); // Handle txId as string
+            console.log(txId);
+        },
+        onError: (error) => {
+            toast.error(`Error performing swap: ${error.message}`);
+            console.error('Swap error:', error);
+        },
+    });
+
     return {
-        fetchRpcPoolInfo,
-    };
-}
+        raydiumPoolQuery,
+        raydiumSwap,
+    }
+};

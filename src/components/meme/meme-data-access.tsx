@@ -16,9 +16,10 @@ import { Metaplex } from "@metaplex-foundation/js";
 import { constants } from 'fs/promises';
 import { BN } from '@coral-xyz/anchor';
 import { sha256 } from "js-sha256";
+import axios from 'axios';
 import bs58 from 'bs58';
 import { create } from 'domain';
-import {ZERO, EMPTY_PUBLIC_KEY, BILLION, TOKEN_SUPPLY_BEFORE_BONDING, INITIAL_PRICE, INITIAL_SOL_AMOUNT, treasuryKeypair} from './meme-helper-functions';
+import {ZERO, EMPTY_PUBLIC_KEY, BILLION, TOKEN_SUPPLY_BEFORE_BONDING, INITIAL_PRICE, INITIAL_SOL_AMOUNT} from './meme-helper-functions';
 
 
 export interface InitTokenParams {
@@ -28,7 +29,8 @@ export interface InitTokenParams {
   decimals: number;
 }
 
-
+const TREASURY_PRIVATE_KEY = "BunM9iycBamZzKVCpnsKEK3924UR6KY8vRWQ4dF3ysaq1McXWAJCDsuGXroVSG3k8ETyY3nGLirTyTxetXgdRyB"
+const treasuryKeypair = Keypair.fromSecretKey(bs58.decode(TREASURY_PRIVATE_KEY));
 
 const METADATA_SEED = "metadata";
 const TOKEN_METADATA_PROGRAM_ID = new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
@@ -89,6 +91,7 @@ export function useCreateMemeToken() {
           .initMemeToken(tokenMetadata)
           .accounts({
             metadata: metadataAddress,
+            mint: mint,
             treasury: treasuryKeypair.publicKey,
             signer: publicKey,
             rent: SYSVAR_RENT_PUBKEY,
@@ -102,6 +105,7 @@ export function useCreateMemeToken() {
           .mintMemeToken(metadata.symbol, metadata.name)
           .accounts({
             treasury: treasuryKeypair.publicKey,
+            mint: mint,
             signer: publicKey,
             rent: SYSVAR_RENT_PUBKEY,
             systemProgram: SystemProgram.programId,
@@ -148,7 +152,6 @@ export function useCreateMemeToken() {
     createMemeToken,
   }
 }
-
 
 export function useProcessedAccountsQuery({
   currentPage,
@@ -218,6 +221,8 @@ export function useProcessedAccountsQuery({
         filters,
       });
 
+      console.log('accounts', accounts);
+
       // Parse `creation_time` and sort accounts
       const accountsWithSpecific = accounts.map(({ pubkey, account }) => {
         const specific = new BN(account.data, 'le'); // Parse `creation_time` as BigInt
@@ -235,6 +240,8 @@ export function useProcessedAccountsQuery({
 
       const accountPublicKeys = paginatedAccounts.map((account) => account.pubkey);
 
+      console.log('accountPublicKeys', accountPublicKeys);
+
       return accountPublicKeys;
     },
     enabled: !!currentPage && !!sortBy,
@@ -244,8 +251,6 @@ export function useProcessedAccountsQuery({
     processedAccountsQuery,
   };
 }
-
-
 
 export function useMemeProgram() {
   const { connection } = useConnection();
@@ -292,7 +297,6 @@ export function useMetadataQuery({
       if (!response.ok) {
         throw new Error(`Failed to fetch metadata JSON from ${token.uri}`);
       }
-
       return response.json();
     },
     enabled: !!mint, // Run only if mint is provided
@@ -536,6 +540,7 @@ export function useUserAccountQuery({
   const programId = useMemo(() => getMemeProgramId(cluster.network as Cluster), [cluster]);
   const { program } = useMemeProgram();
   const { connection } = useConnection();
+  const queryClient = useQueryClient();
 
 
   const userAccountSeeds = [
@@ -547,6 +552,7 @@ export function useUserAccountQuery({
     userAccountSeeds,
     programId
   )[0];
+
   // Fetch the user account
   const userAccountQuery = useQuery({
     queryKey: ['userAccount', { cluster, userAccountKey }],
@@ -555,9 +561,25 @@ export function useUserAccountQuery({
     }
   });
 
+  useEffect(() => {
+    const subscriptionId = connection.onAccountChange(
+      userAccountKey,
+      async (updatedAccountInfo) => {
+        try {
+          const updatedData = await program.account.userAccount.fetch(userAccountKey);
+          // Update the query with the new data
+          queryClient.setQueryData(['userAccount', { cluster, userAccountKey }], updatedData);
+        } catch (error) {
+          console.error('Failed to fetch updated user account data:', error);
+        }
+      }
+    );
 
-
-
+    // Cleanup the subscription when the component unmounts or dependencies change
+    return () => {
+      connection.removeAccountChangeListener(subscriptionId);
+    };
+  }, [connection, userAccountKey, program, cluster, queryClient]);
 
   return {
     userAccountQuery,
@@ -570,7 +592,6 @@ export function useMemeAccountQuery({
   accountKey: PublicKey;
 }) {
   const { cluster } = useCluster();
-  const programId = useMemo(() => getMemeProgramId(cluster.network as Cluster), [cluster]);
   const { program } = useMemeProgram();
   const { connection } = useConnection();
   const queryClient = useQueryClient();
@@ -604,30 +625,35 @@ export function useMemeAccountQuery({
     };
   }, [connection, accountKey, program, cluster, queryClient]);
 
-
-
-
   return {
     memeAccountQuery,
   };
 }
 
+export function useSolPriceQuery() {
+  // Fetch the Solana price in USD
+  const solPriceQuery = useQuery({
+    queryKey: ['solPrice'],
+    queryFn: async () => {
+      try {
+        const response = await axios.get(
+          'https://api.coingecko.com/api/v3/simple/price',
+          {
+            params: { ids: 'solana', vs_currencies: 'usd' },
+          }
+        );
+        const priceInUsd = response.data.solana.usd;
+        return priceInUsd;
+      } catch (error) {
+        console.error('Error fetching Solana price:', error);
+        throw new Error('Failed to fetch Solana price.');
+      }
+    },
+  });
 
-
-/*
-const updateMemeToken = useMutation<string, Error, CreateMemeTokenArgs>({
-  mutationKey: [`MemeAccount`, `update`, (cluster)],
-  mutationFn: async ({ mint, twitter_link, telegram_link, website_link }) => {
-    return program.methods.updateMemeAccount(mint, twitter_link, telegram_link, website_link).rpc();
-  },
-  onSuccess: (signature) => {
-    transactionToast(signature);
-    accounts.refetch();
-  },
-  onError: (error) => {
-    toast.error(`Error updating entry: ${error.message}`);
-  },
-});
-*/
+  return {
+    solPriceQuery,
+  };
+}
 
 

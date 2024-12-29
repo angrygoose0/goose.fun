@@ -1,8 +1,15 @@
+import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
+import { Keypair, PublicKey } from "@solana/web3.js";
 import BN from "bn.js";
 
 export const toLamports = (amount: BN): BN => {
     return amount.mul(BILLION);
 };
+
+export const ZERO = new BN(0);
+export const EMPTY_PUBLIC_KEY = new PublicKey("11111111111111111111111111111111");
+export const SOL_MINT = new PublicKey('So11111111111111111111111111111111111111112');
+
 
 
 export const ToLamportsDecimals = (num: number): BN => {
@@ -41,14 +48,6 @@ export const INITIAL_SOL_AMOUNT = TOKEN_SUPPLY_BEFORE_BONDING.div(INITIAL_PRICE)
 
 const SOL_PRICE: BN = new BN(250_000_000_000); // $250 * 10^9 per SOL lamport
 
-// Conversion functions
-export const convertTokensToSol = (tokens: BN): BN => {
-    return tokens.div(INITIAL_PRICE);
-};
-
-export const convertSolToTokens = (sol: BN): BN => {
-    return sol.mul(INITIAL_PRICE);
-};
 
 export function simplifyBN(value: BN): string {
     const thresholds = [
@@ -70,8 +69,8 @@ export function simplifyBN(value: BN): string {
 
 export const calculatePercentage = (numerator: BN, denominator: BN): number => {
     const scale = new BN(10000); // Use a higher scale for precision
-    const percentage = denominator.isZero() || numerator.isZero()
-        ? new BN(0)
+    const percentage = denominator === ZERO || numerator === ZERO
+        ? ZERO
         : numerator
             .mul(scale) // Multiply numerator by 100 first
             .div(denominator); // Then perform division
@@ -79,12 +78,4 @@ export const calculatePercentage = (numerator: BN, denominator: BN): number => {
     return percentage.toNumber() / 100;
 }
 
-export function timeAgo(from: number): string {
-    const now = Math.floor(Date.now() / 1000); // Current time in seconds
-    const diff = now - from;
 
-    if (diff < 60) return `${diff}s`; // Seconds
-    if (diff < 3600) return `${Math.floor(diff / 60)}m`; // Minutes
-    if (diff < 86400) return `${Math.floor(diff / 3600)}h`; // Hours
-    return `${Math.floor(diff / 86400)}d`; // Days
-}

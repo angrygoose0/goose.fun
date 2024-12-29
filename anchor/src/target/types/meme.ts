@@ -5,7 +5,7 @@
  * IDL can be found at `target/idl/meme.json`.
  */
 export type Meme = {
-  "address": "5BpjFeNvcyvFWYYQg1G8o2dYpwSbZzi8qbVPAfxPiFbP",
+  "address": "6uhUTWZRFWtf7WhKLmni9x1K3hiwxDaFP8WnpsZuVDw8",
   "metadata": {
     "name": "meme",
     "version": "0.1.0",

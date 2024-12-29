@@ -117,34 +117,43 @@ pub mod meme {
     
     // after bonding
     pub fn lock_claim(
-        ctx:Context<LockUnlockAfterBonding>,
-        amount: i64, //amount in SPL lamports.
+        ctx: Context<LockUnlockAfterBonding>,
+        amount: i64, // amount in SPL lamports
     ) -> Result<()> {
         let user_account = &mut ctx.accounts.user_account;
         let meme_account = &mut ctx.accounts.meme_account;
-
+    
         require!(amount != 0, CustomError::InvalidAmount);
-
+    
         user_account.user = ctx.accounts.signer.key();
         user_account.user = ctx.accounts.mint.key();
-
+    
         require!(
             meme_account.bonded_time > 0,
             CustomError::NotBonded,
         );
-
+    
         // wants to lock, amount is SPL lamports
         if amount > 0 {
+            let lock_amount = amount as u64;
+    
+            // Subtract the amount from user_account.claimmable
+            user_account.claimmable = user_account
+                .claimmable
+                .checked_sub(lock_amount)
+                .ok_or(CustomError::Underflow)?;
+    
             user_account.locked_amount = user_account
                 .locked_amount
-                .checked_add(amount as u64)
+                .checked_add(lock_amount)
                 .ok_or(CustomError::Overflow)?;
-
+    
             meme_account.locked_amount = meme_account
                 .locked_amount
-                .checked_add(amount as u64)
+                .checked_add(lock_amount)
                 .ok_or(CustomError::Overflow)?;
-            //user sends spl tokens to treasury
+    
+            // User sends SPL tokens to treasury
             transfer_checked(
                 CpiContext::new(
                     ctx.accounts.token_program.to_account_info(),
@@ -155,25 +164,24 @@ pub mod meme {
                         mint: ctx.accounts.mint.to_account_info(),
                     }
                 ),
-                amount as u64, // has to be u64 times by decimal amount.
+                lock_amount, // has to be u64 times by decimal amount
                 MINT_DECIMALS,
             )?;
         } else if amount < 0 {
-            // wants to unlock, amount is SPL lamports wanting to take out of treasury.
+            // Wants to unlock, amount is SPL lamports wanting to take out of treasury
             let deduction = (-amount) as u64;
-
+    
             user_account.claimmable = user_account
                 .claimmable
                 .checked_sub(deduction)
                 .ok_or(CustomError::Underflow)?;
-
+    
             meme_account.locked_amount = meme_account
                 .locked_amount
                 .checked_sub(deduction)
                 .ok_or(CustomError::Underflow)?;
-            
-
-            //user receives spl tokens from treasury
+    
+            // User receives SPL tokens from treasury
             transfer_checked(
                 CpiContext::new(
                     ctx.accounts.token_program.to_account_info(),
@@ -184,13 +192,11 @@ pub mod meme {
                         mint: ctx.accounts.mint.to_account_info(),
                     }
                 ),
-                (-amount) as u64,
-                //spl token lamports.
+                deduction,
                 MINT_DECIMALS,
             )?;
         }
         Ok(())
-
     }
 
     //before bonding
