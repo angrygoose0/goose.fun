@@ -4,7 +4,6 @@ import { ChangeEvent, useCallback, useMemo, useState, useEffect, use } from 'rea
 import { useMemeProgram, useMetadataQuery, useBuySellTokenMutation, useUserAccountQuery, useCreateMemeToken, useProcessedAccountsQuery, useUserAccountsByMintQuery, useBondToRaydium, useMemeAccountQuery, useSolPriceQuery, useTransactionsQuery, useLockClaimTokenMutation } from './meme-data-access'
 import { useGetBalance, useGetTokenAccounts } from '../account/account-data-access';
 import { toLamports, fromLamports, calculatePercentage, simplifyBN, fromLamportsDecimals, ToLamportsDecimals, ZERO, EMPTY_PUBLIC_KEY, SOL_MINT, INITIAL_PRICE } from './meme-helper-functions';
-import { InputView } from "../helper-ui";
 import axios from "axios";
 import toast from "react-hot-toast";
 import { useWallet } from '@solana/wallet-adapter-react';
@@ -16,6 +15,8 @@ import { WalletButton } from '../solana/solana-provider'
 import { useCreatePool, useRaydiumPoolQuery, useInitRaydiumSdk } from '../raydium/raydium-data-access'
 import { ApiV3PoolInfoStandardItemCpmm, CpmmKeys, CpmmRpcData } from '@raydium-io/raydium-sdk-v2';
 import { time } from 'console';
+
+import {PrimaryButton, PrimaryInput, PrimarySelect} from '../ui/extra-ui/button'
 
 export function MemeCreate() {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -176,7 +177,7 @@ export function MemeCreate() {
 
   return (
     <div>
-      <button onClick={openModal}>Open Modal</button>
+      <PrimaryButton name='createModal' disabled={false} active={false} onClick={openModal} extraCss="" value="Create"/>
 
       {isModalOpen && (
         <div
@@ -200,45 +201,14 @@ export function MemeCreate() {
               </label>
             )}
 
-            <InputView
-              name="Name"
-              placeholder="name"
-              clickhandle={(e) => handleFormFieldChange("name", e)}
-            />
-            <InputView
-              name="Symbol"
-              placeholder="symbol"
-              clickhandle={(e) => handleFormFieldChange("symbol", e)}
-            />
-            <InputView
-              name="Description"
-              placeholder="description"
-              clickhandle={(e) => handleFormFieldChange("description", e)}
-            />
-            <InputView
-              name="twitter_link"
-              placeholder="twitter_link"
-              clickhandle={(e) => handleFormFieldChange("twitter_link", e)}
-            />
-            <InputView
-              name="telegram_link"
-              placeholder="telegram_link"
-              clickhandle={(e) => handleFormFieldChange("telegram_link", e)}
-            />
-            <InputView
-              name="website_link"
-              placeholder="website_link"
-              clickhandle={(e) => handleFormFieldChange("website_link", e)}
-            />
+            <PrimaryInput name="name" onChange={(e) => handleFormFieldChange("name", e)} value={token.name} placeholder="name" type="text" extraCss="w-full block mt-2" disabled={false}/>
+            <PrimaryInput name="symbol" onChange={(e) => handleFormFieldChange("symbol", e)} value={token.symbol} placeholder="symbol" type="text" extraCss="w-full block mt-2" disabled={false}/>
+            <PrimaryInput name="description" onChange={(e) => handleFormFieldChange("description", e)} value={token.description} placeholder="description" type="text" extraCss="w-full block mt-2" disabled={false}/>
+            <PrimaryInput name="twitter_link" onChange={(e) => handleFormFieldChange("twitter_link", e)} value={token.twitter_link} placeholder="twitter link" type="text" extraCss="w-full block mt-2" disabled={false}/>
+            <PrimaryInput name="telegram_link" onChange={(e) => handleFormFieldChange("telegram_link", e)} value={token.telegram_link} placeholder="telegram link" type="text" extraCss="w-full block mt-2" disabled={false}/>
+            <PrimaryInput name="website_link" onChange={(e) => handleFormFieldChange("website_link", e)} value={token.website_link} placeholder="website link" type="text" extraCss="w-full block mt-2" disabled={false}/>
 
-
-            <button
-              className="btn btn-xs lg:btn-md btn-primary"
-              onClick={handleFormSubmit}
-              disabled={!isFormValid}
-            >
-              Create Token
-            </button>
+            <PrimaryButton name='create_token' disabled={!isFormValid} active={false} onClick={handleFormSubmit} extraCss="" value="Create Token"/>
           </div>
         </div >
       )}
@@ -291,13 +261,9 @@ export function MemeList() {
     <div>
       {/* Search Bar with Filters Button */}
       <div className="flex items-center justify-center space-x-2">
-        <input
-          type="text"
-          className="w-96 border-2 border-black p-2 text-l focus:outline-none"
-          placeholder="Search by mint"
-          value={searchBy}
-          onChange={(e) => setSearchBy(e.target.value)} // Update searchBy
-        />
+        <PrimaryInput name="SearchBar" onChange={(e) => setSearchBy(e.target.value)} value={searchBy} placeholder="Search by mint" type="text" extraCss="w-96" disabled={false}/>
+        
+        <PrimarySelect name="sortBy" disabled={false} options={[{label:"", value:""},{label:"", value:""}]} onChange={(e) => setSortBy(e.target.value)} extraCss="" value={sortBy}/>
         <select
           id="sort"
           className="border-2 border-black p-2 text-l focus:outline-none"
@@ -316,24 +282,9 @@ export function MemeList() {
 
       {/* Pagination controls */}
       <div className="flex justify-center mt-6 space-x-4">
-        <button
-          className="btn rounded-none border-2 border-black text-black bg-white hover:bg-gray-100"
-          onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-          disabled={currentPage === 1}
-        >
-          Previous
-        </button>
+        <PrimaryButton name='prev' disabled={currentPage === 1} active={false} onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))} extraCss="" value="Previous"/>
         <span>Page {currentPage}</span>
-
-
-        <button
-          className="btn rounded-none border-2 border-black text-black bg-white hover:bg-gray-100"
-          onClick={() => setCurrentPage((prev) => prev + 1)}
-          disabled={!processedAccountsQuery || (processedAccountsQuery.data ?? []).length < 10}
-        // Disable if no more pages
-        >
-          Next
-        </button>
+        <PrimaryButton name='next' disabled={!processedAccountsQuery || (processedAccountsQuery.data ?? []).length < 10} active={false} onClick={() => setCurrentPage((prev) => prev + 1)} extraCss="" value="Next"/>
       </div>
     </div >
   );
@@ -580,68 +531,16 @@ export function BalanceCard({ publicKey, memeAccount, memeMetadata, userAccount,
         {memeAccount.bondedTime < ZERO ? (
           <>
             {/* Two buttons: Buy and Sell */}
-            <button
-              onClick={() => handleActionChange(ActionType.Buy)}
-              className={`${selectedAction === ActionType.Buy
-                ? "border-black bg-gray-300"
-                : "border-gray-500 bg-white"
-                } w-1/2 flex items-center justify-center px-4 py-2 text-sm font-medium border-2 text-black hover:bg-gray-100`}
-            >
-              <p>Buy</p>
-            </button>
-
-            <button
-              onClick={() => handleActionChange(ActionType.Sell)}
-              className={`${selectedAction === ActionType.Sell
-                ? "border-black bg-gray-300"
-                : "border-gray-500 bg-white"
-                } w-1/2 flex items-center justify-center px-4 py-2 text-sm font-medium border-2 text-black hover:bg-gray-100`}
-            >
-              <p>Sell</p>
-            </button>
+            <PrimaryButton name="selectBuy" disabled={false} active={selectedAction === ActionType.Buy} onClick={() => handleActionChange(ActionType.Buy)} extraCss="w-1/2" value="Buy"/>
+            <PrimaryButton name="selectSell" disabled={false} active={selectedAction === ActionType.Sell} onClick={() => handleActionChange(ActionType.Sell)} extraCss="w-1/2" value="Sell"/>
           </>
         ) : (
           <>
             {/* Four buttons: Buy, Sell, Lock, and Claim */}
-            <button
-              onClick={() => handleActionChange(ActionType.RaydiumBuy)}
-              className={`${selectedAction === ActionType.RaydiumBuy
-                ? "border-black bg-gray-300"
-                : "border-gray-500 bg-white"
-                } w-1/4 flex items-center justify-center px-4 py-2 text-sm font-medium border-2 text-black hover:bg-gray-100`}
-            >
-              <p>Buy</p>
-            </button>
-
-            <button
-              onClick={() => handleActionChange(ActionType.RaydiumSell)}
-              className={`${selectedAction === ActionType.RaydiumSell
-                ? "border-black bg-gray-300"
-                : "border-gray-500 bg-white"
-                } w-1/4 flex items-center justify-center px-4 py-2 text-sm font-medium border-2 text-black hover:bg-gray-100`}
-            >
-              <p>Sell</p>
-            </button>
-
-            <button
-              onClick={() => handleActionChange(ActionType.Lock)}
-              className={`${selectedAction === ActionType.Lock
-                ? "border-black bg-gray-300"
-                : "border-gray-500 bg-white"
-                } w-1/4 flex items-center justify-center px-4 py-2 text-sm font-medium border-2 text-black hover:bg-gray-100`}
-            >
-              <p>Lock</p>
-            </button>
-
-            <button
-              onClick={() => handleActionChange(ActionType.Claim)}
-              className={`${selectedAction === ActionType.Claim
-                ? "border-black bg-gray-300"
-                : "border-gray-500 bg-white"
-                } w-1/4 flex items-center justify-center px-4 py-2 text-sm font-medium border-2 text-black hover:bg-gray-100`}
-            >
-              <p>Claim</p>
-            </button>
+            <PrimaryButton name="selectRaydiumBuy" disabled={false} active={selectedAction === ActionType.RaydiumBuy} onClick={() => handleActionChange(ActionType.RaydiumBuy)} extraCss="w-1/4" value="Buy"/>
+            <PrimaryButton name="selectRaydiumSell" disabled={false} active={selectedAction === ActionType.RaydiumSell} onClick={() => handleActionChange(ActionType.RaydiumSell)} extraCss="w-1/4" value="Sell"/> 
+            <PrimaryButton name="selectLock" disabled={false} active={selectedAction === ActionType.Lock} onClick={() => handleActionChange(ActionType.Lock)} extraCss="w-1/4" value="Lock"/> 
+            <PrimaryButton name="selectClaim" disabled={false} active={selectedAction === ActionType.Claim} onClick={() => handleActionChange(ActionType.Claim)} extraCss="w-1/4" value="Claim"/>
           </>
         )}
       </div>
@@ -742,13 +641,7 @@ export function BalanceCard({ publicKey, memeAccount, memeMetadata, userAccount,
 
 
       <div className="relative flex items-center mb-2 mt-2">
-        <input
-          type="number"
-          value={amount === ZERO ? "" : fromLamportsDecimals(amount)}
-          className="w-full border-2 border-gray-200 p-2 pr-16 text-sm focus:outline-none focus:border-black appearance-none"
-          placeholder={fromLamportsDecimals(solBalance).toString()}
-          onChange={handleFormFieldChange}
-        />
+        <PrimaryInput name="amountField" onChange={handleFormFieldChange} value={amount === ZERO ? "" : fromLamportsDecimals(amount)} placeholder={fromLamportsDecimals(solBalance).toString()} type="number" extraCss="w-full" disabled={false}/>
 
 
         <button
@@ -764,24 +657,7 @@ export function BalanceCard({ publicKey, memeAccount, memeMetadata, userAccount,
       <div className="flex space-x-4 mb-4">
         {selectedAction === ActionType.Buy ? (
           <>
-            <button
-              className="w-8 h-6 border border-black bg-white text-xs text-black hover:bg-gray-100 flex items-center justify-center"
-              onClick={() => setAmountWithLimits(new BN(0.1))}
-            >
-              0.1
-            </button>
-            <button
-              className="w-8 h-6 border border-black bg-white text-xs text-black hover:bg-gray-100 flex items-center justify-center"
-              onClick={() => setAmountWithLimits(new BN(0.1))}
-            >
-              1
-            </button>
-            <button
-              className="w-8 h-6 border border-black bg-white text-xs text-black hover:bg-gray-100 flex items-center justify-center"
-              onClick={() => setAmountWithLimits(new BN(0.1))}
-            >
-              2
-            </button>
+            <PrimaryButton name='0.1' disabled={false} active={false} onClick={() => setAmountWithLimits(new BN(0.1))} extraCss="btn-xs" value="0.1"/>
           </>
         ) : (
           <>
@@ -807,9 +683,7 @@ export function BalanceCard({ publicKey, memeAccount, memeMetadata, userAccount,
         )}
       </div>
 
-      <button
-        className="w-full px-4 py-2 text-sm font-medium border-2 border-black bg-white text-black hover:bg-gray-100"
-        onClick={() => {
+        <PrimaryButton name='Transact' disabled={amount === ZERO} active={false} extraCss="" value='Transact' onClick={() => {
           if (selectedAction === ActionType.Buy || selectedAction === ActionType.Sell) {
             handleBuySellFormSubmit();
           } else if (selectedAction === ActionType.RaydiumBuy || selectedAction === ActionType.RaydiumSell) {
@@ -819,10 +693,7 @@ export function BalanceCard({ publicKey, memeAccount, memeMetadata, userAccount,
           } else {
             console.warn('No handler for selected action');
           }
-        }}
-      >
-        Transact
-      </button>
+        }}/>
     </div>
   );
 }
@@ -1430,11 +1301,8 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
               console.log("Send message logic here!");
             }}
           >
-            <input
-              type="string"
-              className="w-full border-2 border-gray-200 p-2 text-sm focus:outline-none focus:border-black"
-              placeholder="Type your message..."
-            />
+
+            <PrimaryInput name="ChatField" onChange={(e) => e.stopPropagation()} value='' type='string' placeholder='type your message...' extraCss='w-full' disabled={false}/>
             <button
               type="submit"
               className="ml-2 bg-white text-black px-4 py-2 border-2 border-black text-xs hover:bg-gray-200"
@@ -1476,8 +1344,6 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
           className="max-w-lg mx-auto mt-10 cursor-pointer"
           onClick={() => setIsVisible(false)}
         >
-          <p>{memeAccount.bondedTime.toNumber()}</p>
-          
           <div className="relative border-2 border-black bg-white shadow-lg p-6">
             <div className="absolute top-2 right-2 text-gray-500 text-xs">
               {timeAgo(memeAccount.creationTime.toNumber())} ago
@@ -1488,6 +1354,7 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
                 alt="Icon"
                 className="w-12 h-12 border-2 border-black object-contain"
               />
+              <PrimaryButton name='test' disabled={false} active={false} onClick={(e) => e.stopPropagation()} extraCss="" value=""/>
               
               <div className="ml-4">
                 <h2 className="text-xl font-bold">
