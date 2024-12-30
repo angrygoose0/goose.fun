@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 
 
 export const PrimaryButton = (
@@ -10,7 +11,7 @@ export const PrimaryButton = (
             name={name} 
             disabled={disabled} 
             onClick={onClick} 
-            className={` ${active ? "bg-purple-100" : "bg-white"} btn border-black border-2 text-black rounded-none hover:border-black hover:bg-purple-200 focus:outline-none } ${extraCss}`} 
+            className={`dualbox shadow-lg btn rounded-none hover:bg-purple-100 focus:bg-purple-200 hover:border-transparent focus:outline-none focus} ${extraCss}`} 
         >
             {value}    
         </button>
@@ -28,7 +29,7 @@ export const PrimarySelect = (
             disabled={disabled}
             onChange={onChange}
             value={value}
-            className={`border-black border-2 text-black rounded-none bg-white hover:bg-purple-200 focus:outline-none focus:border-purple-300 ${extraCss}`}
+            className={`dualbox rounded-none hover:bg-purple-100 hover:border-transparent focus:bg-purple-200 p-2 focus:outline-none ${extraCss}`}
         >
             {options.map((option, index) => (
                 <option key={index} value={option.value}>
@@ -51,10 +52,47 @@ export const PrimaryInput = (
         disabled={disabled}
         onChange={onChange}
         placeholder={placeholder}
-        className={`${extraCss} border-2 border-gray-300 p-2 text-sm focus:outline-none focus:border-black appearance-none`}
+        className={`${extraCss} hover:border-transparent dualbox p-2 text-sm focus:outline-none appearance-none`}
     />
 );};
 
-/*? "border-black bg-gray-300"
-            : "border-gray-500 bg-white"
-            w-1/2 flex items-center justify-center px-4 py-2 text-sm font-medium hover:bg-gray-100` */
+
+export const PrimaryBar = (
+    {extraCss, values, labels}: 
+    {extraCss:string, values: { label: string, percentage: number, value: string}[], labels:boolean}
+) => { 
+    let runningTotal = 0;
+    return (
+        <>
+            <div className={`${extraCss} h-2 dualbox shadow-lg relative`}>
+                {values.map((value, index) => {
+                    const currentMarginLeft = runningTotal;
+                    runningTotal += value.percentage;
+
+                    return (
+                        <div
+                        key={index}
+                        className={`absolute top-0 left-0 h-full bg-purple-300`}
+                        style={{ 
+                            width: `${value.percentage}%`,
+                            marginLeft: `${currentMarginLeft}%`,
+                        }}
+                    ></div>
+                    );
+                })}
+            </div>
+            {labels && (
+                <div className="flex justify-between text-xs mt-1">
+                    {values.map((value, index) => (
+                        <div key={index} className="flex items-center space-x-1">
+                            <div className="h-2 w-2 bg-gray-400 rounded-full"></div>
+                            <span className="text-gray-600">{`${value.label}: ${value.value}`}</span>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </>  
+    );
+};
+
+
