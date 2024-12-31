@@ -7,19 +7,22 @@ body {
     height: 100%;
 }
 
-:root {
-    color-scheme: light only;
-}
-
 .wallet-adapter-button-trigger {
-    background: rgb(100, 26, 230) !important;
-    border-radius: 8px !important;
+    background: white !important;
+    color: black !important;
+    border: 2px solid black !important;
     padding-left: 16px !important;
     padding-right: 16px !important;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important; /* shadow-lg equivalent */
 }
-.wallet-adapter-dropdown-list,
+
+
 .wallet-adapter-button {
     font-family: inherit !important;
+    background-color: white !important;
+    color: black !important;
+    border: 2px solid black !important;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important; /* shadow-lg equivalent */
 }
 
 .dualbox {
@@ -27,6 +30,10 @@ body {
     color: black;
     border: 2px solid black;
     box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); /* shadow-lg equivalent */
+}
+
+.bg-purple-200 {
+    background-color: #e9d5ff !important; /* Tailwind's bg-purple-200 hex code */
 }
 
 /* Dark mode styles */

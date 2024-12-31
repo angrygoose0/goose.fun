@@ -1,5 +1,3 @@
-import { useEffect, useRef } from "react";
-
 
 export const PrimaryButton = (
     { name, disabled, active, onClick, extraCss, value }: 
@@ -11,7 +9,7 @@ export const PrimaryButton = (
             name={name} 
             disabled={disabled} 
             onClick={onClick} 
-            className={`dualbox shadow-lg btn rounded-none hover:bg-purple-100 focus:bg-purple-200 hover:border-transparent focus:outline-none focus} ${extraCss}`} 
+            className={`${active ? 'bg-purple-200' : ''} dualbox shadow-lg btn rounded-none hover:bg-purple-100 hover:border-black dark:hover:border-white focus:outline-none} ${extraCss}`} 
         >
             {value}    
         </button>
@@ -29,7 +27,7 @@ export const PrimarySelect = (
             disabled={disabled}
             onChange={onChange}
             value={value}
-            className={`dualbox rounded-none hover:bg-purple-100 hover:border-transparent focus:bg-purple-200 p-2 focus:outline-none ${extraCss}`}
+            className={`dualbox rounded-none hover:bg-purple-100 hover:border-black dark:hover:border-white p-2 focus:outline-none ${extraCss}`}
         >
             {options.map((option, index) => (
                 <option key={index} value={option.value}>
@@ -52,14 +50,14 @@ export const PrimaryInput = (
         disabled={disabled}
         onChange={onChange}
         placeholder={placeholder}
-        className={`${extraCss} hover:border-transparent dualbox p-2 text-sm focus:outline-none appearance-none`}
+        className={`${extraCss} hover:border-black dark:hover:border-white dualbox p-2 text-sm focus:outline-none appearance-none`}
     />
 );};
 
 
 export const PrimaryBar = (
     {extraCss, values, labels}: 
-    {extraCss:string, values: { label: string, percentage: number, value: string}[], labels:boolean}
+    {extraCss:string, values: { label: string, percentage: number, value: string, color:string}[], labels:boolean}
 ) => { 
     let runningTotal = 0;
     return (
@@ -72,7 +70,7 @@ export const PrimaryBar = (
                     return (
                         <div
                         key={index}
-                        className={`absolute top-0 left-0 h-full bg-purple-300`}
+                        className={`absolute top-0 left-0 h-full ${value.color}`}
                         style={{ 
                             width: `${value.percentage}%`,
                             marginLeft: `${currentMarginLeft}%`,
@@ -85,8 +83,8 @@ export const PrimaryBar = (
                 <div className="flex justify-between text-xs mt-1">
                     {values.map((value, index) => (
                         <div key={index} className="flex items-center space-x-1">
-                            <div className="h-2 w-2 bg-gray-400 rounded-full"></div>
-                            <span className="text-gray-600">{`${value.label}: ${value.value}`}</span>
+                            <div className={`h-2 w-2 ${value.color} rounded-full`}></div>
+                            <span className="text-gray-500 dark:text-white">{`${value.label}: ${value.value}`}</span>
                         </div>
                     ))}
                 </div>
@@ -94,5 +92,7 @@ export const PrimaryBar = (
         </>  
     );
 };
+
+
 
 

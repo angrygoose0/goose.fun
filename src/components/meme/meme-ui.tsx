@@ -3,7 +3,7 @@
 import { ChangeEvent, useCallback, useMemo, useState, useEffect, use } from 'react'
 import { useMemeProgram, useMetadataQuery, useBuySellTokenMutation, useUserAccountQuery, useCreateMemeToken, useProcessedAccountsQuery, useUserAccountsByMintQuery, useBondToRaydium, useMemeAccountQuery, useSolPriceQuery, useTransactionsQuery, useLockClaimTokenMutation } from './meme-data-access'
 import { useGetBalance, useGetTokenAccounts } from '../account/account-data-access';
-import { toLamports, fromLamports, calculatePercentage, simplifyBN, fromLamportsDecimals, ToLamportsDecimals, ZERO, EMPTY_PUBLIC_KEY, SOL_MINT, INITIAL_PRICE } from './meme-helper-functions';
+import { toLamports, fromLamports, calculatePercentage, simplifyBN, fromLamportsDecimals, ToLamportsDecimals, ZERO, EMPTY_PUBLIC_KEY, BILLION, SOL_MINT, INITIAL_PRICE } from './meme-helper-functions';
 import axios from "axios";
 import toast from "react-hot-toast";
 import { useWallet } from '@solana/wallet-adapter-react';
@@ -201,14 +201,14 @@ export function MemeCreate() {
               </label>
             )}
 
-            <PrimaryInput name="name" onChange={(e) => handleFormFieldChange("name", e)} value={token.name} placeholder="name" type="text" extraCss="w-full block mt-2" disabled={false}/>
-            <PrimaryInput name="symbol" onChange={(e) => handleFormFieldChange("symbol", e)} value={token.symbol} placeholder="symbol" type="text" extraCss="w-full block mt-2" disabled={false}/>
-            <PrimaryInput name="description" onChange={(e) => handleFormFieldChange("description", e)} value={token.description} placeholder="description" type="text" extraCss="w-full block mt-2" disabled={false}/>
-            <PrimaryInput name="twitter_link" onChange={(e) => handleFormFieldChange("twitter_link", e)} value={token.twitter_link} placeholder="twitter link" type="text" extraCss="w-full block mt-2" disabled={false}/>
-            <PrimaryInput name="telegram_link" onChange={(e) => handleFormFieldChange("telegram_link", e)} value={token.telegram_link} placeholder="telegram link" type="text" extraCss="w-full block mt-2" disabled={false}/>
-            <PrimaryInput name="website_link" onChange={(e) => handleFormFieldChange("website_link", e)} value={token.website_link} placeholder="website link" type="text" extraCss="w-full block mt-2" disabled={false}/>
+            <PrimaryInput name="name" onChange={(e) => handleFormFieldChange("name", e)} value={token.name} placeholder="name" type="text" extraCss="w-full block mt-4" disabled={false}/>
+            <PrimaryInput name="symbol" onChange={(e) => handleFormFieldChange("symbol", e)} value={token.symbol} placeholder="symbol" type="text" extraCss="w-full block mt-4" disabled={false}/>
+            <PrimaryInput name="description" onChange={(e) => handleFormFieldChange("description", e)} value={token.description} placeholder="description" type="text" extraCss="w-full block mt-4" disabled={false}/>
+            <PrimaryInput name="twitter_link" onChange={(e) => handleFormFieldChange("twitter_link", e)} value={token.twitter_link} placeholder="twitter link" type="text" extraCss="w-full block mt-4" disabled={false}/>
+            <PrimaryInput name="telegram_link" onChange={(e) => handleFormFieldChange("telegram_link", e)} value={token.telegram_link} placeholder="telegram link" type="text" extraCss="w-full block mt-4" disabled={false}/>
+            <PrimaryInput name="website_link" onChange={(e) => handleFormFieldChange("website_link", e)} value={token.website_link} placeholder="website link" type="text" extraCss="w-full block mt-4" disabled={false}/>
 
-            <PrimaryButton name='create_token' disabled={!isFormValid} active={false} onClick={handleFormSubmit} extraCss="" value="Create Token"/>
+            <PrimaryButton name='create_token' disabled={!isFormValid} active={false} onClick={handleFormSubmit} extraCss="mt-4" value="Create Token"/>
           </div>
         </div >
       )}
@@ -281,10 +281,10 @@ export function MemeList() {
       </div>
 
       {/* Pagination controls */}
-      <div className="flex justify-center mt-6 space-x-4">
-        <PrimaryButton name='prev' disabled={currentPage === 1} active={false} onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))} extraCss="" value="Previous"/>
+      <div className="flex justify-center py-4 space-x-4">
+        <PrimaryButton name='prev' disabled={currentPage === 1} active={false} onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))} extraCss="btn-xs" value="Previous"/>
         <span>Page {currentPage}</span>
-        <PrimaryButton name='next' disabled={!processedAccountsQuery || (processedAccountsQuery.data ?? []).length < 10} active={false} onClick={() => setCurrentPage((prev) => prev + 1)} extraCss="" value="Next"/>
+        <PrimaryButton name='next' disabled={!processedAccountsQuery || (processedAccountsQuery.data ?? []).length < 10} active={false} onClick={() => setCurrentPage((prev) => prev + 1)} extraCss="btn-xs" value="Next"/>
       </div>
     </div >
   );
@@ -313,6 +313,7 @@ export function BalanceCard({ publicKey, memeAccount, memeMetadata, userAccount,
   const [solBalance, setSolBalance] = useState(ZERO);
 
   const balanceQuery = useGetBalance({ address: publicKey })
+  
 
   useEffect(() => {
     if (balanceQuery.data) {
@@ -395,6 +396,7 @@ export function BalanceCard({ publicKey, memeAccount, memeMetadata, userAccount,
       setAmount(numericValue);
     }
   };
+  
 
   const handleFormFieldChange = (event: { target: { value: any; }; }) => {
     const value = event.target.value;
@@ -555,7 +557,7 @@ export function BalanceCard({ publicKey, memeAccount, memeMetadata, userAccount,
         <PrimaryBar
           extraCss="mt-1"
           values={[
-            {label:"", percentage:100, value:""},
+            {label:"", percentage:100, value:"", color:"bg-black dark:bg-white"},
           ]}
           labels={false}
         />
@@ -575,7 +577,7 @@ export function BalanceCard({ publicKey, memeAccount, memeMetadata, userAccount,
             <PrimaryBar
               extraCss=""
               values={[
-                {label:"Invested", percentage:100, value:simplifyBN(fromLamports(userAccount.lockedAmount))},
+                {label:"Invested", percentage:100, value:simplifyBN(fromLamports(userAccount.lockedAmount)), color:"bg-purple-300"},
               ]}
               labels={true}
             />
@@ -593,9 +595,9 @@ export function BalanceCard({ publicKey, memeAccount, memeMetadata, userAccount,
             <PrimaryBar
               extraCss=""
               values={[
-                {label:"Locked", percentage:tokenDistribution.lockedPercentage, value:simplifyBN(fromLamports(userAccount.lockedAmount))},
-                {label:"Unlocked", percentage:tokenDistribution.unlockedPercentage, value:simplifyBN(fromLamports(userTokenBalance))},
-                {label:"Claimmable", percentage:tokenDistribution.claimmablePercentage, value:simplifyBN(fromLamports(userAccount.claimmable))},
+                {label:"Locked", percentage:tokenDistribution.lockedPercentage, value:simplifyBN(fromLamports(userAccount.lockedAmount)), color:"bg-purple-800 dark:bg-purple-300"},
+                {label:"Unlocked", percentage:tokenDistribution.unlockedPercentage, value:simplifyBN(fromLamports(userTokenBalance)), color:"bg-purple-600"},
+                {label:"Claimmable", percentage:tokenDistribution.claimmablePercentage, value:simplifyBN(fromLamports(userAccount.claimmable)), color:"bg-purple-300 dark:bg-purple-800"},
               ]}
               labels={true}
             />
@@ -608,25 +610,119 @@ export function BalanceCard({ publicKey, memeAccount, memeMetadata, userAccount,
         <PrimaryInput name="amountField" onChange={handleFormFieldChange} value={amount === ZERO ? "" : fromLamportsDecimals(amount)} placeholder={fromLamportsDecimals(solBalance).toString()} type="number" extraCss="w-full" disabled={false}/>
 
 
-        <button
-          className="absolute right-2 top-1/2 -translate-y-1/2 bg-gray-200 text-gray-600 text-sm px-4 py-1 rounded focus:outline-none"
-          onClick={toggleSolOrToken}
-        >
-          {showingSol ? "Mode: SOL (Swap to Tokens)" : "Mode: Tokens (Swap to SOL)"}
-        </button>
+        <PrimaryButton name="toggle" disabled={false} active={false} onClick={toggleSolOrToken} extraCss="btn-xs absolute right-2" value={showingSol ? "SOL" : "Tokens"}/>
+        
 
       </div>
       <div className="text-sm text-gray-500 dark:text-white mb-2">~ ${showingSol ? solToUsd(amount) : tokensToUsd(amount)}</div>
-
+      
       <div className="flex space-x-4 mb-4">
-        {selectedAction === ActionType.Buy ? (
-          <>
-            <PrimaryButton name='0.1' disabled={false} active={false} onClick={() => setAmountWithLimits(new BN(0.1))} extraCss="btn-xs" value="0.1"/>
-          </>
-        ) : (
-          <>
-          </>
-        )}
+      {(selectedAction === ActionType.Buy || selectedAction === ActionType.RaydiumBuy) && (
+        <div>
+          {showingSol ? (
+            <>
+              <button 
+                onClick={() => setAmountWithLimits(BILLION.div(new BN(10)))}
+                className={"text-dark btn btn-xs mr-2"}>
+                0.1
+              </button>
+              <button 
+                onClick={() => setAmountWithLimits(BILLION)}
+                className={"text-dark btn btn-xs mr-2"}>
+                1
+              </button>
+            </>
+          ) : (
+            <>
+              <button 
+                onClick={() => setAmountWithLimits(BILLION.mul(new BN(1000000)))}
+                className={"text-dark btn btn-xs mr-2"}>
+                1m
+              </button>
+              <button 
+                onClick={() => setAmountWithLimits(BILLION.mul(new BN(2000000)))}
+                className={"text-dark btn btn-xs mr-2"}>
+                2m
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
+      {selectedAction === ActionType.Sell && (
+        // Render component or UI for Sell
+        <div>
+          <button 
+          onClick={() => setAmountWithLimits(showingSol ? tokensToSol(userAccount.lockedAmount.div(new BN(2))) : userAccount.lockedAmount.div(new BN(2)))}
+          className={"text-dark btn btn-xs mr-2"}>
+            50%
+          </button>
+          <button 
+          onClick={() => setAmountWithLimits(showingSol ? tokensToSol(userAccount.lockedAmount) : userAccount.lockedAmount)}
+          className={"text-dark btn btn-xs mr-2"}>
+            100%
+          </button>
+        </div>
+      )}
+
+      {(selectedAction === ActionType.RaydiumSell) && (
+        <div>
+          <button 
+          onClick={() => setAmountWithLimits(showingSol ? tokensToSol(userTokenBalance.div(new BN(2))) : userTokenBalance.div(new BN(2)))}
+          className={"text-dark btn btn-xs mr-2"}>
+            50%
+          </button>
+          <button 
+          onClick={() => setAmountWithLimits(showingSol ? tokensToSol(userTokenBalance) : userTokenBalance)}
+          className={"text-dark btn btn-xs mr-2"}>
+            100%
+          </button>
+        </div>
+      )}
+
+      {selectedAction === ActionType.Lock && (
+        (() => {
+          const totalLockable = userAccount.claimmable.add(userTokenBalance);  // Compute totalLockable here
+
+          return (
+            <div>
+              <button 
+                onClick={() => setAmountWithLimits(showingSol ? tokensToSol(totalLockable.div(new BN(2))) : totalLockable.div(new BN(2)))}
+                className="text-dark btn btn-xs mr-2">
+                50%
+              </button>
+              <button 
+                onClick={() => setAmountWithLimits(showingSol ? tokensToSol(totalLockable) : totalLockable)}
+                className="text-dark btn btn-xs mr-2">
+                100%
+              </button>
+              <button 
+                onClick={() => setAmountWithLimits(showingSol ? tokensToSol(userAccount.claimmable) : userAccount.claimmable)}
+                className="text-dark btn btn-xs mr-2">
+                Lock all claimmable
+              </button>
+              <p className="mt-2 text-xs text-gray-500 dark:text-white">PS: claimmable tokens will be locked first.</p>
+            </div>
+          );
+        })()
+      )}
+
+      {selectedAction === ActionType.Claim&& (
+        // Render component or UI for Sell
+        <div>
+          <button 
+          onClick={() => setAmountWithLimits(showingSol ? tokensToSol(userAccount.claimmable.div(new BN(2))) : userAccount.claimmable.div(new BN(2)))}
+          className={"text-dark btn btn-xs mr-2"}>
+            50%
+          </button>
+          <button 
+          onClick={() => setAmountWithLimits(showingSol ? tokensToSol(userAccount.claimmable) : userAccount.claimmable)}
+          className={"text-dark btn btn-xs mr-2"}>
+            100%
+          </button>
+        </div>
+      )}
+
       </div>
 
         <PrimaryButton name='Transact' disabled={amount === ZERO} active={false} extraCss="" value='Transact' onClick={() => {
@@ -1090,7 +1186,7 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
               href={memeMetadata.telegramLink}
               target="_blank"
               rel="noopener noreferrer"
-              className="w-5 h-5 text-gray-500 dark:text-white hover:text-blue-500"
+              className="w-5 h-5 text-gray-500 dark:text-white hover:text-purple-300"
               onClick={(e) => e.stopPropagation()}
             >
               <FaTelegramPlane />
@@ -1103,7 +1199,7 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
               href={memeMetadata.twitterLink}
               target="_blank"
               rel="noopener noreferrer"
-              className="w-5 h-5 text-gray-500 dark:text-white hover:text-blue-400"
+              className="w-5 h-5 text-gray-500 dark:text-white hover:text-purple-300"
               onClick={(e) => e.stopPropagation()}
             >
               <FaXTwitter />
@@ -1116,7 +1212,7 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
               href={memeMetadata.websiteLink}
               target="_blank"
               rel="noopener noreferrer"
-              className="w-5 h-5 text-gray-500 dark:text-white hover:text-green-500"
+              className="w-5 h-5 text-gray-500 dark:text-white hover:text-purple-300"
               onClick={(e) => e.stopPropagation()}
             >
               <FaGlobe />
@@ -1133,9 +1229,9 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
         <PrimaryBar
           extraCss="mt-1"
           values={[
-            {label:"", percentage:globalPercentage, value:""},
+            {label:"", percentage:globalPercentage, value:"", color:"bg-black dark:bg-white"},
           ]}
-          labels={true}
+          labels={false}
         />
         <div className="flex justify-start items-center text-gray-500 dark:text-white mt-2">
           <svg
@@ -1233,7 +1329,7 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
               <div key={index} className="flex flex-col">
                 <div className="text-sm font-medium">
                   {chat.user}{" "}
-                  <span className="text-xs text-gray-600">{chat.time}</span>
+                  <span className="text-xs text-gray-500 dark:text-white">{chat.time}</span>
                 </div>
                 <div className="text-sm">{chat.message}</div>
               </div>
@@ -1250,7 +1346,9 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
           >
 
             <PrimaryInput name="ChatField" onChange={(e) => e.stopPropagation()} value='' type='string' placeholder='type your message...' extraCss='w-full' disabled={false}/>
-            <PrimaryButton name='Send' disabled={false} active={false} extraCss='ml-2' value='Send' onClick={() => console.log('Send message logic here!')}/>
+            <PrimaryButton name='Send' disabled={false} active={false} extraCss='ml-2 btn-sm' value='Send' onClick={() => console.log('Send message logic here!')}/>
+
+            
           </form>
         </div>
       );
@@ -1317,7 +1415,7 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
                   href={memeMetadata.telegramLink}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-5 h-5 text-gray-500 dark:text-white hover:text-blue-500"
+                  className="w-5 h-5 text-gray-500 dark:text-white hover:text-purple-300"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <FaTelegramPlane />
@@ -1330,7 +1428,7 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
                   href={memeMetadata.twitterLink}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-5 h-5 text-gray-500 dark:text-white hover:text-blue-400"
+                  className="w-5 h-5 text-gray-500 dark:text-white hover:text-purple-300"
                   onClick={(e) => e.stopPropagation()}
                 >{memeMetadata.twitterLink}
                   <FaXTwitter />
@@ -1343,7 +1441,7 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
                   href={memeMetadata.websiteLink}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-5 h-5 text-gray-500 dark:text-white hover:text-green-500"
+                  className="w-5 h-5 text-gray-500 dark:text-white hover:text-purple-300"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <FaGlobe />
@@ -1361,7 +1459,7 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
             <PrimaryBar
               extraCss="mt-1"
               values={[
-                {label:"", percentage:globalPercentage, value:""},
+                {label:"", percentage:globalPercentage, value:"", color:"bg-black dark:bg-white"},
               ]}
               labels={false}
             />
@@ -1401,7 +1499,7 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
                     <PrimaryBar
                       extraCss=""
                       values={[
-                        {label:"Invested", percentage:100, value:simplifyBN(fromLamports(userAccount.lockedAmount))},
+                        {label:"Invested", percentage:100, value:simplifyBN(fromLamports(userAccount.lockedAmount)), color:"bg-purple-300"},
                       ]}
                       labels={true}
                     />
@@ -1419,9 +1517,9 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
                     <PrimaryBar
                       extraCss=""
                       values={[
-                        {label:"Locked", percentage:tokenDistribution.lockedPercentage, value:simplifyBN(fromLamports(userAccount.lockedAmount))},
-                        {label:"Unlocked", percentage:tokenDistribution.unlockedPercentage, value:simplifyBN(fromLamports(userTokenBalance))},
-                        {label:"Claimmable", percentage:tokenDistribution.claimmablePercentage, value:simplifyBN(fromLamports(userAccount.claimmable))},
+                        {label:"Locked", percentage:tokenDistribution.lockedPercentage, value:simplifyBN(fromLamports(userAccount.lockedAmount)), color:"bg-purple-800 dark:bg-purple-300"},
+                        {label:"Unlocked", percentage:tokenDistribution.unlockedPercentage, value:simplifyBN(fromLamports(userTokenBalance)), color:"bg-purple-600"},
+                        {label:"Claimmable", percentage:tokenDistribution.claimmablePercentage, value:simplifyBN(fromLamports(userAccount.claimmable)), color:"bg-purple-300 dark:bg-purple-800"},
                       ]}
                       labels={true}
                     />

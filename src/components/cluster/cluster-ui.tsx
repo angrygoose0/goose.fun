@@ -7,6 +7,7 @@ import { ReactNode, useState } from 'react'
 import { AppModal } from '../ui/ui-layout'
 import { ClusterNetwork, useCluster } from './cluster-data-access'
 import { Connection } from '@solana/web3.js'
+import { PrimaryButton } from '../ui/extra-ui/button'
 
 export function ExplorerLink({ path, label, className }: { path: string; label: string; className?: string }) {
   const { getExplorerUrl } = useCluster()
@@ -53,18 +54,13 @@ export function ClusterUiSelect() {
   const { clusters, setCluster, cluster } = useCluster()
   return (
     <div className="dropdown dropdown-end">
-      <label tabIndex={0} className="btn btn-primary rounded-btn">
+      <label tabIndex={0} className="dualbox shadow-lg btn rounded-none hover:bg-purple-100 focus:bg-purple-200 hover:border-black dark:hover:border-white focus:outline-none">
         {cluster.name}
       </label>
-      <ul tabIndex={0} className="menu dropdown-content z-[1] p-2 shadow bg-base-100 rounded-box w-52 mt-4">
+      <ul tabIndex={0} className="menu dropdown-content z-[1] p-2 w-52 mt-2">
         {clusters.map((item) => (
           <li key={item.name}>
-            <button
-              className={`btn btn-sm ${item.active ? 'btn-primary' : 'btn-ghost'}`}
-              onClick={() => setCluster(item)}
-            >
-              {item.name}
-            </button>
+            <PrimaryButton name={item.name} disabled={false} active={false} extraCss="btn-sm mt-3" onClick={() => setCluster(item)} value={item.name}/>
           </li>
         ))}
       </ul>

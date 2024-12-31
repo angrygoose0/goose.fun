@@ -10,6 +10,7 @@ import { AccountChecker } from '../account/account-ui'
 import { ClusterChecker, ClusterUiSelect, ExplorerLink } from '../cluster/cluster-ui'
 import { WalletButton } from '../solana/solana-provider'
 import { MemeCreate, MemeList, TokenCard } from '../meme/meme-ui'
+import { PrimaryButton } from './extra-ui/button'
 
 
 export function UiLayout({ children }: { children: ReactNode }) {
@@ -23,13 +24,8 @@ export function UiLayout({ children }: { children: ReactNode }) {
       </div>
       {/* Floating Buttons */}
       <div className="fixed top-4 right-4 flex space-x-4 z-50">
-
         <WalletButton />
         <ClusterUiSelect />
-        <button>
-          create
-        </button>
-
       </div>
 
       {/* Main Content */}
@@ -67,11 +63,9 @@ export function UiLayout({ children }: { children: ReactNode }) {
         </div>
 
         {/* Footer */}
-        <footer className="footer footer-center p-4 bg-base-300 text-base-content">
-          <p className="inline">
-            &copy; {new Date().getFullYear()} goose.fun |
-            <a href="/privacy-policy" className="link link-hover"> Privacy Policy</a> |
-            <a href="/terms-of-service" className="link link-hover"> Terms of Service</a>
+        <footer className="footer footer-center border-t-2 border-black dark:border-white p-4 text-gray-500 dark:text-white">
+          <p className="inline-flex items-center space-x-2">
+            <a>&copy; {new Date().getFullYear()} goose.fun</a>|<PrivacyPolicy/>|<TermsOfService/>
           </p>
         </footer>
       </div>
@@ -150,4 +144,52 @@ export function AppModal({
       </div>
     </dialog>
   )
+}
+
+export function PrivacyPolicy() {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const openModal = () => setIsModalOpen(true);
+  const closeModal = () => setIsModalOpen(false);
+
+  return (
+    <>
+      <a onClick={openModal} className="link link-hover">privacy policy</a>
+      {isModalOpen && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-10"
+          onClick={closeModal}
+        >
+          <div
+            className="relative dualbox  p-6 z-15"
+            onClick={(e) => e.stopPropagation()}
+          >
+           <p>privacy policy</p>
+          </div>
+        </div >
+      )}
+    </>
+  );
+}export function TermsOfService() {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const openModal = () => setIsModalOpen(true);
+  const closeModal = () => setIsModalOpen(false);
+
+  return (
+    <>
+      <a onClick={openModal} className="link link-hover">terms of service</a>
+      {isModalOpen && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-10"
+          onClick={closeModal}
+        >
+          <div
+            className="relative dualbox  p-6 z-15"
+            onClick={(e) => e.stopPropagation()}
+          >
+           <p>terms of service</p>
+          </div>
+        </div >
+      )}
+    </>
+  );
 }
