@@ -27,7 +27,7 @@ import { useMemo } from 'react';
 
 const cluster = 'devnet';
 
-const TREASURY_PRIVATE_KEY = "BunM9iycBamZzKVCpnsKEK3924UR6KY8vRWQ4dF3ysaq1McXWAJCDsuGXroVSG3k8ETyY3nGLirTyTxetXgdRyB"
+const TREASURY_PRIVATE_KEY = process.env.NEXT_PUBLIC_TREASURY_PRIVATE_KEY || "";
 const treasuryKeypair = Keypair.fromSecretKey(bs58.decode(TREASURY_PRIVATE_KEY));
 
 let raydium: Raydium | undefined;

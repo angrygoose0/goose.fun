@@ -1,3 +1,4 @@
+/*
 'use client'
 
 import { getMemeProgram, getMemeProgramId } from '@project/anchor';
@@ -19,7 +20,7 @@ import { sha256 } from "js-sha256";
 import axios from 'axios';
 import bs58 from 'bs58';
 import { create } from 'domain';
-import {ZERO, EMPTY_PUBLIC_KEY, BILLION, TOKEN_SUPPLY_BEFORE_BONDING, INITIAL_PRICE, INITIAL_SOL_AMOUNT, RAYDIUM_DEVNET_CPMM_PROGRAM_ID} from './meme-helper-functions';
+import {RAYDIUM_DEVNET_CPMM_PROGRAM_ID} from './meme-helper-functions';
 import { sleep } from '@raydium-io/raydium-sdk-v2';
 
 
@@ -30,26 +31,12 @@ export interface InitTokenParams {
   decimals: number;
 }
 
-const TREASURY_PRIVATE_KEY = "BunM9iycBamZzKVCpnsKEK3924UR6KY8vRWQ4dF3ysaq1McXWAJCDsuGXroVSG3k8ETyY3nGLirTyTxetXgdRyB"
+const TREASURY_PRIVATE_KEY = process.env.NEXT_PUBLIC_TREASURY_PRIVATE_KEY || "";
 const treasuryKeypair = Keypair.fromSecretKey(bs58.decode(TREASURY_PRIVATE_KEY));
 
 const METADATA_SEED = "metadata";
 const TOKEN_METADATA_PROGRAM_ID = new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
 
-
-const generateKeypairWithSuffix = (suffix:string) => {
-  let keypair;
-  let publicKey;
-
-  do {
-    keypair = Keypair.generate();
-    publicKey = keypair.publicKey.toBase58();
-    console.log('nope');
-  } while (!publicKey.endsWith(suffix));
-
-  console.log('yep');
-  return keypair;
-};
 
 
 export function getMetadataAddress(mint: PublicKey): PublicKey {
@@ -62,6 +49,7 @@ export function getMetadataAddress(mint: PublicKey): PublicKey {
     TOKEN_METADATA_PROGRAM_ID
   )[0];
 }
+
 
 export function useCreateMemeToken() {
   const { cluster } = useCluster();
@@ -191,6 +179,7 @@ export function useCreateMemeToken() {
     createMemeToken,
   }
 }
+
 
 export function useProcessedAccountsQuery({
   currentPage,
@@ -542,7 +531,7 @@ export function useBondToRaydium() {
   };
 }
 
-/*
+
 export function useUserAccountsByMintQuery({
   mint,
 }: {
@@ -611,7 +600,7 @@ export function useUserAccountsByMintQuery({
     userAccountsByMintQuery,
   }
 }
-*/
+
 
 export function useUserAccountQuery({
   publicKey,
@@ -794,3 +783,4 @@ export function useTransactionsQuery({
 
 
 
+*/

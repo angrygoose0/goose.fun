@@ -104,13 +104,6 @@ export function useCreateUpdateDB() {
             if (!amount || amount.isZero() || amount.lte(ZERO)) {
                 throw new Error("Invalid amount specified.");
             }
-        
-            const token = await db
-                .select()
-                .from(tokensTable)
-                .where(eq(tokensTable.mint, mint))
-                .limit(1);
-
 
             const user = await db
                 .select()
@@ -133,6 +126,20 @@ export function useCreateUpdateDB() {
                 })
                 .where(eq(usersTable.public_key, publicKey.toString()));
             }
+
+            const token = await db
+                .select()
+                .from(tokensTable)
+                .where(eq(tokensTable.mint, mint))
+                .limit(1);
+
+            const newGlobalInvestedBalance = token[0].invested_amount + amount.toNumber();
+                await db
+                .update(tokensTable)
+                .set({
+                    invested_amount:newGlobalInvestedBalance
+                })
+                .where(eq(tokensTable.mint, mint.toString()));
 
             return "Updated database successfully.";
   
@@ -190,8 +197,6 @@ export function usePreUserQuery() {
       preUserQuery,
     };
 }
-
-
 export function usePreTokenQuery() {
 
     const preTokenQuery = useQuery({

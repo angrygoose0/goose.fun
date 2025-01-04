@@ -1,3 +1,4 @@
+/*
 'use client'
 
 import { ChangeEvent, useCallback, useMemo, useState, useEffect, use } from 'react'
@@ -264,7 +265,6 @@ export function MemeList() {
 
   return (
     <div>
-      {/* Search Bar with Filters Button */}
       <div className="flex items-center justify-center space-x-2">
         <PrimaryInput name="SearchBar" onChange={(e) => setSearchBy(e.target.value)} value={searchBy} placeholder="Search by mint" type="text" extraCss="w-96" disabled={false}/>
         <PrimarySelect 
@@ -284,8 +284,6 @@ export function MemeList() {
       <div className="space-y-6">
         {content}
       </div>
-
-      {/* Pagination controls */}
       <div className="flex justify-center py-4 space-x-4">
         <PrimaryButton name='prev' disabled={currentPage === 1} active={false} onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))} extraCss="btn-xs" value="Previous"/>
         <span>Page {currentPage}</span>
@@ -537,13 +535,11 @@ export function BalanceCard({ publicKey, memeAccount, memeMetadata, userAccount,
       <div className="flex mb-4">
         {memeAccount.bondedTime < ZERO ? (
           <>
-            {/* Two buttons: Buy and Sell */}
             <PrimaryButton name="selectBuy" disabled={false} active={selectedAction === ActionType.Buy} onClick={() => handleActionChange(ActionType.Buy)} extraCss="w-1/2" value="Buy"/>
             <PrimaryButton name="selectSell" disabled={false} active={selectedAction === ActionType.Sell} onClick={() => handleActionChange(ActionType.Sell)} extraCss="w-1/2" value="Sell"/>
           </>
         ) : (
           <>
-            {/* Four buttons: Buy, Sell, Lock, and Claim */}
             <PrimaryButton name="selectRaydiumBuy" disabled={false} active={selectedAction === ActionType.RaydiumBuy} onClick={() => handleActionChange(ActionType.RaydiumBuy)} extraCss="w-1/4" value="Buy"/>
             <PrimaryButton name="selectRaydiumSell" disabled={false} active={selectedAction === ActionType.RaydiumSell} onClick={() => handleActionChange(ActionType.RaydiumSell)} extraCss="w-1/4" value="Sell"/> 
             <PrimaryButton name="selectLock" disabled={false} active={selectedAction === ActionType.Lock} onClick={() => handleActionChange(ActionType.Lock)} extraCss="w-1/4" value="Lock"/> 
@@ -571,7 +567,6 @@ export function BalanceCard({ publicKey, memeAccount, memeMetadata, userAccount,
       <div className="flex flex-col space-y-2 mt-2">
         {memeAccount.bondedTime < ZERO ? (
           <>
-            {/* When bondedTime is negative so hasnt bonded */}
             <div className="flex items-baseline space-x-2">
               <div className="text-sm font-semibold">
                 {simplifyBN(fromLamports(userAccount.lockedAmount))} {memeMetadata.symbol}
@@ -589,7 +584,6 @@ export function BalanceCard({ publicKey, memeAccount, memeMetadata, userAccount,
           </>
         ) : (
           <>
-            {/* When bondedTime is positive */}
             <div className="flex items-baseline space-x-2">
               <div className="text-sm font-semibold">
                 {simplifyBN(fromLamports(totalTokens))} {memeMetadata.symbol}
@@ -1159,7 +1153,6 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
           </div>
         </div>
         <div className="flex space-x-2">
-          {/* Telegram Icon */}
           {memeMetadata.telegramLink !== "" && (
             <a
               href={memeMetadata.telegramLink}
@@ -1172,7 +1165,6 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
             </a>
           )}
 
-          {/* Twitter (X) Icon */}
           {memeMetadata.twitterLink !== "" && (
             <a
               href={memeMetadata.twitterLink}
@@ -1185,7 +1177,6 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
             </a>
           )}
 
-          {/* Website Icon */}
           {memeMetadata.websiteLink !== "" && (
             <a
               href={memeMetadata.websiteLink}
@@ -1248,7 +1239,6 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
           className="w-full h-full object-cover dualbox bg-gray-200"
           style={{ backgroundColor: '#ccc', width: '300px', height: '400px' }}
         >
-          {/* Optional content inside the rectangle */}
         </div>
       </div>
     );
@@ -1284,14 +1274,12 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
           }}
         >
           <h2 className="font-bold text-xl mb-4">Chat</h2>
-          {/* Chat container */}
           <div
             className="flex flex-col space-y-2 overflow-y-auto border-t border-b py-4"
             style={{
               maxHeight: "1000px", // Adjust height as needed
             }}
           >
-            {/* Placeholder messages */}
             {[
               { user: "Alice", message: "Hello there!", time: "10:00 AM" },
               { user: "Bob", message: "Hi, how are you?", time: "10:05 AM" },
@@ -1316,7 +1304,6 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
             ))}
           </div>
 
-          {/* Message input */}
           <form
             className="flex items-center mt-4"
             onSubmit={(e) => {
@@ -1340,7 +1327,6 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
 
   return (
     <div className="relative">
-      {/* Dark Overlay */}
       {!isVisible && (
         <div
           className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-10"
@@ -1358,7 +1344,6 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
         </div>
       )}
 
-      {/* Card */}
       {isVisible && (
         <div
           className="max-w-lg mx-auto mt-10 cursor-pointer"
@@ -1404,7 +1389,6 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
               </div>
             </div>
             <div className="flex space-x-2">
-              {/* Telegram Icon */}
               {memeMetadata.telegramLink !== "" && (
                 <a
                   href={memeMetadata.telegramLink}
@@ -1417,7 +1401,6 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
                 </a>
               )}
 
-              {/* Twitter (X) Icon */}
               {memeMetadata.twitterLink !== "" && (
                 <a
                   href={memeMetadata.twitterLink}
@@ -1430,7 +1413,6 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
                 </a>
               )}
 
-              {/* Website Icon */}
               {memeMetadata.websiteLink !== "" && (
                 <a
                   href={memeMetadata.websiteLink}
@@ -1478,12 +1460,10 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
               </svg>
               <span className="text-sm ml-1">456</span>
             </div>
-            {/* GS Balance */}
             {publicKey != null ? (
               <div className="flex flex-col space-y-2 mt-2">
                 {memeAccount.bondedTime.lt(ZERO) ? (
                   <>
-                    {/* When bondedTime is negative so hasnt bonded */}
                     <div className="flex items-baseline space-x-2">
                       <div className="text-sm font-semibold ">
                         {simplifyBN(fromLamports(userAccount.lockedAmount))} {memeMetadata.symbol}
@@ -1501,7 +1481,6 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
                   </>
                 ) : (
                   <>
-                    {/* When bondedTime is positive */}
                     <div className="flex items-baseline space-x-2">
                       <div className="text-sm font-semibold">
                         {simplifyBN(fromLamports(totalTokens))} {memeMetadata.symbol}
@@ -1528,3 +1507,5 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
     </div>
   );
 }
+
+*/

@@ -13,8 +13,6 @@ export function PreCard() {
     const { publicKey } = useWallet();
 
     const [solBalance, setSolBalance] = useState(ZERO);
-  
-   
 
     const {investInToken} = useInvestInTokenMutation();
     const {createUpdateDB} = useCreateUpdateDB();
@@ -111,32 +109,12 @@ export function PreCard() {
 
             console.log('sol sent through');
 
-            await createUpdateDB.mutateAsync({ amount});
-            console.log('db updated');
-
-            let dbUpdateAttempt = 0;
-            const maxRetries = 3;
-
-            while (dbUpdateAttempt < maxRetries) {
-                try {
-                    await createUpdateDB.mutateAsync({ amount });
-                    console.log('Database updated successfully');
-                    break; // Exit the loop if successful
-                } catch (error) {
-                    dbUpdateAttempt++;
-                    console.error(`Database update failed. Attempt ${dbUpdateAttempt}/${maxRetries}`, error);
-
-                    if (dbUpdateAttempt >= maxRetries) {
-                        throw new Error('Database update failed after maximum retry attempts');
-                    }
-                }
-            }
-
-            if (dbUpdateAttempt >= maxRetries) {
+            try {
+              await createUpdateDB.mutateAsync({ amount });
+              console.log('Database updated successfully');
+            } catch (error) {
               console.error('Critical issue: SOL payment succeeded but database update failed, admins alerted.');
             }
-
-
           toast.success("Success!");
         } catch (error: any) {
           console.error(error);
@@ -197,7 +175,7 @@ export function PreCard() {
                     {/* When bondedTime is negative so hasnt bonded */}
                     <div className="flex items-baseline space-x-2">
                         <div className="text-sm font-semibold ">
-                        User Invested: 
+                        You Invested: 
                         </div>
                         <div className="text-sm text-gray-500 dark:text-white">~ ${solToUsd(userInvestedAmount)}</div>
                     </div>
@@ -205,7 +183,7 @@ export function PreCard() {
                     <PrimaryBar
                         extraCss="w-[820px]"
                         values={[
-                        {label:"SOL", percentage:100, value:solToUsd(userInvestedAmount).toString(), color:"bg-purple-300"},
+                        {label:"SOL", percentage:100, value:fromLamportsDecimals(userInvestedAmount).toString(), color:"bg-purple-300"},
                         ]}
                         labels={true}
                     />
