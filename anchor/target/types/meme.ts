@@ -210,18 +210,15 @@ export type Meme = {
               },
               {
                 "kind": "arg",
-                "path": "params.symbol"
-              },
-              {
-                "kind": "arg",
-                "path": "params.name"
+                "path": "seed"
               }
             ]
           }
         },
         {
           "name": "treasury",
-          "writable": true
+          "writable": true,
+          "signer": true
         },
         {
           "name": "signer",
@@ -253,6 +250,10 @@ export type Meme = {
               "name": "initTokenParams"
             }
           }
+        },
+        {
+          "name": "seed",
+          "type": "string"
         }
       ]
     },
@@ -574,11 +575,7 @@ export type Meme = {
               },
               {
                 "kind": "arg",
-                "path": "symbol"
-              },
-              {
-                "kind": "arg",
-                "path": "name"
+                "path": "seed"
               }
             ]
           }
@@ -696,7 +693,8 @@ export type Meme = {
         },
         {
           "name": "treasury",
-          "writable": true
+          "writable": true,
+          "signer": true
         },
         {
           "name": "memeAccount",
@@ -730,11 +728,7 @@ export type Meme = {
       ],
       "args": [
         {
-          "name": "symbol",
-          "type": "string"
-        },
-        {
-          "name": "name",
+          "name": "seed",
           "type": "string"
         }
       ]

@@ -15,13 +15,19 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { useTransactionToast } from '../ui/ui-layout'
 
-export function useGetBalance({ address }: { address: PublicKey }) {
-  const { connection } = useConnection()
+export function useGetBalance({ address }: { address: PublicKey | null }) {
+  const { connection } = useConnection();
 
   return useQuery({
     queryKey: ['get-balance', { endpoint: connection.rpcEndpoint, address }],
-    queryFn: () => connection.getBalance(address),
-  })
+    queryFn: async () => {
+      if (!address) {
+        throw new Error('Address is required');
+      }
+      return connection.getBalance(address);
+    },
+    enabled: !!address, // Only run the query if address is not null
+  });
 }
 
 export function useGetSignatures({ address }: { address: PublicKey }) {
@@ -59,6 +65,11 @@ export function useGetTokenAccounts({ address, mint }: { address: PublicKey, min
   const getSpecificTokenBalance = useQuery({
     queryKey: ['get-token-balance', { address, mint }],
     queryFn: async () => {
+      if (!address || !mint) {
+        // This ensures TypeScript knows `address` and `mint` are non-null at runtime
+        throw new Error('Address and mint must be defined');
+      }
+
       const tokenAccounts = await connection.getParsedTokenAccountsByOwner(address, {
         mint,
       });

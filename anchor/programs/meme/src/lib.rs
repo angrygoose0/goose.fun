@@ -40,12 +40,12 @@ pub mod meme {
     pub fn init_meme_token(
         ctx: Context<InitToken>,
         metadata: InitTokenParams,
+        _seed: String,
     ) -> Result<()> {
         if metadata.decimals != MINT_DECIMALS {
             return Err(error!(CustomError::InvalidDecimals));
         }
-        let seeds = &["mint".as_bytes(), &metadata.symbol.as_bytes(), &metadata.name.as_bytes(), &[ctx.bumps.mint]];
-        let signer = [&seeds[..]];
+        let treasury_signer: &[&[&[u8]]] = &[&[ctx.accounts.treasury.key.as_ref()]];
 
         let token_data: DataV2 = DataV2 {
             symbol: metadata.symbol.clone(),
@@ -61,14 +61,14 @@ pub mod meme {
             ctx.accounts.token_metadata_program.to_account_info(),
             CreateMetadataAccountsV3 {
                 payer: ctx.accounts.signer.to_account_info(),
-                update_authority: ctx.accounts.mint.to_account_info(),
+                update_authority: ctx.accounts.treasury.to_account_info(),
                 mint: ctx.accounts.mint.to_account_info(),
                 metadata: ctx.accounts.metadata.to_account_info(),
-                mint_authority: ctx.accounts.mint.to_account_info(),
+                mint_authority: ctx.accounts.treasury.to_account_info(),
                 system_program: ctx.accounts.system_program.to_account_info(),
                 rent: ctx.accounts.rent.to_account_info(),
             },
-            &signer,
+            treasury_signer,
         );
 
         create_metadata_accounts_v3(
@@ -84,21 +84,19 @@ pub mod meme {
 
     pub fn mint_meme_token(
         ctx: Context<MintTokens>,
-        symbol: String,
-        name: String,
+        _seed: String,
     ) -> Result<()> {
-        let seeds = &["mint".as_bytes(), &symbol.as_bytes(), &name.as_bytes(), &[ctx.bumps.mint]];
-        let signer = [&seeds[..]];
-
+        let treasury_signer: &[&[&[u8]]] = &[&[ctx.accounts.treasury.key.as_ref()]];
+        
         mint_to(
             CpiContext::new_with_signer(
                 ctx.accounts.token_program.to_account_info(),
                 MintTo {
-                    authority: ctx.accounts.mint.to_account_info(),
+                    authority: ctx.accounts.treasury.to_account_info(),
                     to: ctx.accounts.treasury_token_account.to_account_info(),
                     mint: ctx.accounts.mint.to_account_info(),
                 },
-                &signer,
+                treasury_signer
             ),
             MINT_SUPPLY,
         )?;
@@ -336,27 +334,30 @@ pub struct InitTokenParams {
 #[derive(Accounts)]
 #[instruction(
     params: InitTokenParams,
+    seed: String,
 )]
 pub struct InitToken<'info>{
     /// CHECK: New Metaplex Account being created
     #[account(mut)]
     pub metadata: UncheckedAccount<'info>,
+
     #[account(
         init_if_needed,
-        seeds = [b"mint", params.symbol.as_bytes(), params.name.as_bytes()],
+        seeds = [b"mint", seed.as_bytes()],
         bump,
         payer = signer,
         mint::decimals = params.decimals,
-        mint::authority = mint,
+        mint::authority = treasury,
     )]
     pub mint: Account<'info, Mint>,
-    #[account(mut)]
+
+    #[account(mut, signer)]
     pub treasury: SystemAccount<'info>,
 
     #[account(mut)]
     pub signer: Signer<'info>, // The signer who sends SOL
-    pub rent: Sysvar<'info, Rent>,
 
+    pub rent: Sysvar<'info, Rent>,
     pub system_program: Program<'info, System>, // System program
     pub token_program: Program<'info, Token>,
     pub token_metadata_program: Program<'info, Metaplex>,
@@ -364,15 +365,14 @@ pub struct InitToken<'info>{
 
 #[derive(Accounts)]
 #[instruction(
-    symbol: String,
-    name: String,
+    seed: String,
 )]
 pub struct MintTokens<'info>{
     #[account(
         mut,
-        seeds = [b"mint", symbol.as_bytes(), name.as_bytes()],
+        seeds = [b"mint", seed.as_bytes()],
         bump,
-        mint::authority = mint,
+        mint::authority = treasury,
     )]
     pub mint: Account<'info, Mint>,
 
@@ -392,7 +392,7 @@ pub struct MintTokens<'info>{
     )]
     pub treasury_token_account: Account<'info, TokenAccount>,
 
-    #[account(mut)]
+    #[account(mut, signer)]
     pub treasury: SystemAccount<'info>,
 
 
@@ -503,7 +503,6 @@ pub struct LockUnlockAfterBonding<'info> {
 
     #[account(
         mut,
-        mint::authority = mint,
     )]
     pub mint: Account<'info, Mint>,
 

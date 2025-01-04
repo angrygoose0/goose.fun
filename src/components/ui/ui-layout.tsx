@@ -11,6 +11,9 @@ import { ClusterChecker, ClusterUiSelect, ExplorerLink } from '../cluster/cluste
 import { WalletButton } from '../solana/solana-provider'
 import { MemeCreate, MemeList, TokenCard } from '../meme/meme-ui'
 import { PrimaryButton } from './extra-ui/button'
+import {PreCard} from'../pre/pre-ui'
+import { FaGlobe, FaTelegramPlane } from 'react-icons/fa'
+import { FaXTwitter } from 'react-icons/fa6'
 
 
 export function UiLayout({ children }: { children: ReactNode }) {
@@ -19,7 +22,7 @@ export function UiLayout({ children }: { children: ReactNode }) {
     <div className="h-full flex">
 
       <div className="fixed top-4 left-4 flex space-x-4 z-50">
-        <MemeCreate />
+        {/*<MemeCreate />*/}
 
       </div>
       {/* Floating Buttons */}
@@ -35,12 +38,50 @@ export function UiLayout({ children }: { children: ReactNode }) {
           <div className="hero-content text-center">
             <div className="max-w-2xl">
               <h1 className="text-5xl font-bold">Goose.fun</h1>
+                <div className="flex space-x-2">
+                              {/* Telegram Icon */}
+                  <a
+                      href=""
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-5 h-5 text-gray-500 dark:text-white hover:text-purple-300"
+                      onClick={(e) => e.stopPropagation()}
+                  >
+                      <FaTelegramPlane />
+                  </a>
+  
+                  {/* Twitter (X) Icon */}
+  
+                  <a
+                      href=""
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-5 h-5 text-gray-500 dark:text-white hover:text-purple-300"
+                      onClick={(e) => e.stopPropagation()}
+                  >
+                      <FaXTwitter />
+                  </a>
+  
+                  <a
+                      href=""
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-5 h-5 text-gray-500 dark:text-white hover:text-purple-300"
+                      onClick={(e) => e.stopPropagation()}
+                  >
+                      <FaGlobe />
+                  </a>
+                </div>
               <p className="py-6">subtitle</p>
             </div>
           </div>
+          
         </div>
         
-        <MemeList />
+        {/*<MemeList /> */}
+
+        
+        <PreCard/>
 
 
 
@@ -69,10 +110,10 @@ export function UiLayout({ children }: { children: ReactNode }) {
           </p>
         </footer>
       </div>
+
     </div>
 
-
-  )
+  );
 }
 
 

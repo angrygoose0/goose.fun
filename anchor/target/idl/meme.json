@@ -204,18 +204,15 @@
               },
               {
                 "kind": "arg",
-                "path": "params.symbol"
-              },
-              {
-                "kind": "arg",
-                "path": "params.name"
+                "path": "seed"
               }
             ]
           }
         },
         {
           "name": "treasury",
-          "writable": true
+          "writable": true,
+          "signer": true
         },
         {
           "name": "signer",
@@ -247,6 +244,10 @@
               "name": "InitTokenParams"
             }
           }
+        },
+        {
+          "name": "_seed",
+          "type": "string"
         }
       ]
     },
@@ -568,11 +569,7 @@
               },
               {
                 "kind": "arg",
-                "path": "symbol"
-              },
-              {
-                "kind": "arg",
-                "path": "name"
+                "path": "seed"
               }
             ]
           }
@@ -690,7 +687,8 @@
         },
         {
           "name": "treasury",
-          "writable": true
+          "writable": true,
+          "signer": true
         },
         {
           "name": "meme_account",
@@ -724,11 +722,7 @@
       ],
       "args": [
         {
-          "name": "symbol",
-          "type": "string"
-        },
-        {
-          "name": "name",
+          "name": "_seed",
           "type": "string"
         }
       ]

@@ -20,6 +20,7 @@ import axios from 'axios';
 import bs58 from 'bs58';
 import { create } from 'domain';
 import {ZERO, EMPTY_PUBLIC_KEY, BILLION, TOKEN_SUPPLY_BEFORE_BONDING, INITIAL_PRICE, INITIAL_SOL_AMOUNT, RAYDIUM_DEVNET_CPMM_PROGRAM_ID} from './meme-helper-functions';
+import { sleep } from '@raydium-io/raydium-sdk-v2';
 
 
 export interface InitTokenParams {
@@ -34,6 +35,21 @@ const treasuryKeypair = Keypair.fromSecretKey(bs58.decode(TREASURY_PRIVATE_KEY))
 
 const METADATA_SEED = "metadata";
 const TOKEN_METADATA_PROGRAM_ID = new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
+
+
+const generateKeypairWithSuffix = (suffix:string) => {
+  let keypair;
+  let publicKey;
+
+  do {
+    keypair = Keypair.generate();
+    publicKey = keypair.publicKey.toBase58();
+    console.log('nope');
+  } while (!publicKey.endsWith(suffix));
+
+  console.log('yep');
+  return keypair;
+};
 
 
 export function getMetadataAddress(mint: PublicKey): PublicKey {
@@ -75,48 +91,57 @@ export function useCreateMemeToken() {
           decimals: metadata.decimals,
         };
 
+        //const mintKeypair = generateKeypairWithSuffix('goos')
+        //const mintKeypair = Keypair.generate();
+        //const mint = mintKeypair.publicKey;
+
+        const { PublicKey } = require('@solana/web3.js');
+
+        // Generate random seed (you can use any random data here)
+        const randomSeed = Math.random().toString();
+
+
         const mintSeeds = [
           Buffer.from("mint"),
-          Buffer.from(metadata.symbol),
-          Buffer.from(metadata.name),
-
+          Buffer.from(randomSeed),
         ];
 
         const mint = PublicKey.findProgramAddressSync(
           mintSeeds,
-          programId
+          programId,
         )[0];
-
-        console.log(programId.toString(), 'programid');
 
         const metadataAddress = getMetadataAddress(mint);
 
         const initTokenInstruction = await program.methods
-          .initMemeToken(tokenMetadata)
+          .initMemeToken(tokenMetadata, randomSeed)
           .accounts({
             metadata: metadataAddress,
-            mint: mint,
             treasury: treasuryKeypair.publicKey,
             signer: publicKey,
+            mint: mint,
             rent: SYSVAR_RENT_PUBKEY,
             systemProgram: SystemProgram.programId,
             tokenProgram: TOKEN_PROGRAM_ID,
             tokenMetadataProgram: TOKEN_METADATA_PROGRAM_ID,
           })
+          .signers([treasuryKeypair])
           .instruction();
 
         const mintTokenInstruction = await program.methods
-          .mintMemeToken(metadata.symbol, metadata.name)
+          .mintMemeToken(randomSeed)
           .accounts({
             treasury: treasuryKeypair.publicKey,
-            mint: mint,
             signer: publicKey,
+            mint: mint,
             rent: SYSVAR_RENT_PUBKEY,
             systemProgram: SystemProgram.programId,
             tokenProgram: TOKEN_PROGRAM_ID,
             associatedTokenProgram: ASSOCIATED_PROGRAM_ID,
           })
+          .signers([treasuryKeypair])
           .instruction();
+        
 
         
         const blockhashContext = await connection.getLatestBlockhashAndContext();
@@ -128,12 +153,22 @@ export function useCreateMemeToken() {
         })
           .add(initTokenInstruction)
           .add(mintTokenInstruction);
-
+        transaction.sign(treasuryKeypair)
         
+        const simulationResult = await connection.simulateTransaction(transaction);
+        console.log('Simulation Result:', simulationResult);
+
+        if (simulationResult.value.err) {
+            console.error('Simulation Error:', simulationResult.value.err);
+            throw new Error('Transaction simulation failed');
+        }
+                
         const signature = await sendTransaction(transaction, connection, {
         });
+        console.log('signature', signature);
 
         return signature;
+
         
       } catch (error) {
         console.error("Error during transaction processing:", error);
@@ -507,6 +542,7 @@ export function useBondToRaydium() {
   };
 }
 
+/*
 export function useUserAccountsByMintQuery({
   mint,
 }: {
@@ -548,42 +584,6 @@ export function useUserAccountsByMintQuery({
       const accountPublicKeys = filteredAccounts.map((account) => account.pubkey);
       const accountsWithData = await program.account.userAccount.fetchMultiple(accountPublicKeys);
 
-      const userAccountsByMintQuery = useQuery({
-        queryKey: ['getUserAccountsByMint', { mint }],
-        queryFn: async () => {
-          const userAccountDiscriminator = Buffer.from(sha256.digest("account:UserAccount")).slice(
-            0,
-            8
-          );
-
-          const mintOffset = 40;
-          const mintLength = 32;
-
-          // Fetch accounts with `dataSlice` targeting `creation_time`
-          const accounts = await connection.getProgramAccounts(programId, {
-            dataSlice: { offset: mintOffset, length: mintLength },
-            filters: [
-
-              {
-                memcmp: { offset: 0, bytes: bs58.encode(userAccountDiscriminator) },
-              },
-
-            ],
-          });
-
-          const targetMintBytes = Buffer.from(mint.toBytes());
-          const filteredAccounts = accounts.filter((account) =>
-            account.account.data.equals(targetMintBytes)
-          );
-
-          const accountPublicKeys = filteredAccounts.map((account) => account.pubkey);
-          const accountsWithData = await program.account.userAccount.fetchMultiple(accountPublicKeys);
-
-          return accountsWithData;
-        },
-        enabled: !!mint,
-      });
-
       const accountsWithOrderedData = accountsWithData.map((account, index) => {
         if (account != null) {
           const { getSpecificTokenBalance } = useGetTokenAccounts({ address: account.user, mint });
@@ -611,6 +611,7 @@ export function useUserAccountsByMintQuery({
     userAccountsByMintQuery,
   }
 }
+*/
 
 export function useUserAccountQuery({
   publicKey,
@@ -635,6 +636,8 @@ export function useUserAccountQuery({
     userAccountSeeds,
     programId
   )[0];
+
+  
 
   // Fetch the user account
   const userAccountQuery = useQuery({
@@ -713,31 +716,7 @@ export function useMemeAccountQuery({
   };
 }
 
-export function useSolPriceQuery() {
-  // Fetch the Solana price in USD
-  const solPriceQuery = useQuery({
-    queryKey: ['solPrice'],
-    queryFn: async () => {
-      try {
-        const response = await axios.get(
-          'https://api.coingecko.com/api/v3/simple/price',
-          {
-            params: { ids: 'solana', vs_currencies: 'usd' },
-          }
-        );
-        const priceInUsd = response.data.solana.usd;
-        return priceInUsd;
-      } catch (error) {
-        console.error('Error fetching Solana price:', error);
-        throw new Error('Failed to fetch Solana price.');
-      }
-    },
-  });
 
-  return {
-    solPriceQuery,
-  };
-}
 
 export function useTransactionsQuery({
   mint,
