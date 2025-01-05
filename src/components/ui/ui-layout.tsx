@@ -37,11 +37,11 @@ export function UiLayout({ children }: { children: ReactNode }) {
         <div className="hero mt-[64px]">
           <div className="hero-content text-center">
             <div className="max-w-2xl">
-              <h1 className="text-5xl font-bold">Goose.fun</h1>
-                <div className="flex space-x-2">
+              <h1 className="text-5xl font-bold">Geese.fun</h1>
+                <div className="flex justify-center items-center mt-2 space-x-2">
                               {/* Telegram Icon */}
                   <a
-                      href=""
+                      href="t.me/goosedotfun"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="w-5 h-5 text-gray-500 dark:text-white hover:text-purple-300"
@@ -53,7 +53,7 @@ export function UiLayout({ children }: { children: ReactNode }) {
                   {/* Twitter (X) Icon */}
   
                   <a
-                      href=""
+                      href="https://x.com/goosedotfun"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="w-5 h-5 text-gray-500 dark:text-white hover:text-purple-300"
@@ -63,7 +63,7 @@ export function UiLayout({ children }: { children: ReactNode }) {
                   </a>
   
                   <a
-                      href=""
+                      href="geese.fun"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="w-5 h-5 text-gray-500 dark:text-white hover:text-purple-300"
@@ -72,7 +72,7 @@ export function UiLayout({ children }: { children: ReactNode }) {
                       <FaGlobe />
                   </a>
                 </div>
-              <p className="py-6">subtitle</p>
+              <p className="py-6">phase 1: send to 1B.</p>
             </div>
           </div>
           
@@ -210,7 +210,8 @@ export function PrivacyPolicy() {
       )}
     </>
   );
-}export function TermsOfService() {
+}
+export function TermsOfService() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const openModal = () => setIsModalOpen(true);
   const closeModal = () => setIsModalOpen(false);

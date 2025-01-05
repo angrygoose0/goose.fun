@@ -26,7 +26,7 @@ export function PreCard() {
       symbol: "BOT",
       name: "butter on toast",
       image: "https://via.placeholder.com/300",
-      description: "description",
+      description: "who doesn't like butter on toast?",
       mint: mint,
     };
 
@@ -50,10 +50,10 @@ export function PreCard() {
 
 
     useEffect(() => {
-        if (preUserQuery.data) {
-          setUserInvestedAmount(new BN(preUserQuery.data.invested_amount));
-        }
-      }, [preUserQuery.data]);
+      if (preUserQuery.data) {
+        setUserInvestedAmount(new BN(preUserQuery.data.invested_amount));
+      }
+    }, [preUserQuery.data]);
 
     useEffect(() => {
       if (preTokenQuery.data) {
@@ -116,7 +116,9 @@ export function PreCard() {
             } catch (error) {
               console.error('Critical issue: SOL payment succeeded but database update failed, admins alerted.');
             }
-          toast.success("Success!");
+            await preUserQuery.refetch();
+            await preTokenQuery.refetch();
+          toast.success(`Success! you invested: ${fromLamportsDecimals(amount)} SOL`);
         } catch (error: any) {
           console.error(error);
           toast.error(error.message || "An error occurred.");
@@ -144,7 +146,7 @@ export function PreCard() {
                     <h2 className="text-xl font-bold">
                         <span className="font-bold">{tokenConstants.symbol}</span>
                         <span className="font-normal"> {tokenConstants.name}
-                        <span className="text-gray-500 dark:text-white text-xs ml-2">{tokenConstants.mint}</span>
+                        {/*<span className="text-gray-500 dark:text-white text-xs ml-2">{tokenConstants.mint}</span>*/}
                         </span>
 
                     </h2>

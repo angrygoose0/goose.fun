@@ -3,7 +3,6 @@ import {Transaction, SystemProgram, Keypair } from "@solana/web3.js";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import BN from "bn.js";
 import { useTransactionToast } from "../ui/ui-layout";
-import toast from "react-hot-toast";
 
 import { db } from '../../db/index';
 import { eq } from "drizzle-orm";
@@ -15,7 +14,7 @@ const ZERO = new BN(0);
 
 const TREASURY_PRIVATE_KEY = process.env.NEXT_PUBLIC_TREASURY_PRIVATE_KEY || "";
 const treasuryKeypair = Keypair.fromSecretKey(bs58.decode(TREASURY_PRIVATE_KEY));
-export const mint = ""
+export const mint = "THEMINTKEY"
 
 
 export function useInvestInTokenMutation() {
@@ -71,14 +70,9 @@ export function useInvestInTokenMutation() {
           throw error;
         }
       },
-  
       onSuccess: (signature) => {
         transactionToast(signature);
         console.log("Transaction signature:", signature);
-      },
-      onError: (error) => {
-        toast.error(`Error buy/selling token: ${error.message}`);
-        console.error('Toast error:', error);
       },
     });
   
@@ -147,16 +141,6 @@ export function useCreateUpdateDB() {
           console.error("Error during updating database", error);
           throw error;
         }
-      },
-  
-      onSuccess: (signature) => {
-        toast.success(`Transaction sent: ${signature}`);
-        console.log(signature);
-
-      },
-      onError: (error) => {
-        toast.error(`Error buy/selling token: ${error.message}`);
-        console.error('Toast error:', error);
       },
     });
   
