@@ -74,7 +74,6 @@ export function PreCard() {
     };
 
     const [amount, setAmount] = useState(ZERO);
-    const [showingSol, setShowingSol] = useState(true);
 
     const setAmountWithLimits = (numericValue: BN) => {
         if (numericValue < ZERO) {
@@ -122,14 +121,14 @@ export function PreCard() {
           console.error(error);
           toast.error(error.message || "An error occurred.");
         }
-      }, [amount, showingSol, solBalance, publicKey, investInToken, createUpdateDB]);
+    }, [amount, solBalance, publicKey, investInToken, createUpdateDB, preUserQuery, preTokenQuery]);
 
-      const handleDataRefetch = () => {
-        balanceQuery.refetch(); // Trigger the refetch when the input is focused
-      };
+    const handleDataRefetch = () => {
+    balanceQuery.refetch(); // Trigger the refetch when the input is focused
+    };
     
   
-      return (
+    return (
         <div className="max-w-4xl mx-auto mt-10">
             {bondedTime !== 0 ? (
                 <div className="text-center text-lg font-semibold">

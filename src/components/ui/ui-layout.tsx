@@ -6,8 +6,8 @@ import * as React from 'react'
 import { ReactNode, Suspense, useEffect, useRef, useState } from 'react'
 import toast, { Toaster } from 'react-hot-toast'
 
-import { AccountChecker } from '../account/account-ui'
-import { ClusterChecker, ExplorerLink } from '../cluster/cluster-ui'
+
+import { ExplorerLink } from '../cluster/cluster-ui'
 import { WalletButton } from '../solana/solana-provider'
 //import { MemeCreate, MemeList, TokenCard } from '../meme/meme-ui'
 import { PrimaryButton } from './extra-ui/button'

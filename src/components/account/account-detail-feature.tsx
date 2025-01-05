@@ -1,3 +1,4 @@
+/*
 'use client'
 
 import { PublicKey } from '@solana/web3.js'
@@ -43,3 +44,5 @@ export default function AccountDetailFeature() {
     </div>
   )
 }
+
+*/

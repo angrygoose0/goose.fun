@@ -1,3 +1,4 @@
+/*
 'use client'
 
 import { useWallet } from '@solana/wallet-adapter-react'
@@ -16,6 +17,7 @@ import {
   useTransferSol,
 } from './account-data-access'
 
+
 export function AccountBalance({ address }: { address: PublicKey }) {
   const query = useGetBalance({ address })
 
@@ -27,6 +29,7 @@ export function AccountBalance({ address }: { address: PublicKey }) {
     </div>
   )
 }
+
 export function AccountChecker() {
   const { publicKey } = useWallet()
   if (!publicKey) {
@@ -350,3 +353,5 @@ function ModalSend({ hide, show, address }: { hide: () => void; show: boolean; a
     </AppModal>
   )
 }
+
+*/
