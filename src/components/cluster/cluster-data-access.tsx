@@ -14,10 +14,9 @@ export enum ClusterNetwork {
   Mainnet = 'mainnet-beta',
 }
 
-// Hardcode the application to the Mainnet cluster
 export const defaultCluster: Cluster = {
   name: 'mainnet',
-  endpoint: `https://mainnet.helius-rpc.com/?api-key=${process.env.NEXT_PUBLIC_HELIS_API_KEY}`, // Replace with your mainnet endpoint if different
+  endpoint: `https://mainnet.helius-rpc.com/?api-key=${process.env.NEXT_PUBLIC_HELIUS_API_KEY}`, // Replace with your mainnet endpoint if different
   network: ClusterNetwork.Mainnet,
 }
 
