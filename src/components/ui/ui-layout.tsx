@@ -83,10 +83,11 @@ export function UiLayout({ children }: { children: ReactNode }) {
 
 
 
-        {/* Dynamic Content */}
+        {/* Dynamic Content 
         <ClusterChecker>
           <AccountChecker />
         </ClusterChecker>
+        */}
         <div className="flex-grow mx-4 lg:mx-auto">
           <Suspense
             fallback={

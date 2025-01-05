@@ -15,10 +15,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { useTransactionToast } from '../ui/ui-layout'
 
+
 export function useGetBalance({ address }: { address: PublicKey | null }) {
   const { connection } = useConnection();
 
-  return useQuery({
+  const balanceQuery = useQuery({
     queryKey: ['get-balance', { endpoint: connection.rpcEndpoint, address }],
     queryFn: async () => {
       if (!address) {
@@ -26,8 +27,9 @@ export function useGetBalance({ address }: { address: PublicKey | null }) {
       }
       return connection.getBalance(address);
     },
-    enabled: !!address, // Only run the query if address is not null
   });
+
+  return { balanceQuery };
 }
 
 export function useGetSignatures({ address }: { address: PublicKey }) {

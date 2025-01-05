@@ -39,7 +39,7 @@ export function PreCard() {
     const globalPercentage = calculatePercentage(globalInvestedAmount, SOL_GOAL);
 
     const {solPriceQuery} = useSolPriceQuery();
-    const balanceQuery = useGetBalance({ address: publicKey });
+    const {balanceQuery} = useGetBalance({ address: publicKey });
 
     useEffect(() => {
       if (solPriceQuery.data) {
@@ -123,6 +123,10 @@ export function PreCard() {
           toast.error(error.message || "An error occurred.");
         }
       }, [amount, showingSol, solBalance, publicKey, investInToken, createUpdateDB]);
+
+      const handleDataRefetch = () => {
+        balanceQuery.refetch(); // Trigger the refetch when the input is focused
+      };
     
   
       return (
@@ -196,6 +200,7 @@ export function PreCard() {
                                 <PrimaryInput
                                     name="amountField"
                                     onChange={handleFormFieldChange}
+                                    onFocus={handleDataRefetch}
                                     value={amount === ZERO ? "" : fromLamportsDecimals(amount)}
                                     placeholder={fromLamportsDecimals(solBalance).toString()}
                                     type="number"
