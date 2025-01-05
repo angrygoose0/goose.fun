@@ -15,7 +15,6 @@ import {PreCard} from'../pre/pre-ui'
 import { FaGlobe, FaTelegramPlane } from 'react-icons/fa'
 import { FaXTwitter } from 'react-icons/fa6'
 
-
 export function UiLayout({ children }: { children: ReactNode }) {
 
   return (

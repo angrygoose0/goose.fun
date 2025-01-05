@@ -40,7 +40,7 @@ export const PrimarySelect = (
 
 export const PrimaryInput = (
     {name, onChange, value, placeholder, type, extraCss, disabled, onFocus  }: 
-    {name:string, onChange:(...args: any[]) => void, value:string|number, onFocus:(...args: any[]) => void, type:string, placeholder:string, extraCss:string, disabled:boolean}
+    {name:string, onChange:(...args: any[]) => void, value:string|number, onFocus?:(...args: any[]) => void, type:string, placeholder:string, extraCss:string, disabled:boolean}
 ) => 
 { return (
     <input
@@ -48,10 +48,10 @@ export const PrimaryInput = (
         type={type}
         value={value}
         disabled={disabled}
-        onFocus={onFocus}
         onChange={onChange}
         placeholder={placeholder}
         className={`${extraCss} hover:border-black dark:hover:border-white dualbox p-2 text-sm focus:outline-none appearance-none`}
+        {...(onFocus && { onFocus })}
     />
 );};
 

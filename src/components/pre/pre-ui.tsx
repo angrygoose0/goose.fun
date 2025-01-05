@@ -10,6 +10,7 @@ import { useCreateUpdateDB, useInvestInTokenMutation, usePreTokenQuery, usePreUs
 import { useSolPriceQuery } from "../solana/solana-data-access";
 import { WalletButton } from "../solana/solana-provider";
 
+
 export function PreCard() {
     const { publicKey } = useWallet();
 
@@ -25,7 +26,7 @@ export function PreCard() {
     const tokenConstants = {
       symbol: "BOT",
       name: "butter on toast",
-      image: "https://via.placeholder.com/300",
+      image: "https://gateway.pinata.cloud/ipfs/QmdirhMtjh7xSFJfc45rNTvE1q9hrZZiL9Z9yKdJfXh7RK",
       description: "who doesn't like butter on toast?",
       mint: mint,
     };
@@ -140,14 +141,14 @@ export function PreCard() {
                         <Image
                             src={tokenConstants.image}
                             alt="Icon"
-                            width={48} // Specify width and height for the image
-                            height={48}
+                            width={54} // Specify width and height for the image
+                            height={54}
                             className="dualbox object-contain"
                         />
     
                         <div className="ml-4">
                             <h2 className="text-xl font-bold">
-                                <span className="font-bold">{tokenConstants.symbol}</span>
+                                <span className="font-bold mr-2">{tokenConstants.symbol}</span>
                                 <span className="font-normal">
                                     {tokenConstants.name}
                                     {/*<span className="text-gray-500 dark:text-white text-xs ml-2">{tokenConstants.mint}</span>*/}
@@ -162,7 +163,7 @@ export function PreCard() {
                     <div className="flex flex-col space-y-2 mt-2">
                         <div className="flex items-baseline space-x-2">
                             <div className="text-sm font-semibold">{globalPercentage}%</div>
-                            <div className="text-sm text-gray-500 dark:text-white">~ {solToUsd(globalInvestedAmount)}</div>
+                            <div className="text-sm text-gray-500 dark:text-white">~ ${solToUsd(globalInvestedAmount)}</div>
                         </div>
     
                         <PrimaryBar
