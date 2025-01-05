@@ -7,7 +7,7 @@ import { ReactNode, Suspense, useEffect, useRef, useState } from 'react'
 import toast, { Toaster } from 'react-hot-toast'
 
 import { AccountChecker } from '../account/account-ui'
-import { ClusterChecker, ClusterUiSelect, ExplorerLink } from '../cluster/cluster-ui'
+import { ClusterChecker, ExplorerLink } from '../cluster/cluster-ui'
 import { WalletButton } from '../solana/solana-provider'
 //import { MemeCreate, MemeList, TokenCard } from '../meme/meme-ui'
 import { PrimaryButton } from './extra-ui/button'
@@ -28,7 +28,7 @@ export function UiLayout({ children }: { children: ReactNode }) {
       {/* Floating Buttons */}
       <div className="fixed top-4 right-4 flex space-x-4 z-50">
         <WalletButton />
-        <ClusterUiSelect />
+        {/*<ClusterUiSelect />*/}
       </div>
 
       {/* Main Content */}

@@ -1,13 +1,8 @@
 'use client'
 
-import { useConnection } from '@solana/wallet-adapter-react'
-import { IconTrash } from '@tabler/icons-react'
 import { useQuery } from '@tanstack/react-query'
-import { ReactNode, useState } from 'react'
-import { AppModal } from '../ui/ui-layout'
-import { ClusterNetwork, useCluster } from './cluster-data-access'
-import { Connection } from '@solana/web3.js'
-import { PrimaryButton } from '../ui/extra-ui/button'
+import { ReactNode } from 'react'
+import { useCluster } from './cluster-data-access'
 
 export function ExplorerLink({ path, label, className }: { path: string; label: string; className?: string }) {
   const { getExplorerUrl } = useCluster()
@@ -25,146 +20,55 @@ export function ExplorerLink({ path, label, className }: { path: string; label: 
 
 export function ClusterChecker({ children }: { children: ReactNode }) {
   const { cluster } = useCluster()
-  const { connection } = useConnection()
-
   const query = useQuery({
-    queryKey: ['version', { cluster, endpoint: connection.rpcEndpoint }],
-    queryFn: () => connection.getVersion(),
+    queryKey: ['version', { cluster }],
+    queryFn: async () => {
+      const response = await fetch(cluster.endpoint)
+      if (!response.ok) {
+        throw new Error(`Failed to connect to cluster: ${cluster.name}`)
+      }
+      return response.json()
+    },
     retry: 1,
   })
+
   if (query.isLoading) {
-    return null
+    return <div>Loading...</div>
   }
   if (query.isError || !query.data) {
     return (
       <div className="alert alert-warning text-warning-content/80 rounded-none flex justify-center">
-        <span>
-          Error connecting to cluster <strong>{cluster.name}</strong>
-        </span>
+        <span>Error connecting to cluster: <strong>{cluster.name}</strong></span>
         <button className="btn btn-xs btn-neutral" onClick={() => query.refetch()}>
-          Refresh
+          Retry
         </button>
       </div>
     )
   }
-  return children
-}
-
-export function ClusterUiSelect() {
-  const { clusters, setCluster, cluster } = useCluster()
-  return (
-    <div className="dropdown dropdown-end">
-      <label tabIndex={0} className="dualbox shadow-lg btn rounded-none hover:bg-purple-100 focus:bg-purple-200 hover:border-black dark:hover:border-white focus:outline-none">
-        {cluster.name}
-      </label>
-      <ul tabIndex={0} className="menu dropdown-content z-[1] p-2 w-52 mt-2">
-        {clusters.map((item) => (
-          <li key={item.name}>
-            <PrimaryButton name={item.name} disabled={false} active={false} extraCss="btn-sm mt-3" onClick={() => setCluster(item)} value={item.name}/>
-          </li>
-        ))}
-      </ul>
-    </div>
-  )
-}
-
-export function ClusterUiModal({ hideModal, show }: { hideModal: () => void; show: boolean }) {
-  const { addCluster } = useCluster()
-  const [name, setName] = useState('')
-  const [network, setNetwork] = useState<ClusterNetwork | undefined>()
-  const [endpoint, setEndpoint] = useState('')
-
-  return (
-    <AppModal
-      title={'Add Cluster'}
-      hide={hideModal}
-      show={show}
-      submit={() => {
-        try {
-          new Connection(endpoint)
-          if (name) {
-            addCluster({ name, network, endpoint })
-            hideModal()
-          } else {
-            console.log('Invalid cluster name')
-          }
-        } catch {
-          console.log('Invalid cluster endpoint')
-        }
-      }}
-      submitLabel="Save"
-    >
-      <input
-        type="text"
-        placeholder="Name"
-        className="input input-bordered w-full"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-      />
-      <input
-        type="text"
-        placeholder="Endpoint"
-        className="input input-bordered w-full"
-        value={endpoint}
-        onChange={(e) => setEndpoint(e.target.value)}
-      />
-      <select
-        className="select select-bordered w-full"
-        value={network}
-        onChange={(e) => setNetwork(e.target.value as ClusterNetwork)}
-      >
-        <option value={undefined}>Select a network</option>
-        <option value={ClusterNetwork.Devnet}>Devnet</option>
-        <option value={ClusterNetwork.Testnet}>Testnet</option>
-        <option value={ClusterNetwork.Mainnet}>Mainnet</option>
-      </select>
-    </AppModal>
-  )
+  return <>{children}</>
 }
 
 export function ClusterUiTable() {
-  const { clusters, setCluster, deleteCluster } = useCluster()
+  const { cluster } = useCluster()
+
   return (
     <div className="overflow-x-auto">
       <table className="table border-4 border-separate border-base-300">
         <thead>
           <tr>
-            <th>Name/ Network / Endpoint</th>
-            <th className="text-center">Actions</th>
+            <th>Name / Network / Endpoint</th>
           </tr>
         </thead>
         <tbody>
-          {clusters.map((item) => (
-            <tr key={item.name} className={item?.active ? 'bg-base-200' : ''}>
-              <td className="space-y-2">
-                <div className="whitespace-nowrap space-x-2">
-                  <span className="text-xl">
-                    {item?.active ? (
-                      item.name
-                    ) : (
-                      <button title="Select cluster" className="link link-secondary" onClick={() => setCluster(item)}>
-                        {item.name}
-                      </button>
-                    )}
-                  </span>
-                </div>
-                <span className="text-xs">Network: {item.network ?? 'custom'}</span>
-                <div className="whitespace-nowrap text-gray-500 text-xs">{item.endpoint}</div>
-              </td>
-              <td className="space-x-2 whitespace-nowrap text-center">
-                <button
-                  disabled={item?.active}
-                  className="btn btn-xs btn-default btn-outline"
-                  onClick={() => {
-                    if (!window.confirm('Are you sure?')) return
-                    deleteCluster(item)
-                  }}
-                >
-                  <IconTrash size={16} />
-                </button>
-              </td>
-            </tr>
-          ))}
+          <tr className="bg-base-200">
+            <td className="space-y-2">
+              <div className="whitespace-nowrap space-x-2">
+                <span className="text-xl">{cluster.name}</span>
+              </div>
+              <span className="text-xs">Network: {cluster.network}</span>
+              <div className="whitespace-nowrap text-gray-500 text-xs">{cluster.endpoint}</div>
+            </td>
+          </tr>
         </tbody>
       </table>
     </div>
