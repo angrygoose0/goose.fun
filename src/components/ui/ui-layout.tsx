@@ -41,11 +41,10 @@ export function UiLayout({ children }: { children: ReactNode }) {
                 <div className="flex justify-center items-center mt-2 space-x-2">
                               {/* Telegram Icon */}
                   <a
-                      href="t.me/goosedotfun"
+                      href="https://t.me/goosedotfun"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="w-5 h-5 text-gray-500 dark:text-white hover:text-purple-300"
-                      onClick={(e) => e.stopPropagation()}
                   >
                       <FaTelegramPlane />
                   </a>
@@ -57,17 +56,15 @@ export function UiLayout({ children }: { children: ReactNode }) {
                       target="_blank"
                       rel="noopener noreferrer"
                       className="w-5 h-5 text-gray-500 dark:text-white hover:text-purple-300"
-                      onClick={(e) => e.stopPropagation()}
                   >
                       <FaXTwitter />
                   </a>
   
                   <a
-                      href="geese.fun"
+                      href="https://geese.fun"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="w-5 h-5 text-gray-500 dark:text-white hover:text-purple-300"
-                      onClick={(e) => e.stopPropagation()}
                   >
                       <FaGlobe />
                   </a>

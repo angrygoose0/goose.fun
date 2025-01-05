@@ -11,10 +11,12 @@ import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
 
 
 const ZERO = new BN(0);
+const BILLION = new BN(1000000000)
 
 const TREASURY_PRIVATE_KEY = process.env.NEXT_PUBLIC_TREASURY_PRIVATE_KEY || "";
 const treasuryKeypair = Keypair.fromSecretKey(bs58.decode(TREASURY_PRIVATE_KEY));
 export const mint = "THEMINTKEY"
+export const SOL_GOAL = new BN(117).mul(BILLION)
 
 
 export function useInvestInTokenMutation() {
@@ -36,6 +38,17 @@ export function useInvestInTokenMutation() {
             if (!amount || amount.isZero() || amount.lte(ZERO)) {
                 throw new Error("Invalid amount specified.");
             }
+
+            const token = await db
+              .select()
+              .from(tokensTable)
+              .where(eq(tokensTable.mint, mint))
+              .limit(1);
+
+            if (token[0].bonded_time != 0) {
+              throw new Error ("phase 2 has already started... you're too late.")
+            }
+            
 
             const blockhashContext = await connection.getLatestBlockhashAndContext();
     
@@ -128,12 +141,18 @@ export function useCreateUpdateDB() {
                 .limit(1);
 
             const newGlobalInvestedBalance = token[0].invested_amount + amount.toNumber();
-                await db
-                .update(tokensTable)
-                .set({
-                    invested_amount:newGlobalInvestedBalance
-                })
-                .where(eq(tokensTable.mint, mint.toString()));
+
+            let bonded_time = 0;
+            if (new BN(newGlobalInvestedBalance).gte(SOL_GOAL)) {
+              bonded_time=Date.now()
+            }
+            await db
+            .update(tokensTable)
+            .set({
+                invested_amount:newGlobalInvestedBalance,
+                bonded_time:bonded_time
+            })
+            .where(eq(tokensTable.mint, mint.toString()));
 
             return "Updated database successfully.";
   

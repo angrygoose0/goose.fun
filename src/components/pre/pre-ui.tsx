@@ -1,12 +1,12 @@
 import { useWallet } from "@solana/wallet-adapter-react";
 import Image from 'next/image';
 import { PrimaryBar, PrimaryButton, PrimaryInput } from "../ui/extra-ui/button";
-import { BILLION, fromLamportsDecimals, ToLamportsDecimals, ZERO, INITIAL_PRICE, calculatePercentage, fromLamports, simplifyBN } from "../meme/meme-helper-functions";
+import { BILLION, fromLamportsDecimals, ToLamportsDecimals, ZERO, calculatePercentage} from "../meme/meme-helper-functions";
 import BN from "bn.js";
 import { useCallback, useEffect, useState } from "react";
 import { useGetBalance } from "../account/account-data-access";
 import toast from "react-hot-toast";
-import { useCreateUpdateDB, useInvestInTokenMutation, usePreTokenQuery, usePreUserQuery, mint } from "./pre-data-access";
+import { useCreateUpdateDB, useInvestInTokenMutation, usePreTokenQuery, usePreUserQuery, mint, SOL_GOAL } from "./pre-data-access";
 import { useSolPriceQuery } from "../solana/solana-data-access";
 import { WalletButton } from "../solana/solana-provider";
 
@@ -36,8 +36,7 @@ export function PreCard() {
 
     const [solPrice, setSolPrice] = useState(0);
 
-    const INITIAL_SOL_GOAL = new BN(320).mul(BILLION);
-    const globalPercentage = calculatePercentage(globalInvestedAmount, INITIAL_SOL_GOAL);
+    const globalPercentage = calculatePercentage(globalInvestedAmount, SOL_GOAL);
 
     const {solPriceQuery} = useSolPriceQuery();
     const balanceQuery = useGetBalance({ address: publicKey });
@@ -126,107 +125,121 @@ export function PreCard() {
       }, [amount, showingSol, solBalance, publicKey, investInToken, createUpdateDB]);
     
   
-    return (
-        <div
-            className="max-w-4xl mx-auto mt-10"
-        >
-            <div className="relative dualbox p-6">
-                <div className="flex items-start mb-2">
-
-                    <Image
-                    src={tokenConstants.image}
-                    alt="Icon"
-                    width={48} // Specify width and height for the image
-                    height={48}
-                    className="dualbox object-contain"
-                    />
-
-
-                    <div className="ml-4">
-                    <h2 className="text-xl font-bold">
-                        <span className="font-bold">{tokenConstants.symbol}</span>
-                        <span className="font-normal"> {tokenConstants.name}
-                        {/*<span className="text-gray-500 dark:text-white text-xs ml-2">{tokenConstants.mint}</span>*/}
-                        </span>
-
-                    </h2>
-                    <p className="text-gray-500 dark:text-white text-sm mt-2">
-                    {tokenConstants.description}
-                    </p>
+      return (
+        <div className="max-w-4xl mx-auto mt-10">
+            {bondedTime !== 0 ? (
+                <div className="text-center text-lg font-semibold">
+                    get ready for phase 2.
                 </div>
-            </div>
-
-            <div className="flex flex-col space-y-2 mt-2">
-                <div className="flex items-baseline space-x-2">
-                <div className="text-sm font-semibold"> {globalPercentage}%</div>
-                <div className="text-sm text-gray-500 dark:text-white">~ {solToUsd(globalInvestedAmount)}</div>
-                </div>
-            
-
-              <PrimaryBar
-                extraCss="mt-1 w-[820px]"
-                  values={[
-                  {label:"SOL", percentage:globalPercentage, value:fromLamportsDecimals(globalInvestedAmount).toString(), color:"bg-black dark:bg-white"},
-                  ]}
-                labels={true}
-                
-              />
-            </div>
-            {(publicKey != null && !userInvestedAmount.eq(ZERO)) ? (
-                
-                <div className="flex flex-col space-y-2 mt-4">
-                    {/* When bondedTime is negative so hasnt bonded */}
-                    <div className="flex items-baseline space-x-2">
-                        <div className="text-sm font-semibold ">
-                        You Invested: 
+            ) : (
+                <div className="relative dualbox p-6">
+                    <div className="flex items-start mb-2">
+                        <Image
+                            src={tokenConstants.image}
+                            alt="Icon"
+                            width={48} // Specify width and height for the image
+                            height={48}
+                            className="dualbox object-contain"
+                        />
+    
+                        <div className="ml-4">
+                            <h2 className="text-xl font-bold">
+                                <span className="font-bold">{tokenConstants.symbol}</span>
+                                <span className="font-normal">
+                                    {tokenConstants.name}
+                                    {/*<span className="text-gray-500 dark:text-white text-xs ml-2">{tokenConstants.mint}</span>*/}
+                                </span>
+                            </h2>
+                            <p className="text-gray-500 dark:text-white text-sm mt-2">
+                                {tokenConstants.description}
+                            </p>
                         </div>
-                        <div className="text-sm text-gray-500 dark:text-white">~ ${solToUsd(userInvestedAmount)}</div>
                     </div>
-
-                    <PrimaryBar
-                        extraCss="w-[820px]"
-                        values={[
-                        {label:"SOL", percentage:100, value:fromLamportsDecimals(userInvestedAmount).toString(), color:"bg-purple-300"},
-                        ]}
-                        labels={true}
-                    />
+    
+                    <div className="flex flex-col space-y-2 mt-2">
+                        <div className="flex items-baseline space-x-2">
+                            <div className="text-sm font-semibold">{globalPercentage}%</div>
+                            <div className="text-sm text-gray-500 dark:text-white">~ {solToUsd(globalInvestedAmount)}</div>
+                        </div>
+    
+                        <PrimaryBar
+                            extraCss="mt-1 w-[820px]"
+                            values={[
+                                { label: "SOL", percentage: globalPercentage, value: fromLamportsDecimals(globalInvestedAmount).toString(), color: "bg-black dark:bg-white" },
+                            ]}
+                            labels={true}
+                        />
+                    </div>
+                    {publicKey != null && !userInvestedAmount.eq(ZERO) ? (
+                        <div className="flex flex-col space-y-2 mt-4">
+                            {/* When bondedTime is negative so hasn't bonded */}
+                            <div className="flex items-baseline space-x-2">
+                                <div className="text-sm font-semibold">
+                                    You Invested:
+                                </div>
+                                <div className="text-sm text-gray-500 dark:text-white">~ ${solToUsd(userInvestedAmount)}</div>
+                            </div>
+    
+                            <PrimaryBar
+                                extraCss="w-[820px]"
+                                values={[
+                                    { label: "SOL", percentage: 100, value: fromLamportsDecimals(userInvestedAmount).toString(), color: "bg-purple-300" },
+                                ]}
+                                labels={true}
+                            />
+                        </div>
+                    ) : null}
+    
+                    {publicKey != null ? (
+                        <>
+                            <div className="relative flex items-center mb-2 mt-4">
+                                <PrimaryInput
+                                    name="amountField"
+                                    onChange={handleFormFieldChange}
+                                    value={amount === ZERO ? "" : fromLamportsDecimals(amount)}
+                                    placeholder={fromLamportsDecimals(solBalance).toString()}
+                                    type="number"
+                                    extraCss="w-full"
+                                    disabled={false}
+                                />
+                            </div>
+                            <div className="text-sm text-gray-500 dark:text-white mb-2">~ ${solToUsd(amount)}</div>
+    
+                            <div className="flex space-x-4 mb-4">
+                                <div>
+                                    <button
+                                        onClick={() => setAmountWithLimits(BILLION.div(new BN(10)))}
+                                        className={"text-dark btn btn-xs mr-2"}>
+                                        0.1
+                                    </button>
+                                    <button
+                                        onClick={() => setAmountWithLimits(BILLION)}
+                                        className={"text-dark btn btn-xs mr-2"}>
+                                        1
+                                    </button>
+                                    <button
+                                        onClick={() => setAmountWithLimits(BILLION.mul(new BN(2)))}
+                                        className={"text-dark btn btn-xs mr-2"}>
+                                        2
+                                    </button>
+                                </div>
+                            </div>
+    
+                            <PrimaryButton
+                                name="Buy"
+                                disabled={amount === ZERO}
+                                active={!amount.eq(ZERO)}
+                                extraCss=""
+                                value="Buy"
+                                onClick={() => { handleBuyFormSubmit(); }}
+                            />
+                        </>
+                    ) : (
+                        <div className="mt-4"><WalletButton /></div>
+                    )}
                 </div>
-            ) : null}
-
-            {publicKey != null ? (
-              <>
-                <div className="relative flex items-center mb-2 mt-4">
-                  <PrimaryInput name="amountField" onChange={handleFormFieldChange} value={amount === ZERO ? "" : fromLamportsDecimals(amount)} placeholder={fromLamportsDecimals(solBalance).toString()} type="number" extraCss="w-full" disabled={false}/>
-                
-                </div>
-                <div className="text-sm text-gray-500 dark:text-white mb-2">~ ${solToUsd(amount)}</div>
-                
-                <div className="flex space-x-4 mb-4">
-                  <div>
-                    <button 
-                    onClick={() => setAmountWithLimits(BILLION.div(new BN(10)))}
-                    className={"text-dark btn btn-xs mr-2"}>
-                    0.1
-                    </button>
-                    <button 
-                    onClick={() => setAmountWithLimits(BILLION)}
-                    className={"text-dark btn btn-xs mr-2"}>
-                    1
-                    </button>
-                    <button 
-                    onClick={() => setAmountWithLimits(BILLION.mul(new BN(2)))}
-                    className={"text-dark btn btn-xs mr-2"}>
-                    2
-                    </button>
-                  </div>
-                </div>
-        
-                <PrimaryButton name='Buy' disabled={amount === ZERO} active={!amount.eq(ZERO)} extraCss="" value='Buy' onClick={() => {handleBuyFormSubmit();}}/>
-              </>
-            ): <div className="mt-4"><WalletButton/></div>}
-            </div>     
+            )}
         </div>
-
     );
 }
 
