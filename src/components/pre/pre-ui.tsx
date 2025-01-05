@@ -8,6 +8,7 @@ import { useGetBalance } from "../account/account-data-access";
 import toast from "react-hot-toast";
 import { useCreateUpdateDB, useInvestInTokenMutation, usePreTokenQuery, usePreUserQuery, mint } from "./pre-data-access";
 import { useSolPriceQuery } from "../solana/solana-data-access";
+import { WalletButton } from "../solana/solana-provider";
 
 export function PreCard() {
     const { publicKey } = useWallet();
@@ -166,7 +167,7 @@ export function PreCard() {
                   {label:"SOL", percentage:globalPercentage, value:fromLamportsDecimals(globalInvestedAmount).toString(), color:"bg-black dark:bg-white"},
                   ]}
                 labels={true}
-
+                
               />
             </div>
             {(publicKey != null && !userInvestedAmount.eq(ZERO)) ? (
@@ -189,39 +190,39 @@ export function PreCard() {
                     />
                 </div>
             ) : null}
-            </div>
 
-
-    
-
-    
-            <div className="relative flex items-center mb-2 mt-4">
-                <PrimaryInput name="amountField" onChange={handleFormFieldChange} value={amount === ZERO ? "" : fromLamportsDecimals(amount)} placeholder={fromLamportsDecimals(solBalance).toString()} type="number" extraCss="w-full" disabled={false}/>
+            {publicKey != null ? (
+              <>
+                <div className="relative flex items-center mb-2 mt-4">
+                  <PrimaryInput name="amountField" onChange={handleFormFieldChange} value={amount === ZERO ? "" : fromLamportsDecimals(amount)} placeholder={fromLamportsDecimals(solBalance).toString()} type="number" extraCss="w-full" disabled={false}/>
                 
-            </div>
-            <div className="text-sm text-gray-500 dark:text-white mb-2">~ ${solToUsd(amount)}</div>
-            
-            <div className="flex space-x-4 mb-4">
-              <div>
-                <button 
-                onClick={() => setAmountWithLimits(BILLION.div(new BN(10)))}
-                className={"text-dark btn btn-xs mr-2"}>
-                0.1
-                </button>
-                <button 
-                onClick={() => setAmountWithLimits(BILLION)}
-                className={"text-dark btn btn-xs mr-2"}>
-                1
-                </button>
-                <button 
-                onClick={() => setAmountWithLimits(BILLION.mul(new BN(2)))}
-                className={"text-dark btn btn-xs mr-2"}>
-                2
-                </button>
-              </div>
-            </div>
-    
-          <PrimaryButton name='Buy' disabled={amount === ZERO} active={false} extraCss="" value='Buy' onClick={() => {handleBuyFormSubmit();}}/>
+                </div>
+                <div className="text-sm text-gray-500 dark:text-white mb-2">~ ${solToUsd(amount)}</div>
+                
+                <div className="flex space-x-4 mb-4">
+                  <div>
+                    <button 
+                    onClick={() => setAmountWithLimits(BILLION.div(new BN(10)))}
+                    className={"text-dark btn btn-xs mr-2"}>
+                    0.1
+                    </button>
+                    <button 
+                    onClick={() => setAmountWithLimits(BILLION)}
+                    className={"text-dark btn btn-xs mr-2"}>
+                    1
+                    </button>
+                    <button 
+                    onClick={() => setAmountWithLimits(BILLION.mul(new BN(2)))}
+                    className={"text-dark btn btn-xs mr-2"}>
+                    2
+                    </button>
+                  </div>
+                </div>
+        
+                <PrimaryButton name='Buy' disabled={amount === ZERO} active={!amount.eq(ZERO)} extraCss="" value='Buy' onClick={() => {handleBuyFormSubmit();}}/>
+              </>
+            ): <div className="mt-4"><WalletButton/></div>}
+            </div>     
         </div>
 
     );
