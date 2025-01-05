@@ -15,7 +15,7 @@ const ZERO = new BN(0);
 
 const TREASURY_PRIVATE_KEY = process.env.NEXT_PUBLIC_TREASURY_PRIVATE_KEY || "";
 const treasuryKeypair = Keypair.fromSecretKey(bs58.decode(TREASURY_PRIVATE_KEY));
-const mint = process.env.NEXT_PUBLIC_MINT || "";
+export const mint = ""
 
 
 export function useInvestInTokenMutation() {

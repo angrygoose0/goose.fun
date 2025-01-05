@@ -6,7 +6,7 @@ import BN from "bn.js";
 import { useCallback, useEffect, useState } from "react";
 import { useGetBalance } from "../account/account-data-access";
 import toast from "react-hot-toast";
-import { useCreateUpdateDB, useInvestInTokenMutation, usePreTokenQuery, usePreUserQuery } from "./pre-data-access";
+import { useCreateUpdateDB, useInvestInTokenMutation, usePreTokenQuery, usePreUserQuery, mint } from "./pre-data-access";
 import { useSolPriceQuery } from "../solana/solana-data-access";
 
 export function PreCard() {
@@ -22,11 +22,11 @@ export function PreCard() {
 
 
     const tokenConstants = {
-      symbol: process.env.NEXT_PUBLIC_SYMBOL || "",
-      name: process.env.NEXT_PUBLIC_NAME || "",
-      image: process.env.NEXT_PUBLIC_IMAGE || "",
-      description: process.env.NEXT_PUBLIC_DESCRIPTION || "",
-      mint: process.env.NEXT_PUBLIC_MINT || "",
+      symbol: "BOT",
+      name: "butter on toast",
+      image: "https://via.placeholder.com/300",
+      description: "description",
+      mint: mint,
     };
 
     const [globalInvestedAmount, setGlobalInvestedAmount] = useState(ZERO);
