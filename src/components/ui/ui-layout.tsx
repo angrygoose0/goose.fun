@@ -68,7 +68,7 @@ export function UiLayout({ children }: { children: ReactNode }) {
                       <FaGlobe />
                   </a>
                 </div>
-              <p className="py-6">phase 1: send to 1B.</p>
+              <p className="py-6">phase 1: reach SOL goal.</p>
             </div>
           </div>
           
