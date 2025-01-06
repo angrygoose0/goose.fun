@@ -2,7 +2,18 @@
 const nextConfig = {
   output: "standalone",
   images: {
-    domains: ['gateway.pinata.cloud', 'via.placeholder.com'], // Combine the domains into one array
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "gateway.pinata.cloud",
+        pathname: "/**", // Adjust pathname as needed
+      },
+      {
+        protocol: "https",
+        hostname: "via.placeholder.com",
+        pathname: "/**", // Adjust pathname as needed
+      },
+    ],
   },
 };
 
