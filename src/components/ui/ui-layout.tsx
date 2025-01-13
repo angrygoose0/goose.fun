@@ -9,11 +9,12 @@ import toast, { Toaster } from 'react-hot-toast'
 
 import { ExplorerLink } from '../cluster/cluster-ui'
 import { WalletButton } from '../solana/solana-provider'
-//import { MemeCreate, MemeList, TokenCard } from '../meme/meme-ui'
 import { PrimaryButton } from './extra-ui/button'
 import {PreCard} from'../pre/pre-ui'
 import { FaGlobe, FaTelegramPlane } from 'react-icons/fa'
 import { FaXTwitter } from 'react-icons/fa6'
+import { MemeCreate, MemeList } from '../meme/meme-ui'
+import { ClusterUiSelect } from '../cluster/cluster-ui'
 
 export function UiLayout({ children }: { children: ReactNode }) {
 
@@ -21,13 +22,13 @@ export function UiLayout({ children }: { children: ReactNode }) {
     <div className="h-full flex">
 
       <div className="fixed top-4 left-4 flex space-x-4 z-50">
-        {/*<MemeCreate />*/}
+        <MemeCreate />
 
       </div>
       {/* Floating Buttons */}
       <div className="fixed top-4 right-4 flex space-x-4 z-50">
         <WalletButton />
-        {/*<ClusterUiSelect />*/}
+        <ClusterUiSelect />
       </div>
 
       {/* Main Content */}
@@ -36,58 +37,57 @@ export function UiLayout({ children }: { children: ReactNode }) {
         <div className="hero mt-[64px]">
           <div className="hero-content text-center">
             <div className="max-w-2xl">
-              <h1 className="text-5xl font-bold">Geese.fun</h1>
-                <div className="flex justify-center items-center mt-2 space-x-2">
-                              {/* Telegram Icon */}
-                  <a
-                      href="https://t.me/goosedotfun"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="w-5 h-5 text-gray-500 dark:text-white hover:text-purple-300"
-                  >
-                      <FaTelegramPlane />
-                  </a>
-  
-                  {/* Twitter (X) Icon */}
-  
-                  <a
-                      href="https://x.com/goosedotfun"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="w-5 h-5 text-gray-500 dark:text-white hover:text-purple-300"
-                  >
-                      <FaXTwitter />
-                  </a>
-  
-                  <a
-                      href="https://geese.fun"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="w-5 h-5 text-gray-500 dark:text-white hover:text-purple-300"
-                  >
-                      <FaGlobe />
-                  </a>
-                </div>
-              <p className="py-6">phase 1: reach SOL goal.</p>
+              <h1 className="text-5xl font-bold">Goose.fun</h1>
+              <div className="flex justify-center items-center mt-2 space-x-2">
+                            {/* Telegram Icon */}
+                <a
+                    href="https://t.me/goosedotfun"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-5 h-5 text-gray-500 dark:text-white hover:text-purple-300"
+                >
+                    <FaTelegramPlane />
+                </a>
+
+                {/* Twitter (X) Icon */}
+
+                <a
+                    href="https://x.com/goosedotfun"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-5 h-5 text-gray-500 dark:text-white hover:text-purple-300"
+                >
+                    <FaXTwitter />
+                </a>
+
+                <a
+                    href="https://geese.fun"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-5 h-5 text-gray-500 dark:text-white hover:text-purple-300"
+                >
+                    <FaGlobe />
+                </a>
+              </div>
+              {/*<p className="py-6">phase 1: reach SOL goal.</p>*/}
+              <p className="py-6">subtitle</p>
             </div>
           </div>
           
         </div>
         
-        {/*<MemeList /> */}
 
-        
         <PreCard/>
 
 
-
+    
 
         {/* Dynamic Content 
         <ClusterChecker>
           <AccountChecker />
         </ClusterChecker>
         */}
-        <div className="flex-grow mx-4 lg:mx-auto">
+        <div className="flex-grow mx-4 lg:mx-auto mt-4">
           <Suspense
             fallback={
               <div className="text-center my-32">
@@ -101,7 +101,7 @@ export function UiLayout({ children }: { children: ReactNode }) {
         </div>
 
         {/* Footer */}
-        <footer className="footer footer-center border-t-2 border-black dark:border-white p-4 text-gray-500 dark:text-white">
+        <footer className="footer footer-center border-t-2 border-black dark:border-white p-4 text-gray-500 dark:text-white mt-10">
           <p className="inline-flex items-center space-x-2">
             <a>&copy; {new Date().getFullYear()} goose.fun</a>|<PrivacyPolicy/>|<TermsOfService/>
           </p>

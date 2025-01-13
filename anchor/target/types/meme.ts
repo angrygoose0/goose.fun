@@ -734,16 +734,16 @@ export type Meme = {
       ]
     },
     {
-      "name": "unlockTokensInUser",
+      "name": "unlockAllTokens",
       "discriminator": [
-        198,
-        13,
-        236,
-        14,
-        34,
-        16,
-        88,
-        175
+        165,
+        121,
+        73,
+        249,
+        83,
+        168,
+        233,
+        148
       ],
       "accounts": [
         {
@@ -776,45 +776,13 @@ export type Meme = {
           }
         },
         {
-          "name": "userAccount",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  117,
-                  115,
-                  101,
-                  114,
-                  95,
-                  97,
-                  99,
-                  99,
-                  111,
-                  117,
-                  110,
-                  116
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "mint"
-              },
-              {
-                "kind": "arg",
-                "path": "user"
-              }
-            ]
-          }
+          "name": "mint",
+          "writable": true
         },
         {
           "name": "treasury",
-          "writable": true
-        },
-        {
-          "name": "mint",
-          "writable": true
+          "writable": true,
+          "signer": true
         },
         {
           "name": "systemProgram",
@@ -902,6 +870,11 @@ export type Meme = {
       "code": 6008,
       "name": "alreadyBonded",
       "msg": "Already Bonded"
+    },
+    {
+      "code": 6009,
+      "name": "unauthorized",
+      "msg": "Unauthorized wallet"
     }
   ],
   "types": [

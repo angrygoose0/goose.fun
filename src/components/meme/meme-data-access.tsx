@@ -1,4 +1,4 @@
-/*
+
 'use client'
 
 import { getMemeProgram, getMemeProgramId } from '@project/anchor';
@@ -112,7 +112,7 @@ export function useCreateMemeToken() {
             systemProgram: SystemProgram.programId,
             tokenProgram: TOKEN_PROGRAM_ID,
             tokenMetadataProgram: TOKEN_METADATA_PROGRAM_ID,
-          })
+          } as any)
           .signers([treasuryKeypair])
           .instruction();
 
@@ -126,7 +126,7 @@ export function useCreateMemeToken() {
             systemProgram: SystemProgram.programId,
             tokenProgram: TOKEN_PROGRAM_ID,
             associatedTokenProgram: ASSOCIATED_PROGRAM_ID,
-          })
+          } as any)
           .signers([treasuryKeypair])
           .instruction();
         
@@ -531,7 +531,7 @@ export function useBondToRaydium() {
   };
 }
 
-
+/*
 export function useUserAccountsByMintQuery({
   mint,
 }: {
@@ -600,6 +600,80 @@ export function useUserAccountsByMintQuery({
     userAccountsByMintQuery,
   }
 }
+  export function useTransactionsQuery({
+  mint,
+}: {
+  mint: PublicKey;
+}) {
+  const { connection } = useConnection();
+  const { cluster } = useCluster();
+
+  
+  const transactionsQuery = useQuery({
+    queryKey: ['getTransactions', { mint }],
+    queryFn: async () => {
+
+      const signatures = await connection.getSignaturesForAddress(RAYDIUM_DEVNET_CPMM_PROGRAM_ID, {
+        limit: 50, // Limit the number of transactions to fetch
+      });
+
+      const filteredTransactions: any[] = [];
+      for (const signatureInfo of signatures) {
+        const tx = await connection.getTransaction(signatureInfo.signature, {
+          maxSupportedTransactionVersion: 0,
+
+        });
+
+        if (tx && tx.meta && tx.meta.postTokenBalances && tx.meta.preTokenBalances) {
+          const involvesMint = tx.meta.postTokenBalances.some(
+            (balance) => balance.mint === mint.toBase58()
+          );
+          if (involvesMint) {
+            const userPublicKey = tx.transaction.message.accountKeys[0];
+            const signature = signatureInfo.signature;
+
+            const solChange = tx.meta.postBalances[0] - tx.meta.preBalances[0];
+            const postToken = tx.meta.postTokenBalances.find(
+              (balance) => balance.mint === mint.toBase58()
+            );
+            
+            const preToken = tx.meta.preTokenBalances.find(
+              (balance) => balance.mint === mint.toBase58()
+            );
+            
+            const tokenChange = postToken
+              ? 
+                (postToken.uiTokenAmount.uiAmount || 0) -
+                (preToken?.uiTokenAmount.uiAmount || 0)
+                
+              : 0;
+
+            const type = solChange < 0 ? 'buy' : 'sell';
+
+
+            filteredTransactions.push({
+              userPublicKey,
+              signature,
+              time: signatureInfo.blockTime,
+              type,
+              solChange,
+              tokenChange,
+            });
+          }
+        }
+      }
+      console.log('filteredTransactions', filteredTransactions);
+      
+     return filteredTransactions
+    },
+    refetchInterval: 10000, enabled: false, //enabled: !!mint,
+  });
+
+  return {
+    transactionsQuery,
+  };
+}
+*/
 
 
 export function useUserAccountQuery({
@@ -705,82 +779,3 @@ export function useMemeAccountQuery({
   };
 }
 
-
-
-export function useTransactionsQuery({
-  mint,
-}: {
-  mint: PublicKey;
-}) {
-  const { connection } = useConnection();
-  const { cluster } = useCluster();
-
-  
-  const transactionsQuery = useQuery({
-    queryKey: ['getTransactions', { mint }],
-    queryFn: async () => {
-
-      const signatures = await connection.getSignaturesForAddress(RAYDIUM_DEVNET_CPMM_PROGRAM_ID, {
-        limit: 50, // Limit the number of transactions to fetch
-      });
-
-      const filteredTransactions: any[] = [];
-      for (const signatureInfo of signatures) {
-        const tx = await connection.getTransaction(signatureInfo.signature, {
-          maxSupportedTransactionVersion: 0,
-
-        });
-
-        if (tx && tx.meta && tx.meta.postTokenBalances && tx.meta.preTokenBalances) {
-          const involvesMint = tx.meta.postTokenBalances.some(
-            (balance) => balance.mint === mint.toBase58()
-          );
-          if (involvesMint) {
-            const userPublicKey = tx.transaction.message.accountKeys[0];
-            const signature = signatureInfo.signature;
-
-            const solChange = tx.meta.postBalances[0] - tx.meta.preBalances[0];
-            const postToken = tx.meta.postTokenBalances.find(
-              (balance) => balance.mint === mint.toBase58()
-            );
-            
-            const preToken = tx.meta.preTokenBalances.find(
-              (balance) => balance.mint === mint.toBase58()
-            );
-            
-            const tokenChange = postToken
-              ? 
-                (postToken.uiTokenAmount.uiAmount || 0) -
-                (preToken?.uiTokenAmount.uiAmount || 0)
-                
-              : 0;
-
-            const type = solChange < 0 ? 'buy' : 'sell';
-
-
-            filteredTransactions.push({
-              userPublicKey,
-              signature,
-              time: signatureInfo.blockTime,
-              type,
-              solChange,
-              tokenChange,
-            });
-          }
-        }
-      }
-      console.log('filteredTransactions', filteredTransactions);
-      
-     return filteredTransactions
-    },
-    refetchInterval: 10000, enabled: false, //enabled: !!mint,
-  });
-
-  return {
-    transactionsQuery,
-  };
-}
-
-
-
-*/

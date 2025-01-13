@@ -1,11 +1,11 @@
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
-import {Transaction, SystemProgram, Keypair } from "@solana/web3.js";
+import {Transaction, SystemProgram, Keypair, PublicKey } from "@solana/web3.js";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import BN from "bn.js";
 import { useTransactionToast } from "../ui/ui-layout";
 
 import { db } from '../../db/index';
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { usersTable, tokensTable } from "@/db/schema";
 import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
 
@@ -19,23 +19,23 @@ export const mint = "THEMINTKEY"
 export const SOL_GOAL = new BN(117).mul(BILLION)
 
 
-export function useInvestInTokenMutation() {
+export function usePreBuySellTokenMutation() {
     const transactionToast = useTransactionToast();
     const { connection } = useConnection();
     const { sendTransaction, publicKey } = useWallet();
 
-    const investInToken = useMutation<
+    const preBuySellToken = useMutation<
       string, 
       Error, 
       { amount: BN; }
     >({
-      mutationKey: ['buySellToken'],
+      mutationKey: ['preBuySellToken'],
       mutationFn: async ({ amount }) => {
         try {
             if (publicKey === null) {
                 throw new Error('Wallet not connected');
             }
-            if (!amount || amount.isZero() || amount.lte(ZERO)) {
+            if (!amount || amount.lte(ZERO)) {
                 throw new Error("Invalid amount specified.");
             }
 
@@ -45,7 +45,7 @@ export function useInvestInTokenMutation() {
               .where(eq(tokensTable.mint, mint))
               .limit(1);
 
-            if (token[0].bonded_time != 0) {
+            if (token[0].bonded_time > 0) {
               throw new Error ("phase 2 has already started... you're too late.")
             }
             
@@ -90,9 +90,86 @@ export function useInvestInTokenMutation() {
     });
   
     return {
-      investInToken,
+      preBuySellToken,
     };
 };
+
+export function usePreLockClaimTokenMutation() {
+  const transactionToast = useTransactionToast();
+  const { connection } = useConnection();
+  const { sendTransaction, publicKey } = useWallet();
+
+  const preLockClaimToken = useMutation<
+    string, 
+    Error, 
+    { amount: BN; }
+  >({
+    mutationKey: ['preLockClaimToken'],
+    mutationFn: async ({ amount }) => {
+      try {
+          if (publicKey === null) {
+              throw new Error('Wallet not connected');
+          }
+          if (!amount || amount.lte(ZERO)) {
+              throw new Error("Invalid amount specified.");
+          }
+
+          const token = await db
+            .select()
+            .from(tokensTable)
+            .where(eq(tokensTable.mint, mint))
+            .limit(1);
+
+          if (token[0].bonded_time > 0) {
+            throw new Error ("phase 2 has already started... you're too late.")
+          }
+          
+
+          const blockhashContext = await connection.getLatestBlockhashAndContext();
+  
+          const transaction = new Transaction({
+              feePayer: publicKey,
+              blockhash: blockhashContext.value.blockhash,
+              lastValidBlockHeight: blockhashContext.value.lastValidBlockHeight,
+          });
+
+          transaction.add(
+              SystemProgram.transfer({
+              fromPubkey: publicKey,
+              toPubkey: treasuryKeypair.publicKey,
+              lamports: amount.toNumber(),
+              })
+          );
+  
+          const signature = await sendTransaction(transaction, connection, {});
+          const confirmation = await connection.confirmTransaction({
+              signature,
+              blockhash: blockhashContext.value.blockhash,
+              lastValidBlockHeight: blockhashContext.value.lastValidBlockHeight,
+          }, 'confirmed');
+          
+          if (confirmation.value.err) {
+              throw new Error('Transaction failed during confirmation.');
+          }
+          return signature;
+
+      } catch (error) {
+        console.error("Error during transaction processing:", error);
+        throw error;
+      }
+    },
+    onSuccess: (signature) => {
+      transactionToast(signature);
+      console.log("Transaction signature:", signature);
+    },
+  });
+
+  return {
+    preLockClaimToken,
+  };
+};
+
+
 
 export function useCreateUpdateDB() {
     const {publicKey } = useWallet();
@@ -172,7 +249,7 @@ export function usePreUserQuery() {
     const { publicKey } = useWallet();
 
     const preUserQuery = useQuery({
-      queryKey: ['preUserQuery', { publicKey }],
+      queryKey: ['preUserQuery', { publicKey, mint }],
       queryFn: async () => {
         
         if (!publicKey) {
@@ -182,7 +259,12 @@ export function usePreUserQuery() {
         const result = await db
             .select()
             .from(usersTable)
-            .where(eq(usersTable.public_key, publicKey.toString()))
+            .where(
+              and(
+                eq(usersTable.public_key, publicKey.toString()),
+                eq(usersTable.mint, mint.toString())
+              )
+            )
             .limit(1)
         
 

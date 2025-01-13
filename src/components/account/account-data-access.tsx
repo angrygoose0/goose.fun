@@ -101,7 +101,14 @@ export function useGetTokenAccounts({ address, mint }: { address: PublicKey, min
         decimals: 0,
       };
     },
-    enabled: !!address && !!mint, // Ensure query runs only if required parameters are provided
+    // Ensure the query is considered fresh for 5 minutes
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    // Automatically refetch data every 10 minutes
+    refetchInterval: 10 * 60 * 1000, // 10 minutes
+    // Fetch on mount to ensure data is available when the component loads
+    refetchOnMount: true,
+    // Optionally fetch in the background when the user revisits the page/tab
+    refetchOnWindowFocus: false,
   });
 
 

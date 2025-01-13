@@ -1,22 +1,21 @@
-/*
+
 'use client'
 
-import { ChangeEvent, useCallback, useMemo, useState, useEffect, use } from 'react'
-import { useMemeProgram, useMetadataQuery, useBuySellTokenMutation, useUserAccountQuery, useCreateMemeToken, useProcessedAccountsQuery, useBondToRaydium, useMemeAccountQuery, useTransactionsQuery, useLockClaimTokenMutation } from './meme-data-access'
+import { ChangeEvent, useCallback, useState, useEffect } from 'react'
+import {useMetadataQuery, useBuySellTokenMutation, useUserAccountQuery, useCreateMemeToken, useProcessedAccountsQuery, useBondToRaydium, useMemeAccountQuery, useLockClaimTokenMutation } from './meme-data-access'
 import { useGetBalance, useGetTokenAccounts } from '../account/account-data-access';
 import {useSolPriceQuery} from '../solana/solana-data-access';
-import { toLamports, fromLamports, calculatePercentage, simplifyBN, fromLamportsDecimals, ToLamportsDecimals, ZERO, EMPTY_PUBLIC_KEY, BILLION, SOL_MINT, INITIAL_PRICE } from './meme-helper-functions';
+import {fromLamports, calculatePercentage, simplifyBN, fromLamportsDecimals, ToLamportsDecimals, ZERO, EMPTY_PUBLIC_KEY, BILLION, SOL_MINT, INITIAL_PRICE } from './meme-helper-functions';
 import axios from "axios";
 import toast from "react-hot-toast";
 import { useWallet } from '@solana/wallet-adapter-react';
-import { LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js';
-import { FaTelegramPlane, FaTwitter, FaGlobe, } from 'react-icons/fa';
+import { PublicKey } from '@solana/web3.js';
+import { FaTelegramPlane, FaGlobe, } from 'react-icons/fa';
 import { FaXTwitter } from 'react-icons/fa6';
 import { BN } from '@coral-xyz/anchor';
 import { WalletButton } from '../solana/solana-provider'
 import { useCreatePool, useRaydiumPoolQuery, useInitRaydiumSdk } from '../raydium/raydium-data-access'
 import { ApiV3PoolInfoStandardItemCpmm, CpmmKeys, CpmmRpcData } from '@raydium-io/raydium-sdk-v2';
-import { time } from 'console';
 
 import {PrimaryBar, PrimaryButton, PrimaryInput, PrimarySelect} from '../ui/extra-ui/button'
 import Image from 'next/image';
@@ -235,21 +234,20 @@ export function MemeList() {
   // Handle loading and error states with a message, but keep the pagination controls visible
   let content;
 
-  if (processedAccountsQuery.isLoading || initRaydiumSdk.isLoading) {
+  if (processedAccountsQuery.isLoading) {
     content = (
       <div>
         <span className="loading loading-spinner"></span>
         <p>Loading...</p>
       </div>
     );
-  } else if (processedAccountsQuery.error || initRaydiumSdk.isError) {
+  } else if (processedAccountsQuery.error) {
     content = (
       <div>
         <p>{processedAccountsQuery.error?.message || "No error with accounts"}</p>
-        <p>{initRaydiumSdk.error?.message || "No error with raydium"}</p>
       </div>
     );
-  } else if (!initRaydiumSdk || !processedAccountsQuery || (processedAccountsQuery.data ?? []).length == 0) {
+  } else if (!processedAccountsQuery || (processedAccountsQuery.data ?? []).length == 0) {
     content = <p>No accounts found.</p>;
   } else {
     content = (
@@ -315,7 +313,7 @@ export function BalanceCard({ publicKey, memeAccount, memeMetadata, userAccount,
 
   const [solBalance, setSolBalance] = useState(ZERO);
 
-  const balanceQuery = useGetBalance({ address: publicKey })
+  const {balanceQuery} = useGetBalance({ address: publicKey })
   
 
   useEffect(() => {
@@ -806,7 +804,6 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
   }>>([]);
 
   
-
   const [userTokenBalance, setUserTokenBalance] = useState(ZERO);
 
   const [currentTime, setCurrentTime] = useState(Date.now());
@@ -860,7 +857,6 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
   });
 
   const { memeAccountQuery } = useMemeAccountQuery({ accountKey });
-  const {transactionsQuery} = useTransactionsQuery({mint: memeAccount.mint});
 
   const { metadataQuery } = useMetadataQuery({
     mint: memeAccount.mint,
@@ -888,6 +884,7 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
     }
   }, [raydiumPoolQuery.data]);
 
+  /*
   useEffect(() => {
     if (transactionsQuery.data) {
       console.log('transactions', transactionsQuery.data);
@@ -903,6 +900,7 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
       setTransactionsData(updatedTransactions);
     }
   }, [transactionsQuery.data]);
+  */
 
   useEffect(() => {
     if (solPriceQuery.data) {
@@ -1116,7 +1114,7 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
           className="btn btn-xs lg:btn-md btn-primary"
           onClick={bondButton}
         >
-          bond to ray
+          bond to ray (debug button)
         </button>
         <div className="absolute top-2 right-2 text-gray-500 dark:text-white text-xs">{timeAgo(memeAccount.creationTime.toNumber())} ago</div>
         <div className="flex items-start mb-2">
@@ -1145,6 +1143,7 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
               <span className="font-bold">{memeMetadata.symbol}</span>
               <span className="font-normal"> {memeMetadata.name}
                 <span className="text-gray-500 dark:text-white text-xs ml-2">{memeAccount.mint.toString()}</span>
+                
               </span>
             </h2>
             <p className="text-gray-500 dark:text-white text-sm mt-2">
@@ -1236,8 +1235,8 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
         }}
       >
         <div
-          className="w-full h-full object-cover dualbox bg-gray-200"
-          style={{ backgroundColor: '#ccc', width: '300px', height: '400px' }}
+          className="w-full h-full object-cover dualbox"
+          style={{ backgroundColor: '#FFF', width: '600px', height: '200px' }}
         >
         </div>
       </div>
@@ -1507,5 +1506,3 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
     </div>
   );
 }
-
-*/
