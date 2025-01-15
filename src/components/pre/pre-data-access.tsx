@@ -1,4 +1,5 @@
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
+import { createTransferCheckedInstruction, createTransferInstruction, getAssociatedTokenAddress} from '@solana/spl-token';
 import {Transaction, SystemProgram, Keypair, PublicKey } from "@solana/web3.js";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import BN from "bn.js";
@@ -8,28 +9,29 @@ import { db } from '../../db/index';
 import { eq, and } from "drizzle-orm";
 import { usersTable, tokensTable } from "@/db/schema";
 import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
+import { TOKEN_SUPPLY_BEFORE_BONDING } from "../meme/meme-helper-functions";
 
 
 const ZERO = new BN(0);
 const BILLION = new BN(1000000000)
 
-const TREASURY_PRIVATE_KEY = process.env.NEXT_PUBLIC_TREASURY_PRIVATE_KEY || "";
+const TREASURY_PRIVATE_KEY = process.env.NEXT_PUBLIC_TREASURY_PUBLIC_KEY || "";
 const treasuryKeypair = Keypair.fromSecretKey(bs58.decode(TREASURY_PRIVATE_KEY));
 export const mint = "THEMINTKEY"
 export const SOL_GOAL = new BN(117).mul(BILLION)
 
 
-export function usePreBuySellTokenMutation() {
+export function usePreBuyTokenMutation() {
     const transactionToast = useTransactionToast();
     const { connection } = useConnection();
     const { sendTransaction, publicKey } = useWallet();
 
-    const preBuySellToken = useMutation<
+    const preBuyToken = useMutation<
       string, 
       Error, 
       { amount: BN; }
     >({
-      mutationKey: ['preBuySellToken'],
+      mutationKey: ['preBuyToken'],
       mutationFn: async ({ amount }) => {
         try {
             if (publicKey === null) {
@@ -46,9 +48,22 @@ export function usePreBuySellTokenMutation() {
               .limit(1);
 
             if (token[0].bonded_time > 0) {
-              throw new Error ("phase 2 has already started... you're too late.")
+              throw new Error ("already bonded")
             }
-            
+            if (token[0].creation_time < 0) {
+              throw new Error ("only tokens created on goose are eligible")
+            }
+
+            const user = await db
+            .select()
+            .from(usersTable)
+            .where(
+              and(
+                eq(usersTable.public_key, publicKey.toString()),
+                eq(usersTable.mint, mint.toString())
+              )
+            )
+            .limit(1);
 
             const blockhashContext = await connection.getLatestBlockhashAndContext();
     
@@ -59,13 +74,13 @@ export function usePreBuySellTokenMutation() {
             });
 
             transaction.add(
-                SystemProgram.transfer({
-                fromPubkey: publicKey,
-                toPubkey: treasuryKeypair.publicKey,
-                lamports: amount.toNumber(),
-                })
+              SystemProgram.transfer({
+              fromPubkey: publicKey,
+              toPubkey: treasuryKeypair.publicKey,
+              lamports: amount.toNumber(),
+              })
             );
-    
+
             const signature = await sendTransaction(transaction, connection, {});
             const confirmation = await connection.confirmTransaction({
                 signature,
@@ -74,8 +89,43 @@ export function usePreBuySellTokenMutation() {
             }, 'confirmed');
             
             if (confirmation.value.err) {
-                throw new Error('Transaction failed during confirmation.');
+              throw new Error('Transaction failed during confirmation.');
             }
+
+            if (user.length === 0) { //first time buying
+              const new_user: typeof usersTable.$inferInsert = {
+                public_key: publicKey.toString(),
+                mint: mint.toString(),
+                locked_amount:amount.toString(),
+              };
+              await db.insert(usersTable).values(new_user);
+            } else {
+              const newLockedAmount = new BN(user[0].locked_amount).add(amount);
+
+              await db
+              .update(usersTable)
+              .set({
+                  locked_amount:newLockedAmount.toString()
+              })
+              .where(
+                and(
+                  eq(usersTable.public_key, publicKey.toString()),
+                  eq(usersTable.mint, mint.toString())
+                )
+              );
+            }
+
+            const newGlobalLockedBalance = new BN(token[0].locked_amount).add(amount);
+
+            await db
+            .update(tokensTable)
+            .set({
+                locked_amount:newGlobalLockedBalance.toString(),
+            })
+            .where(eq(tokensTable.mint, mint.toString()));
+
+            
+  
             return signature;
   
         } catch (error) {
@@ -90,11 +140,11 @@ export function usePreBuySellTokenMutation() {
     });
   
     return {
-      preBuySellToken,
+      preBuyToken,
     };
 };
 
-export function usePreLockClaimTokenMutation() {
+export function usePreLockTokenMutation() {
   const transactionToast = useTransactionToast();
   const { connection } = useConnection();
   const { sendTransaction, publicKey } = useWallet();
@@ -104,7 +154,7 @@ export function usePreLockClaimTokenMutation() {
     Error, 
     { amount: BN; }
   >({
-    mutationKey: ['preLockClaimToken'],
+    mutationKey: ['preLockToken'],
     mutationFn: async ({ amount }) => {
       try {
           if (publicKey === null) {
@@ -120,10 +170,22 @@ export function usePreLockClaimTokenMutation() {
             .where(eq(tokensTable.mint, mint))
             .limit(1);
 
-          if (token[0].bonded_time > 0) {
-            throw new Error ("phase 2 has already started... you're too late.")
+          if (token[0].creation_time > 0) {
+            if (token[0].bonded_time < 0) {
+              throw new Error("Token hasn't bonded from goose.fun")
+            }
           }
-          
+
+          const user = await db
+            .select()
+            .from(usersTable)
+            .where(
+              and(
+                eq(usersTable.public_key, publicKey.toString()),
+                eq(usersTable.mint, mint.toString())
+              )
+            )
+            .limit(1);
 
           const blockhashContext = await connection.getLatestBlockhashAndContext();
   
@@ -133,14 +195,27 @@ export function usePreLockClaimTokenMutation() {
               lastValidBlockHeight: blockhashContext.value.lastValidBlockHeight,
           });
 
-          transaction.add(
-              SystemProgram.transfer({
-              fromPubkey: publicKey,
-              toPubkey: treasuryKeypair.publicKey,
-              lamports: amount.toNumber(),
-              })
+          const userTokenAccount = await getAssociatedTokenAddress(
+            mint,
+            publicKey,
+            false,
           );
-  
+
+          const treasuryTokenAccount = await getAssociatedTokenAddress(
+            mint,
+            treasuryKeypair.publicKey,
+            false,
+          );
+
+          transaction.add(
+            createTransferInstruction(
+              userTokenAccount,
+              treasuryTokenAccount,
+              publicKey,
+              amount.toNumber(),
+            )
+          );
+
           const signature = await sendTransaction(transaction, connection, {});
           const confirmation = await connection.confirmTransaction({
               signature,
@@ -149,8 +224,41 @@ export function usePreLockClaimTokenMutation() {
           }, 'confirmed');
           
           if (confirmation.value.err) {
-              throw new Error('Transaction failed during confirmation.');
+            throw new Error('Transaction failed during confirmation.');
           }
+
+          if (user.length === 0) { //first time buying
+            const new_user: typeof usersTable.$inferInsert = {
+              public_key: publicKey.toString(),
+              mint: mint.toString(),
+              locked_amount:amount.toString(),
+            };
+            await db.insert(usersTable).values(new_user);
+          } else {
+            const newLockedAmount = new BN(user[0].locked_amount).add(amount);
+
+            await db
+            .update(usersTable)
+            .set({
+                locked_amount:newLockedAmount.toString()
+            })
+            .where(
+              and(
+                eq(usersTable.public_key, publicKey.toString()),
+                eq(usersTable.mint, mint.toString())
+              )
+            );
+          }
+
+          const newGlobalLockedBalance = new BN(token[0].locked_amount).add(amount);
+
+          await db
+          .update(tokensTable)
+          .set({
+              locked_amount:newGlobalLockedBalance.toString(),
+          })
+          .where(eq(tokensTable.mint, mint.toString()));
+
           return signature;
 
       } catch (error) {
@@ -171,7 +279,9 @@ export function usePreLockClaimTokenMutation() {
 
 
 
-export function useCreateUpdateDB() {
+
+
+export function useBondTo() {
     const {publicKey } = useWallet();
 
     const createUpdateDB = useMutation<
@@ -182,56 +292,60 @@ export function useCreateUpdateDB() {
       mutationKey: ['createUpdateDB'],
       mutationFn: async ({amount }) => {
         try {
-            if (publicKey === null) {
-                throw new Error('Wallet not connected');
+
+          const token = await db
+              .select()
+              .from(tokensTable)
+              .where(eq(tokensTable.mint, mint))
+              .limit(1);
+
+            if (token[0].bonded_time > 0) {
+              throw new Error ("already bonded")
             }
-            if (!amount || amount.isZero() || amount.lte(ZERO)) {
-                throw new Error("Invalid amount specified.");
+            if (token[0].creation_time < 0) {
+              throw new Error ("only tokens created on goose are eligible")
             }
 
-            const user = await db
-                .select()
-                .from(usersTable)
-                .where(eq(usersTable.public_key, publicKey.toString()))
-                .limit(1);
+            const total_invested = new BN(token[0].locked_amount);
+            if (total_invested.eq(ZERO)) {
+              throw new Error ("0 sol invested")
+            }
 
-            if (user.length === 0) {
-                const new_user: typeof usersTable.$inferInsert = {
-                    public_key: publicKey.toString(),
-                    invested_amount:amount.toNumber(),
-                };
-                await db.insert(usersTable).values(new_user);
-            } else {
-                const newInvestedBalance = user[0].invested_amount + amount.toNumber();
-                await db
+            const tokens_per_sol = TOKEN_SUPPLY_BEFORE_BONDING.div(new BN(token[0].locked_amount));
+
+            const users = await db
+            .select()
+            .from(usersTable)
+            .where(
+
+              eq(usersTable.mint, mint.toString())
+            )
+
+            for (const user of users) {
+              // Parse the locked_amount if needed
+              const currentLockedAmount = new BN(user.locked_amount);
+
+              if (currentLockedAmount.isZero()) {
+                continue;
+              }
+            
+              const newLockedAmount = currentLockedAmount.mul(tokens_per_sol); // change from sol to tokens
+            
+              // Update the database with the new locked amount
+              await db
                 .update(usersTable)
-                .set({
-                    invested_amount:newInvestedBalance
-                })
-                .where(eq(usersTable.public_key, publicKey.toString()));
+                .set({ locked_amount: newLockedAmount.toString() }) 
+                .where(
+                  and (
+                    eq(usersTable.mint, user.mint),
+                    eq(usersTable.public_key, user.public_key)
+                  )
+                  );
             }
 
-            const token = await db
-                .select()
-                .from(tokensTable)
-                .where(eq(tokensTable.mint, mint))
-                .limit(1);
-
-            const newGlobalInvestedBalance = token[0].invested_amount + amount.toNumber();
-
-            let bonded_time = 0;
-            if (new BN(newGlobalInvestedBalance).gte(SOL_GOAL)) {
-              bonded_time=Date.now()
-            }
-            await db
-            .update(tokensTable)
-            .set({
-                invested_amount:newGlobalInvestedBalance,
-                bonded_time:bonded_time
-            })
-            .where(eq(tokensTable.mint, mint.toString()));
-
-            return "Updated database successfully.";
+            
+            
+        
   
         } catch (error) {
           console.error("Error during updating database", error);
@@ -243,6 +357,72 @@ export function useCreateUpdateDB() {
     return {
       createUpdateDB,
     };
+};
+
+export function useUnlockPhase() {
+  const {publicKey } = useWallet();
+
+  const createUpdateDB = useMutation<
+    string,
+    Error,
+    { amount: BN;} //solana lamports
+  >({
+    mutationKey: ['createUpdateDB'],
+    mutationFn: async ({amount }) => {
+      try {
+
+        const token = await db
+            .select()
+            .from(tokensTable)
+            .where(eq(tokensTable.mint, mint))
+            .limit(1);
+
+          if (token[0].bonded_time > 0) {
+            throw new Error ("already bonded")
+          }
+          if (token[0].creation_time < 0) {
+            throw new Error ("only tokens created on goose are eligible")
+          }
+
+          const users = await db
+          .select()
+          .from(usersTable)
+          .where(
+
+            eq(usersTable.mint, mint.toString())
+          )
+
+          for (const user of users) {
+            // Parse the locked_amount if needed
+            const currentLockedAmount = new BN(user.locked_amount);
+
+            if (currentLockedAmount.isZero()) {
+              continue;
+            }
+          
+            const newLockedAmount = currentLockedAmount.mul(new BN(9)).div(new BN(10)); // take off 10%
+          
+            // Update the database with the new locked amount
+            await db
+              .update(usersTable)
+              .set({ locked_amount: newLockedAmount.toString() }) // Ensure it's saved as a string if required
+              .where(eq(usersTable.mint, user.mint));
+          }
+
+          
+          
+      
+
+      } catch (error) {
+        console.error("Error during updating database", error);
+        throw error;
+      }
+    },
+  });
+
+  return {
+    createUpdateDB,
+  };
 };
 
 export function usePreUserQuery() {

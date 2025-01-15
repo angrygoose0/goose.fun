@@ -1,23 +1,20 @@
-
 use anchor_lang::{
     prelude::*,
     solana_program::{
         program::invoke_signed,
         system_instruction,
-        {pubkey, pubkey::Pubkey},
+        pubkey::Pubkey,
     },
 };
 
-
-
 use anchor_spl::{
-    associated_token::AssociatedToken,
-    token::{mint_to, Mint, MintTo, Token, TokenAccount, TransferChecked, transfer_checked},
+    associated_token::{AssociatedToken},
+    token::{
+        transfer_checked, mint_to, Mint, MintTo, Token, TokenAccount, TransferChecked,
+    },
     metadata::{
-        create_metadata_accounts_v3,
         mpl_token_metadata::types::DataV2,
-        CreateMetadataAccountsV3, 
-        Metadata as Metaplex,
+        CreateMetadataAccountsV3, Metadata as Metaplex, create_metadata_accounts_v3,
     },
 };
 
@@ -45,7 +42,7 @@ pub mod meme {
     pub fn init_meme_token(
         ctx: Context<InitToken>,
         metadata: InitTokenParams,
-        _seed: String,
+        seed: String,
     ) -> Result<()> {
         if metadata.decimals != MINT_DECIMALS {
             return Err(error!(CustomError::InvalidDecimals));
@@ -56,7 +53,8 @@ pub mod meme {
             CustomError::Unauthorized
         );
 
-        let treasury_signer: &[&[&[u8]]] = &[&[ctx.accounts.treasury.key.as_ref()]];
+        let seeds = &["mint".as_bytes(), seed.as_bytes(), &[ctx.bumps.mint]];
+        let signer = [&seeds[..]];
 
         let token_data: DataV2 = DataV2 {
             symbol: metadata.symbol.clone(),
@@ -79,7 +77,7 @@ pub mod meme {
                 system_program: ctx.accounts.system_program.to_account_info(),
                 rent: ctx.accounts.rent.to_account_info(),
             },
-            treasury_signer,
+            &signer,
         );
 
         create_metadata_accounts_v3(
@@ -95,14 +93,15 @@ pub mod meme {
 
     pub fn mint_meme_token(
         ctx: Context<MintTokens>,
-        _seed: String,
+        seed: String,
     ) -> Result<()> {
         require!(
             ctx.accounts.treasury.key() == TREASURY_PUBLIC_KEY,
             CustomError::Unauthorized
         );
 
-        let treasury_signer: &[&[&[u8]]] = &[&[ctx.accounts.treasury.key.as_ref()]];
+        let seeds = &["mint".as_bytes(), seed.as_bytes(), &[ctx.bumps.mint]];
+        let signer = [&seeds[..]];
         
         mint_to(
             CpiContext::new_with_signer(
@@ -112,7 +111,7 @@ pub mod meme {
                     to: ctx.accounts.treasury_token_account.to_account_info(),
                     mint: ctx.accounts.mint.to_account_info(),
                 },
-                treasury_signer
+                &signer
             ),
             MINT_SUPPLY,
         )?;
@@ -130,9 +129,9 @@ pub mod meme {
     }
     
     // after bonding
-    pub fn lock_claim(
-        ctx: Context<LockUnlockAfterBonding>,
-        amount: i64, // amount in SPL lamports
+    pub fn lock(
+        ctx: Context<LockAfterBonding>,
+        amount: u64, // amount in SPL lamports
     ) -> Result<()> {
         require!(
             ctx.accounts.treasury.key() == TREASURY_PUBLIC_KEY,
@@ -151,83 +150,50 @@ pub mod meme {
             meme_account.bonded_time > 0,
             CustomError::NotBonded,
         );
-    
-        // wants to lock, amount is SPL lamports
-        if amount > 0 {
-            let mut lock_amount = amount as u64;
 
-            if lock_amount > user_account.claimmable {
-                lock_amount -= user_account.claimmable;
-                user_account.claimmable = 0;
-            }
-            else {
-                user_account.claimmable -= lock_amount;
-                return Ok(());
-            }
+        let mut lock_amount = amount;
 
-            user_account.locked_amount = user_account
-                .locked_amount
-                .checked_add(lock_amount)
-                .ok_or(CustomError::Overflow)?;
-    
-            meme_account.locked_amount = meme_account
-                .locked_amount
-                .checked_add(lock_amount)
-                .ok_or(CustomError::Overflow)?;
-    
-            // User sends SPL tokens to treasury
-
-            transfer_checked(
-                CpiContext::new(
-                    ctx.accounts.token_program.to_account_info(),
-                    TransferChecked {
-                        from: ctx.accounts.user_token_account.to_account_info(),
-                        to: ctx.accounts.treasury_token_account.to_account_info(),
-                        authority: ctx.accounts.signer.to_account_info(),
-                        mint: ctx.accounts.mint.to_account_info(),
-                    }
-                ),
-                lock_amount, // has to be u64 times by decimal amount
-                MINT_DECIMALS,
-            )?;
-        
-        
-        } else if amount < 0 {
-            // Wants to claim, amount is SPL lamports wanting to take out of treasury
-            let deduction = (-amount) as u64;
-    
-            user_account.claimmable = user_account
-                .claimmable
-                .checked_sub(deduction)
-                .ok_or(CustomError::Underflow)?;
-    
-            meme_account.locked_amount = meme_account
-                .locked_amount
-                .checked_sub(deduction)
-                .ok_or(CustomError::Underflow)?;
-    
-            // User receives SPL tokens from treasury
-            transfer_checked(
-                CpiContext::new(
-                    ctx.accounts.token_program.to_account_info(),
-                    TransferChecked {
-                        from: ctx.accounts.treasury_token_account.to_account_info(),
-                        to: ctx.accounts.user_token_account.to_account_info(),
-                        authority: ctx.accounts.treasury.to_account_info(),
-                        mint: ctx.accounts.mint.to_account_info(),
-                    }
-                ),
-                deduction,
-                MINT_DECIMALS,
-            )?;
+        if lock_amount > user_account.claimmable {
+            lock_amount -= user_account.claimmable;
+            user_account.claimmable = 0;
         }
+        else {
+            user_account.claimmable -= lock_amount;
+            return Ok(());
+        }
+
+        user_account.locked_amount = user_account
+            .locked_amount
+            .checked_add(lock_amount)
+            .ok_or(CustomError::Overflow)?;
+
+        meme_account.locked_amount = meme_account
+            .locked_amount
+            .checked_add(lock_amount)
+            .ok_or(CustomError::Overflow)?;
+
+        // User sends SPL tokens to treasury
+
+        transfer_checked(
+            CpiContext::new(
+                ctx.accounts.token_program.to_account_info(),
+                TransferChecked {
+                    from: ctx.accounts.user_token_account.to_account_info(),
+                    to: ctx.accounts.treasury_token_account.to_account_info(),
+                    authority: ctx.accounts.signer.to_account_info(),
+                    mint: ctx.accounts.mint.to_account_info(),
+                }
+            ),
+            lock_amount, // has to be u64 times by decimal amount
+            MINT_DECIMALS,
+        )?;     
         Ok(())
     }
 
     //before bonding
-    pub fn buy_sell(
-        ctx: Context<BuySellBeforeBonding>,
-        amount: i64, // sol lamports
+    pub fn buy(
+        ctx: Context<BuyBeforeBonding>,
+        amount: u64, // sol lamports
     ) -> Result<()> {
         require!(
             ctx.accounts.treasury.key() == TREASURY_PUBLIC_KEY,
@@ -247,63 +213,35 @@ pub mod meme {
             CustomError::HasBonded,
         );
 
-        if amount > 0 {
 
-            user_account.locked_amount = user_account
-                .locked_amount
-                .checked_add(amount as u64)
-                .ok_or(CustomError::Overflow)?;
+        user_account.locked_amount = user_account
+            .locked_amount
+            .checked_add(amount)
+            .ok_or(CustomError::Overflow)?;
 
-            meme_account.locked_amount = meme_account
-                .locked_amount
-                .checked_add(amount as u64)
-                .ok_or(CustomError::Overflow)?;
+        meme_account.locked_amount = meme_account
+            .locked_amount
+            .checked_add(amount)
+            .ok_or(CustomError::Overflow)?;
 
-            //if everything good, user gives sol lamports amount to treasury
+        //if everything good, user gives sol lamports amount to treasury
 
-            let transfer_instruction = system_instruction::transfer(
-                &ctx.accounts.signer.key(),
-                &ctx.accounts.treasury.key(),
-                amount as u64,
-            );
+        let transfer_instruction = system_instruction::transfer(
+            &ctx.accounts.signer.key(),
+            &ctx.accounts.treasury.key(),
+            amount,
+        );
 
-            invoke_signed(
-                &transfer_instruction,
-                &[
-                    ctx.accounts.signer.to_account_info(),
-                    ctx.accounts.treasury.to_account_info(),
-                    ctx.accounts.system_program.to_account_info(),
-                ],
-                &[],
-            )?;
-        } else if amount < 0 {
-            user_account.locked_amount = user_account
-                .locked_amount
-                .checked_sub((-amount) as u64)
-                .ok_or(CustomError::Underflow)?;
+        invoke_signed(
+            &transfer_instruction,
+            &[
+                ctx.accounts.signer.to_account_info(),
+                ctx.accounts.treasury.to_account_info(),
+                ctx.accounts.system_program.to_account_info(),
+            ],
+            &[],
+        )?;
 
-            meme_account.locked_amount = meme_account
-                .locked_amount
-                .checked_sub((-amount) as u64)
-                .ok_or(CustomError::Underflow)?;
-
-            
-            let transfer_instruction = system_instruction::transfer(
-                &ctx.accounts.treasury.key(),
-                &ctx.accounts.signer.key(),
-                (-amount) as u64,
-            );
-
-            invoke_signed(
-                &transfer_instruction,
-                &[
-                    ctx.accounts.treasury.to_account_info(),
-                    ctx.accounts.signer.to_account_info(),
-                    ctx.accounts.system_program.to_account_info(),
-                ],
-                &[],
-            )?;
-        }
         Ok(())
     }
 
@@ -320,6 +258,7 @@ pub mod meme {
 
         // Ensure the meme account isn't already bonded
         require!(meme_account.bonded_time <= 0, CustomError::AlreadyBonded);
+
 
         meme_account.bonded_time = Clock::get()?.unix_timestamp as i64;
         meme_account.pool_id = Some(pool_id);
@@ -345,7 +284,7 @@ pub mod meme {
     }
 
 
-    pub fn unlock_all_tokens<'info>(
+    pub fn unlock_meme_phase<'info>(
         ctx: Context<UpdateMemeAccount>,
         _user: Pubkey,
     ) -> Result<()> {
@@ -353,32 +292,35 @@ pub mod meme {
             ctx.accounts.treasury.key() == TREASURY_PUBLIC_KEY,
             CustomError::Unauthorized
         );
-
+    
         let meme_account = &mut ctx.accounts.meme_account;
-
-        // Ensure the meme account is bonded
+        let user_account = &mut ctx.accounts.user_account;
+    
         require!(meme_account.bonded_time > 0, CustomError::NotBonded);
-        require!(meme_account.locked_amount != 0, CustomError::InvalidAmount);
+        require!(meme_account.locked_amount > 0, CustomError::InvalidAmount);
+        require!(user_account.locked_amount > 0, CustomError::InvalidAmount);
 
-        meme_account.locked_amount -= meme_account.locked_amount / UNLOCK_AMOUNT;
-
-        for account in ctx.remaining_accounts.iter() {
-            let mut data = account.try_borrow_mut_data()?;
-            let mut user_account = UserAccount::try_deserialize(&mut data.as_ref()).expect("Error Deserializing Data");
-            
-            if user_account.mint == ctx.accounts.mint.key() {
-                continue;
-            }
-            if user_account.locked_amount == 0 {
-                continue;  // Skip the current iteration of the loop
-            }
-
-            user_account.claimmable += user_account.locked_amount / UNLOCK_AMOUNT;
-            user_account.try_serialize(&mut data.as_mut())?;
-        }
-
+        let deduction = user_account.locked_amount / UNLOCK_AMOUNT;
+        if deduction == 0 {
+            user_account.locked_amount = 0;
+        } else {
+            user_account.locked_amount -= deduction;
+            transfer_checked(
+                CpiContext::new(
+                    ctx.accounts.token_program.to_account_info(),
+                    TransferChecked {
+                        from: ctx.accounts.treasury_token_account.to_account_info(),
+                        to: ctx.accounts.user_token_account.to_account_info(),
+                        authority: ctx.accounts.treasury.to_account_info(),
+                        mint: ctx.accounts.mint.to_account_info(),
+                    }
+                ),
+                deduction,
+                MINT_DECIMALS,
+            )?;
+        }  
+    
         Ok(())
-
     }
 
 }
@@ -409,7 +351,7 @@ pub struct InitToken<'info>{
         bump,
         payer = signer,
         mint::decimals = params.decimals,
-        mint::authority = treasury,
+        mint::authority = mint,
     )]
     pub mint: Account<'info, Mint>,
 
@@ -434,7 +376,7 @@ pub struct MintTokens<'info>{
         mut,
         seeds = [b"mint", seed.as_bytes()],
         bump,
-        mint::authority = treasury,
+        mint::authority = mint,
     )]
     pub mint: Account<'info, Mint>,
 
@@ -492,6 +434,12 @@ pub enum CustomError {
     AlreadyBonded,
     #[msg("Unauthorized wallet")]
     Unauthorized,
+    #[msg("Serialization failed")]
+    SerializationError,
+    #[msg("Deserialization failed")]
+    DeserializationError,
+    #[msg("Token account not found")]
+    TokenAccountNotFound,
     
 }
 
@@ -502,6 +450,8 @@ pub struct MemeAccount { //8
     pub dev: Pubkey, //32
     pub mint: Pubkey, //32
 
+
+    
     pub locked_amount: u64, //8             billion * billion h
     // when not boned to raydium, this number is SOL, when bonded to raydium, this number is tokens, when
 
@@ -520,12 +470,12 @@ pub struct UserAccount { //8
 }
 
 #[derive(Accounts)]
-pub struct LockUnlockAfterBonding<'info> {
+pub struct LockAfterBonding<'info> {
     #[account(
         init_if_needed,
         payer = signer,
         space = 8 + UserAccount::INIT_SPACE,
-        seeds = [b"user_account", mint.key().as_ref(), signer.key().as_ref()], // PDA seed
+        seeds = [b"user_account", mint.key().as_ref(), signer.key().as_ref()],
         bump,
     )]
     pub user_account:Box<Account<'info, UserAccount>>,
@@ -543,7 +493,7 @@ pub struct LockUnlockAfterBonding<'info> {
     )]
     pub mint: Account<'info, Mint>,
 
-    #[account(mut, signer)]
+    #[account(mut)]
     pub treasury: SystemAccount<'info>,
 
 
@@ -567,12 +517,12 @@ pub struct LockUnlockAfterBonding<'info> {
 }
 
 #[derive(Accounts)]
-pub struct BuySellBeforeBonding<'info> {
+pub struct BuyBeforeBonding<'info> {
     #[account(
         init_if_needed,
         payer = signer,
         space = 8 + UserAccount::INIT_SPACE,
-        seeds = [b"user_account", mint.key().as_ref(), signer.key().as_ref()], // PDA seed
+        seeds = [b"user_account", mint.key().as_ref(), signer.key().as_ref()],
         bump,
     )]
     pub user_account: Account<'info, UserAccount>,
@@ -582,6 +532,7 @@ pub struct BuySellBeforeBonding<'info> {
         bump,
     )]
     pub meme_account: Account<'info, MemeAccount>,
+
     #[account(mut)]
     pub signer: Signer<'info>,
 
@@ -590,7 +541,7 @@ pub struct BuySellBeforeBonding<'info> {
     )]
     pub mint: Account<'info, Mint>,
 
-    #[account(mut, signer)]
+    #[account(mut)]
     pub treasury: SystemAccount<'info>,
 
 
@@ -598,6 +549,9 @@ pub struct BuySellBeforeBonding<'info> {
 }
 
 #[derive(Accounts)]
+#[instruction(
+    user: Pubkey,
+)]
 pub struct UpdateMemeAccount<'info> {
     #[account(
         mut,
@@ -608,11 +562,34 @@ pub struct UpdateMemeAccount<'info> {
 
     #[account(
         mut,
+        seeds = [b"user_account", mint.key().as_ref(), user.as_ref()],
+        bump,
+    )]
+    pub user_account: Account<'info, UserAccount>,
+
+    #[account(
+        mut,
     )]
     pub mint: Account<'info, Mint>,
 
     #[account(mut, signer)]
     pub treasury: SystemAccount<'info>,
 
+    #[account(
+        mut,
+        associated_token::mint = mint,
+        associated_token::authority = treasury,
+    )]
+    pub treasury_token_account: Account<'info, TokenAccount>,
+
+    #[account(
+        mut,
+        associated_token::mint = mint,
+        associated_token::authority = user,
+    )]
+    pub user_token_account: Account<'info, TokenAccount>,
+
     pub system_program: Program<'info, System>,
+    pub token_program: Program<'info, Token>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
 }

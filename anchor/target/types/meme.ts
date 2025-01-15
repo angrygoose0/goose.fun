@@ -56,6 +56,39 @@ export type Meme = {
           }
         },
         {
+          "name": "userAccount",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  117,
+                  115,
+                  101,
+                  114,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              },
+              {
+                "kind": "arg",
+                "path": "user"
+              }
+            ]
+          }
+        },
+        {
           "name": "mint",
           "writable": true
         },
@@ -65,8 +98,196 @@ export type Meme = {
           "signer": true
         },
         {
+          "name": "treasuryTokenAccount",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "treasury"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "userTokenAccount",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "arg",
+                "path": "user"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
           "name": "systemProgram",
           "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "tokenProgram",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "associatedTokenProgram",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
         }
       ],
       "args": [
@@ -77,16 +298,16 @@ export type Meme = {
       ]
     },
     {
-      "name": "buySell",
+      "name": "buy",
       "discriminator": [
-        110,
-        27,
-        159,
-        135,
-        106,
-        28,
-        79,
-        194
+        102,
+        6,
+        61,
+        18,
+        1,
+        218,
+        235,
+        234
       ],
       "accounts": [
         {
@@ -162,8 +383,7 @@ export type Meme = {
         },
         {
           "name": "treasury",
-          "writable": true,
-          "signer": true
+          "writable": true
         },
         {
           "name": "systemProgram",
@@ -173,7 +393,7 @@ export type Meme = {
       "args": [
         {
           "name": "amount",
-          "type": "i64"
+          "type": "u64"
         }
       ]
     },
@@ -258,16 +478,16 @@ export type Meme = {
       ]
     },
     {
-      "name": "lockClaim",
+      "name": "lock",
       "discriminator": [
-        246,
-        17,
-        238,
-        41,
-        27,
-        228,
-        212,
-        6
+        21,
+        19,
+        208,
+        43,
+        237,
+        62,
+        255,
+        87
       ],
       "accounts": [
         {
@@ -343,8 +563,7 @@ export type Meme = {
         },
         {
           "name": "treasury",
-          "writable": true,
-          "signer": true
+          "writable": true
         },
         {
           "name": "treasuryTokenAccount",
@@ -542,7 +761,7 @@ export type Meme = {
       "args": [
         {
           "name": "amount",
-          "type": "i64"
+          "type": "u64"
         }
       ]
     },
@@ -734,16 +953,16 @@ export type Meme = {
       ]
     },
     {
-      "name": "unlockAllTokens",
+      "name": "unlockMemePhase",
       "discriminator": [
-        165,
-        121,
-        73,
-        249,
-        83,
-        168,
-        233,
-        148
+        111,
+        172,
+        133,
+        31,
+        75,
+        227,
+        113,
+        84
       ],
       "accounts": [
         {
@@ -776,6 +995,39 @@ export type Meme = {
           }
         },
         {
+          "name": "userAccount",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  117,
+                  115,
+                  101,
+                  114,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              },
+              {
+                "kind": "arg",
+                "path": "user"
+              }
+            ]
+          }
+        },
+        {
           "name": "mint",
           "writable": true
         },
@@ -785,8 +1037,196 @@ export type Meme = {
           "signer": true
         },
         {
+          "name": "treasuryTokenAccount",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "treasury"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "userTokenAccount",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "arg",
+                "path": "user"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
           "name": "systemProgram",
           "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "tokenProgram",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "associatedTokenProgram",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
         }
       ],
       "args": [
@@ -875,6 +1315,21 @@ export type Meme = {
       "code": 6009,
       "name": "unauthorized",
       "msg": "Unauthorized wallet"
+    },
+    {
+      "code": 6010,
+      "name": "serializationError",
+      "msg": "Serialization failed"
+    },
+    {
+      "code": 6011,
+      "name": "deserializationError",
+      "msg": "Deserialization failed"
+    },
+    {
+      "code": 6012,
+      "name": "tokenAccountNotFound",
+      "msg": "Token account not found"
     }
   ],
   "types": [

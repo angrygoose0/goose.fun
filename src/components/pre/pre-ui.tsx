@@ -6,7 +6,7 @@ import BN from "bn.js";
 import { useCallback, useEffect, useState } from "react";
 import { useGetBalance, useGetTokenAccounts } from "../account/account-data-access";
 import toast from "react-hot-toast";
-import { useCreateUpdateDB, usePreBuySellTokenMutation, usePreTokenQuery, usePreUserQuery, mint, SOL_GOAL, usePreLockClaimTokenMutation } from "./pre-data-access";
+import { useCreateUpdateDB, usePreBuyTokenMutation, usePreTokenQuery, usePreUserQuery, mint, SOL_GOAL, usePreLockTokenMutation } from "./pre-data-access";
 import { useSolPriceQuery } from "../solana/solana-data-access";
 import { WalletButton } from "../solana/solana-provider";
 import { PublicKey } from "@solana/web3.js";
@@ -192,13 +192,20 @@ export function PreCard() {
 
     const handleActionChange = (action: ActionType) => {
         setSelectedAction(action);
-        console.log(action);
         setAmount(ZERO);
+
+        if (action === ActionType.Buy || action === ActionType.Sell) {
+            setShowingSol(true);
+        }
       };
     
       const [amount, setAmount] = useState(ZERO);
       const [showingSol, setShowingSol] = useState(true); // true for showing SOL, false for showing token
       const toggleSolOrToken = () => {
+        if (selectedAction === ActionType.Buy || selectedAction === ActionType.Sell) {
+            return; // Do nothing if selectedAction is Buy
+        }
+
         setShowingSol((prevMode) => {
           const newMode = !prevMode;
           const convertedAmount = newMode
@@ -226,9 +233,9 @@ export function PreCard() {
           }
         } else if (selectedAction === ActionType.Sell) {
           if (useShowingSol) {
-            setAmount(numericValue.cmp(tokensToSol(userAccount.lockedAmount)) === -1 ? numericValue : tokensToSol(userAccount.lockedAmount));
-          } else {
             setAmount(numericValue.cmp(userAccount.lockedAmount) === -1 ? numericValue : userAccount.lockedAmount);
+          } else {
+            setAmount(numericValue.cmp(solToTokens(userAccount.lockedAmount)) === -1 ? numericValue : solToTokens(userAccount.lockedAmount));
           }
         } else if (selectedAction === ActionType.RaydiumSell) {
           if (useShowingSol) {
@@ -277,23 +284,18 @@ export function PreCard() {
           // Validate amount based on selected action
           if (selectedAction === ActionType.Buy) {
     
-            const solRequiredBN = showingSol ? amount : tokensToSol(amount);
-    
-            if (solRequiredBN.gte(solBalance)) {
-              console.log('required', solRequiredBN.toString());
-              console.log('balance', solBalance.toString());
+            if (amount.gte(solBalance)) {
               throw new Error("SOL balance too low1.");
             }
     
-            amountSentToSolana = solRequiredBN;
+            amountSentToSolana = amount;
           } else if (selectedAction === ActionType.Sell) {
-            const tokensRequiredBN = showingSol ? solToTokens(amount) : amount;
     
-            if (tokensRequiredBN.gte(userAccount.lockedAmount)) {
+            if (amount.gte(userAccount.lockedAmount)) {
               throw new Error("You can't claim more than you invested.");
             }
     
-            amountSentToSolana = showingSol ? amount.neg() : tokensToSol(amount).neg();
+            amountSentToSolana = amount.neg();
           }
           else {
             throw new Error("wrong action type");
@@ -306,7 +308,7 @@ export function PreCard() {
           console.error(error);
           toast.error(error.message || "An error occurred.");
         }
-      }, [amount, showingSol, selectedAction, solBalance, memeAccount.mint, preBuySellToken, userAccount.lockedAmount, solToTokens, tokensToSol]);
+      }, [amount, selectedAction, solBalance, preBuySellToken, userAccount.lockedAmount]);
     
       const handleLockClaimFormSubmit = useCallback(async () => {
         try {
@@ -341,35 +343,34 @@ export function PreCard() {
           console.error(error);
           toast.error(error.message || "An error occurred.");
         }
-      }, [amount, showingSol, selectedAction, userTokenBalance, userAccount.claimmable, memeAccount.mint, preLockClaimToken, solToTokens]);
+      }, [amount, showingSol, selectedAction, userTokenBalance, userAccount.claimmable, preLockClaimToken, solToTokens]);
       
       
       const handleRaydiumBuySellFormSubmit = useCallback(async () => {
         try {
-              let amountSentToSolana: BN; //sol lamports
+            let amountSentToSolana: BN; //sol lamports
     
             // Validate amount based on selected action
             if (selectedAction === ActionType.RaydiumBuy) {
     
-            const solRequiredBN = showingSol ? amount : tokensToSol(amount);
-    
-            if (solRequiredBN.gte(solBalance)) {
-              throw new Error("SOL balance too low.");
+                const solRequiredBN = showingSol ? amount : tokensToSol(amount);
+        
+                if (solRequiredBN.gte(solBalance)) {
+                throw new Error("SOL balance too low.");
+                }
+        
+                amountSentToSolana = solRequiredBN;
+            } else if (selectedAction === ActionType.RaydiumSell) {
+                const tokensRequiredBN = showingSol ? solToTokens(amount) : amount;
+        
+                if (tokensRequiredBN.gte(userTokenBalance)) {
+                throw new Error("You can't sell more than you have");
+                }
+        
+                amountSentToSolana = showingSol ? amount.neg() : tokensToSol(amount).neg();
+            } else {
+                throw new Error("wrong action type");
             }
-    
-            amountSentToSolana = solRequiredBN;
-          } else if (selectedAction === ActionType.RaydiumSell) {
-            const tokensRequiredBN = showingSol ? solToTokens(amount) : amount;
-    
-            if (tokensRequiredBN.gte(userTokenBalance)) {
-              throw new Error("You can't sell more than you have");
-            }
-    
-            amountSentToSolana = showingSol ? amount.neg() : tokensToSol(amount).neg();
-          }
-            else {
-            throw new Error("wrong action type");
-          }
     
             // Perform the buy/sell operation
             await raydiumSwap.mutateAsync({inputMint:SOL_MINT, inputAmount: amountSentToSolana,});
@@ -497,7 +498,17 @@ export function PreCard() {
                                     onChange={handleFormFieldChange}
                                     onFocus={()=> {}}
                                     value={amount === ZERO ? "" : fromLamportsDecimals(amount)}
-                                    placeholder={fromLamportsDecimals(solBalance).toString()}
+                                    placeholder={
+                                        (selectedAction === ActionType.Buy || selectedAction === ActionType.RaydiumBuy) 
+                                        ? fromLamportsDecimals(solBalance).toString()
+                                          : selectedAction === ActionType.Sell
+                                          ? "token balance"
+                                          : selectedAction === ActionType.Lock
+                                          ? "claimmable + token balance"
+                                          : selectedAction === ActionType.Claim
+                                          ? "claimmable"
+                                          : ""
+                                        }
                                     type="number"
                                     extraCss="w-full"
                                     disabled={false}
@@ -585,21 +596,22 @@ export function PreCard() {
                             
                                       return (
                                         <div>
+                                            <button 
+                                            onClick={() => setAmountWithLimits(showingSol ? tokensToSol(userAccount.claimmable) : userAccount.claimmable)}
+                                            className="text-dark btn btn-xs mr-2">
+                                            Relock claimmable
+                                          </button>
                                           <button 
                                             onClick={() => setAmountWithLimits(showingSol ? tokensToSol(totalLockable.div(new BN(2))) : totalLockable.div(new BN(2)))}
                                             className="text-dark btn btn-xs mr-2">
-                                            50%
+                                            Claimmable + 50%
                                           </button>
                                           <button 
                                             onClick={() => setAmountWithLimits(showingSol ? tokensToSol(totalLockable) : totalLockable)}
                                             className="text-dark btn btn-xs mr-2">
-                                            100%
+                                            Claimmable + 100%
                                           </button>
-                                          <button 
-                                            onClick={() => setAmountWithLimits(showingSol ? tokensToSol(userAccount.claimmable) : userAccount.claimmable)}
-                                            className="text-dark btn btn-xs mr-2">
-                                            Lock all claimmable
-                                          </button>
+                                          
                                           <p className="mt-2 text-xs text-gray-500 dark:text-white">PS: claimmable tokens will be locked first.</p>
                                         </div>
                                       );
@@ -621,6 +633,7 @@ export function PreCard() {
                                       </button>
                                     </div>
                                   )}
+
                             
                                   </div>
     
@@ -630,7 +643,15 @@ export function PreCard() {
                                 active={!amount.eq(ZERO)}
                                 extraCss=""
                                 value="Transact"
-                                onClick={() => { handleBuySellFormSubmit }}
+                                onClick={() => {
+                                    if (selectedAction === ActionType.Buy || selectedAction === ActionType.Sell) {
+                                      handleBuySellFormSubmit();
+                                    } else if (selectedAction === ActionType.Lock || selectedAction === ActionType.Claim) {
+                                      handleLockClaimFormSubmit();
+                                    } else if (selectedAction === ActionType.RaydiumBuy || selectedAction === ActionType.RaydiumSell) {
+                                      handleRaydiumBuySellFormSubmit();
+                                    }
+                                  }}
                             />
                         </>
                     ) : (
