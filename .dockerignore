@@ -1,8 +1,40 @@
 Dockerfile
 .dockerignore
+
+# Node.js dependencies
 node_modules
 npm-debug.log
-README.md
-.next
-.git
+yarn-debug.log
+yarn-error.log
+*.log
+
+# Environment files
 .env
+.env.*
+.npmrc
+
+# Build and cache outputs
+.next
+out
+build
+coverage
+
+# Source control
+.git
+.gitignore
+.gitattributes
+
+# Miscellaneous
+.DS_Store
+*.pem
+*.tsbuildinfo
+*.swp
+secrets.txt
+abc.txt
+
+# Docker-specific
+Dockerfile
+.dockerignore
+
+# Smart contract-related
+anchor/

@@ -20,24 +20,27 @@ use anchor_spl::{
 
 
 // 2. Declare Program ID (SolPG will automatically update this when you deploy)
-declare_id!("6uhUTWZRFWtf7WhKLmni9x1K3hiwxDaFP8WnpsZuVDw8");
+declare_id!("9nXE1U7FpiuB5V7Bft2sdURwA7QZsnKHpvp8v21RZSub");
+
 
 
 #[program]
 pub mod meme {
     use super::*;
 
-    pub const TOKEN_SUPPLY_BEFORE_BONDING: u64 = 800_000_000_000_000_000;
     pub const TREASURY_PUBLIC_KEY: Pubkey =
-        pubkey!("Bk7yLvJYqkUdhT7SrCjhdcwQo8CVuLEWtxmzfw5ZnhAH");
-
+        pubkey!("CLTFWDW9qp1sEFXnNhaQBnyzfErZcjmyt2h6RA8QLFj7");
+        
+    pub const SUPPLY_SOLD_BEFORE_BONDING: u64 = 800_000_000_000_000_000;
+    pub const SOL_GOAL_BEFORE_BONDING: u64 = 320_000_000_000; // 320 sol
+    
 
     pub const MINT_DECIMALS: u8 = 9;
-    pub const MINT_SUPPLY: u64 = 1_000_000_000_000_000_000; // 1billion times 10^9
+    pub const MINT_SUPPLY: u64 = 1_000_000_000_000_000_000; // 10^9 times 10^9
 
     pub const UNLOCK_FREQUENCY:u8 = 24; //hours
-    pub const UNLOCK_AMOUNT:u64 = 10; //%
-    
+    pub const UNLOCK_AMOUNT:u64 = 10; //10%
+
 
     pub fn init_meme_token(
         ctx: Context<InitToken>,
@@ -70,10 +73,10 @@ pub mod meme {
             ctx.accounts.token_metadata_program.to_account_info(),
             CreateMetadataAccountsV3 {
                 payer: ctx.accounts.signer.to_account_info(),
-                update_authority: ctx.accounts.treasury.to_account_info(),
+                update_authority: ctx.accounts.mint.to_account_info(),
                 mint: ctx.accounts.mint.to_account_info(),
                 metadata: ctx.accounts.metadata.to_account_info(),
-                mint_authority: ctx.accounts.treasury.to_account_info(),
+                mint_authority: ctx.accounts.mint.to_account_info(),
                 system_program: ctx.accounts.system_program.to_account_info(),
                 rent: ctx.accounts.rent.to_account_info(),
             },
@@ -107,7 +110,7 @@ pub mod meme {
             CpiContext::new_with_signer(
                 ctx.accounts.token_program.to_account_info(),
                 MintTo {
-                    authority: ctx.accounts.treasury.to_account_info(),
+                    authority: ctx.accounts.mint.to_account_info(),
                     to: ctx.accounts.treasury_token_account.to_account_info(),
                     mint: ctx.accounts.mint.to_account_info(),
                 },
@@ -133,6 +136,7 @@ pub mod meme {
         ctx: Context<LockAfterBonding>,
         amount: u64, // amount in SPL lamports
     ) -> Result<()> {
+
         require!(
             ctx.accounts.treasury.key() == TREASURY_PUBLIC_KEY,
             CustomError::Unauthorized
@@ -147,29 +151,19 @@ pub mod meme {
         user_account.user = ctx.accounts.mint.key();
     
         require!(
-            meme_account.bonded_time > 0,
+            !(meme_account.bonded_time < 0 && meme_account.creation_time >= 0),
             CustomError::NotBonded,
         );
 
-        let mut lock_amount = amount;
-
-        if lock_amount > user_account.claimmable {
-            lock_amount -= user_account.claimmable;
-            user_account.claimmable = 0;
-        }
-        else {
-            user_account.claimmable -= lock_amount;
-            return Ok(());
-        }
 
         user_account.locked_amount = user_account
             .locked_amount
-            .checked_add(lock_amount)
+            .checked_add(amount)
             .ok_or(CustomError::Overflow)?;
 
         meme_account.locked_amount = meme_account
             .locked_amount
-            .checked_add(lock_amount)
+            .checked_add(amount)
             .ok_or(CustomError::Overflow)?;
 
         // User sends SPL tokens to treasury
@@ -184,7 +178,7 @@ pub mod meme {
                     mint: ctx.accounts.mint.to_account_info(),
                 }
             ),
-            lock_amount, // has to be u64 times by decimal amount
+            amount, // has to be u64 times by decimal amount
             MINT_DECIMALS,
         )?;     
         Ok(())
@@ -209,7 +203,7 @@ pub mod meme {
         user_account.mint = ctx.accounts.mint.key();
 
         require!(
-            meme_account.bonded_time < 0,
+            (meme_account.bonded_time < 0 && meme_account.creation_time >= 0 ),
             CustomError::HasBonded,
         );
 
@@ -246,7 +240,7 @@ pub mod meme {
     }
 
     pub fn bond_to_raydium<'info>(    
-        ctx: Context<UpdateMemeAccount>,
+        ctx: Context<BondToRaydium>,
         pool_id: Pubkey,
     ) -> Result<()> {
         require!(
@@ -256,14 +250,17 @@ pub mod meme {
 
         let meme_account = &mut ctx.accounts.meme_account;
 
-        // Ensure the meme account isn't already bonded
-        require!(meme_account.bonded_time <= 0, CustomError::AlreadyBonded);
-
+        require!(
+            meme_account.bonded_time < 0 && meme_account.creation_time >= 0,
+            CustomError::HasBonded,
+        );
 
         meme_account.bonded_time = Clock::get()?.unix_timestamp as i64;
         meme_account.pool_id = Some(pool_id);
 
-        let tokens_per_sol: u64 = TOKEN_SUPPLY_BEFORE_BONDING / meme_account.locked_amount;
+        let tokens_per_sol: u64 = SUPPLY_SOLD_BEFORE_BONDING / meme_account.locked_amount;
+
+        meme_account.locked_amount *= tokens_per_sol;
 
         for account in ctx.remaining_accounts.iter() {
             let mut data = account.try_borrow_mut_data()?;
@@ -272,10 +269,6 @@ pub mod meme {
             if user_account.mint == ctx.accounts.mint.key() {
                 continue;
             }
-            if user_account.locked_amount == 0 {
-                continue;  // Skip the current iteration of the loop
-            }
-;
             user_account.locked_amount *= tokens_per_sol;
             user_account.try_serialize(&mut data.as_mut())?;
         }
@@ -285,7 +278,7 @@ pub mod meme {
 
 
     pub fn unlock_meme_phase<'info>(
-        ctx: Context<UpdateMemeAccount>,
+        ctx: Context<UnlockPhase>,
         _user: Pubkey,
     ) -> Result<()> {
         require!(
@@ -296,11 +289,15 @@ pub mod meme {
         let meme_account = &mut ctx.accounts.meme_account;
         let user_account = &mut ctx.accounts.user_account;
     
-        require!(meme_account.bonded_time > 0, CustomError::NotBonded);
-        require!(meme_account.locked_amount > 0, CustomError::InvalidAmount);
-        require!(user_account.locked_amount > 0, CustomError::InvalidAmount);
+        require!(
+            !(meme_account.bonded_time < 0 && meme_account.creation_time>= 0),
+            CustomError::NotBonded,
+        );
 
-        let deduction = user_account.locked_amount / UNLOCK_AMOUNT;
+        require!(meme_account.locked_amount != 0, CustomError::InvalidAmount);
+        require!(user_account.locked_amount != 0, CustomError::InvalidAmount);
+
+        let deduction = user_account.locked_amount / UNLOCK_AMOUNT as u64;
         if deduction == 0 {
             user_account.locked_amount = 0;
         } else {
@@ -318,6 +315,8 @@ pub mod meme {
                 deduction,
                 MINT_DECIMALS,
             )?;
+
+            meme_account.locked_amount -= deduction;
         }  
     
         Ok(())
@@ -355,7 +354,8 @@ pub struct InitToken<'info>{
     )]
     pub mint: Account<'info, Mint>,
 
-    #[account(mut, signer)]
+
+    #[account(mut)]
     pub treasury: SystemAccount<'info>,
 
     #[account(mut)]
@@ -366,6 +366,8 @@ pub struct InitToken<'info>{
     pub token_program: Program<'info, Token>,
     pub token_metadata_program: Program<'info, Metaplex>,
 }
+
+
 
 #[derive(Accounts)]
 #[instruction(
@@ -379,6 +381,7 @@ pub struct MintTokens<'info>{
         mint::authority = mint,
     )]
     pub mint: Account<'info, Mint>,
+
 
     #[account(mut)]
     pub signer: Signer<'info>, // The signer who sends SOL
@@ -396,7 +399,7 @@ pub struct MintTokens<'info>{
     )]
     pub treasury_token_account: Account<'info, TokenAccount>,
 
-    #[account(mut, signer)]
+    #[account(mut)]
     pub treasury: SystemAccount<'info>,
 
 
@@ -430,9 +433,7 @@ pub enum CustomError {
     NotBonded,
     #[msg("Invalid Bump")]
     InvalidBump,
-    #[msg("Already Bonded")]
-    AlreadyBonded,
-    #[msg("Unauthorized wallet")]
+    #[msg("Unathorized")]
     Unauthorized,
     #[msg("Serialization failed")]
     SerializationError,
@@ -450,8 +451,6 @@ pub struct MemeAccount { //8
     pub dev: Pubkey, //32
     pub mint: Pubkey, //32
 
-
-    
     pub locked_amount: u64, //8             billion * billion h
     // when not boned to raydium, this number is SOL, when bonded to raydium, this number is tokens, when
 
@@ -466,7 +465,6 @@ pub struct UserAccount { //8
     pub user: Pubkey, //32
     pub mint: Pubkey, //32
     pub locked_amount: u64, //8
-    pub claimmable: u64, //8
 }
 
 #[derive(Accounts)]
@@ -479,6 +477,8 @@ pub struct LockAfterBonding<'info> {
         bump,
     )]
     pub user_account:Box<Account<'info, UserAccount>>,
+
+
     #[account(
         mut,
         seeds = [b"meme_account", mint.key().as_ref()],
@@ -541,6 +541,7 @@ pub struct BuyBeforeBonding<'info> {
     )]
     pub mint: Account<'info, Mint>,
 
+
     #[account(mut)]
     pub treasury: SystemAccount<'info>,
 
@@ -552,7 +553,7 @@ pub struct BuyBeforeBonding<'info> {
 #[instruction(
     user: Pubkey,
 )]
-pub struct UpdateMemeAccount<'info> {
+pub struct UnlockPhase<'info> {
     #[account(
         mut,
         seeds = [b"meme_account", mint.key().as_ref()],
@@ -592,4 +593,23 @@ pub struct UpdateMemeAccount<'info> {
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,
+}
+
+#[derive(Accounts)]
+pub struct BondToRaydium<'info> {
+    #[account(
+        mut,
+        seeds = [b"meme_account", mint.key().as_ref()],
+        bump,
+    )]
+    pub meme_account: Account<'info, MemeAccount>,
+
+    #[account(
+        mut,
+    )]
+    pub mint: Account<'info, Mint>,
+
+    #[account(mut, signer)]
+    pub treasury: SystemAccount<'info>,
+
 }

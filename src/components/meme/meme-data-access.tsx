@@ -20,7 +20,7 @@ import { sha256 } from "js-sha256";
 import axios from 'axios';
 import bs58 from 'bs58';
 import { create } from 'domain';
-import {RAYDIUM_DEVNET_CPMM_PROGRAM_ID} from './meme-helper-functions';
+import {RAYDIUM_DEVNET_CPMM_PROGRAM_ID, TOKEN_METADATA_PROGRAM_ID, TOKENS_PER_PAGE, TREASURY_PUBLIC_KEY, ZERO} from './meme-helper-functions';
 import { sleep } from '@raydium-io/raydium-sdk-v2';
 
 
@@ -31,18 +31,10 @@ export interface InitTokenParams {
   decimals: number;
 }
 
-const TREASURY_PRIVATE_KEY = process.env.NEXT_PUBLIC_TREASURY_PRIVATE_KEY || "";
-const treasuryKeypair = Keypair.fromSecretKey(bs58.decode(TREASURY_PRIVATE_KEY));
-
-const METADATA_SEED = "metadata";
-const TOKEN_METADATA_PROGRAM_ID = new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
-
-
-
 export function getMetadataAddress(mint: PublicKey): PublicKey {
   return PublicKey.findProgramAddressSync(
     [
-      Buffer.from(METADATA_SEED),
+      Buffer.from("metadata"),
       TOKEN_METADATA_PROGRAM_ID.toBuffer(),
       mint.toBuffer(),
     ],
@@ -79,15 +71,8 @@ export function useCreateMemeToken() {
           decimals: metadata.decimals,
         };
 
-        //const mintKeypair = generateKeypairWithSuffix('goos')
-        //const mintKeypair = Keypair.generate();
-        //const mint = mintKeypair.publicKey;
-
-        const { PublicKey } = require('@solana/web3.js');
-
         // Generate random seed (you can use any random data here)
         const randomSeed = Math.random().toString();
-
 
         const mintSeeds = [
           Buffer.from("mint"),
@@ -105,7 +90,7 @@ export function useCreateMemeToken() {
           .initMemeToken(tokenMetadata, randomSeed)
           .accounts({
             metadata: metadataAddress,
-            treasury: treasuryKeypair.publicKey,
+            treasury: TREASURY_PUBLIC_KEY,
             signer: publicKey,
             mint: mint,
             rent: SYSVAR_RENT_PUBKEY,
@@ -113,13 +98,12 @@ export function useCreateMemeToken() {
             tokenProgram: TOKEN_PROGRAM_ID,
             tokenMetadataProgram: TOKEN_METADATA_PROGRAM_ID,
           } as any)
-          .signers([treasuryKeypair])
           .instruction();
 
         const mintTokenInstruction = await program.methods
           .mintMemeToken(randomSeed)
           .accounts({
-            treasury: treasuryKeypair.publicKey,
+            treasury: TREASURY_PUBLIC_KEY,
             signer: publicKey,
             mint: mint,
             rent: SYSVAR_RENT_PUBKEY,
@@ -127,10 +111,8 @@ export function useCreateMemeToken() {
             tokenProgram: TOKEN_PROGRAM_ID,
             associatedTokenProgram: ASSOCIATED_PROGRAM_ID,
           } as any)
-          .signers([treasuryKeypair])
           .instruction();
         
-
         
         const blockhashContext = await connection.getLatestBlockhashAndContext();
 
@@ -141,8 +123,7 @@ export function useCreateMemeToken() {
         })
           .add(initTokenInstruction)
           .add(mintTokenInstruction);
-        transaction.sign(treasuryKeypair)
-        
+
         const simulationResult = await connection.simulateTransaction(transaction);
         console.log('Simulation Result:', simulationResult);
 
@@ -150,6 +131,7 @@ export function useCreateMemeToken() {
             console.error('Simulation Error:', simulationResult.value.err);
             throw new Error('Transaction simulation failed');
         }
+      
                 
         const signature = await sendTransaction(transaction, connection, {
         });
@@ -262,8 +244,8 @@ export function useProcessedAccountsQuery({
 
       // Paginate results
       const paginatedAccounts = sortedAccounts.slice(
-        (currentPage - 1) * pageSize,
-        currentPage * pageSize
+        (currentPage - 1) * TOKENS_PER_PAGE,
+        currentPage * TOKENS_PER_PAGE,
       );
 
       const accountPublicKeys = paginatedAccounts.map((account) => account.pubkey);
@@ -335,22 +317,28 @@ export function useMetadataQuery({
   };
 }
 
-export function useBuySellTokenMutation() {
+export function useBuyTokenMutation() {
   const { program } = useMemeProgram();
   const transactionToast = useTransactionToast();
   const { connection } = useConnection();
   const { sendTransaction, publicKey } = useWallet();
-  const buySellToken = useMutation<
+  const buyToken = useMutation<
     string,
     Error,
     { amount: BN; mint: PublicKey }
   >({
-    mutationKey: ['buySellToken'],
+    mutationKey: ['buyToken'],
     mutationFn: async ({ mint, amount }) => {
       try {
         if (publicKey === null) {
           throw new Error('Wallet not connected');
         }
+
+        if (amount.lte(ZERO)) {
+          throw new Error('Invalid Amount');
+        }
+        
+
         const modifyComputeUnits = ComputeBudgetProgram.setComputeUnitLimit({
           units: 16000,
         });
@@ -363,14 +351,13 @@ export function useBuySellTokenMutation() {
           microLamports: minFee + 1,
         });
 
-        const buySell = await program.methods
-          .buySell(amount)
+        const buy = await program.methods
+          .buy(amount)
           .accounts({
             signer: publicKey,
             mint,
-            treasury: treasuryKeypair.publicKey,
+            treasury: TREASURY_PUBLIC_KEY,
           })
-          .signers([treasuryKeypair])
           .instruction();
 
         const blockhashContext = await connection.getLatestBlockhashAndContext();
@@ -382,9 +369,7 @@ export function useBuySellTokenMutation() {
         })
           //.add(modifyComputeUnits)
           //.add(addPriorityFee)
-          .add(buySell);
-        transaction.sign(treasuryKeypair)
-
+          .add(buy);
         const signature = await sendTransaction(transaction, connection, {
         });
 
@@ -407,26 +392,30 @@ export function useBuySellTokenMutation() {
   });
 
   return {
-    buySellToken,
+    buyToken,
   };
 }
 
-export function useLockClaimTokenMutation() {
+export function useLockTokenMutation() {
   const { program } = useMemeProgram();
   const transactionToast = useTransactionToast();
   const { connection } = useConnection();
   const { sendTransaction, publicKey } = useWallet();
-  const lockClaimToken = useMutation<
+  const lockToken = useMutation<
     string,
     Error,
     { amount: BN; mint: PublicKey }
   >({
-    mutationKey: ['lockClaimToken'],
+    mutationKey: ['lockToken'],
     mutationFn: async ({ mint, amount }) => {
       try {
         if (publicKey === null) {
           throw new Error('Wallet not connected');
         }
+        if (amount.lte(ZERO)) {
+          throw new Error ('Invalid Amount')
+        }
+
         const modifyComputeUnits = ComputeBudgetProgram.setComputeUnitLimit({
           units: 16000,
         });
@@ -439,14 +428,13 @@ export function useLockClaimTokenMutation() {
           microLamports: minFee + 1,
         });
 
-        const lockClaim = await program.methods
-          .lockClaim(amount)
+        const lock = await program.methods
+          .lock(amount)
           .accounts({
             signer: publicKey,
             mint,
-            treasury: treasuryKeypair.publicKey,
+            treasury: TREASURY_PUBLIC_KEY,
           })
-          .signers([treasuryKeypair])
           .instruction();
 
         const blockhashContext = await connection.getLatestBlockhashAndContext();
@@ -458,8 +446,7 @@ export function useLockClaimTokenMutation() {
         })
           //.add(modifyComputeUnits)
           //.add(addPriorityFee)
-          .add(lockClaim);
-        transaction.sign(treasuryKeypair)
+          .add(lock);
 
         const signature = await sendTransaction(transaction, connection, {
         });
@@ -477,59 +464,17 @@ export function useLockClaimTokenMutation() {
       console.log(signature);
     },
     onError: (error) => {
-      toast.error(`Error lock/claiming token: ${error.message}`);
+      toast.error(`Error locking tokens: ${error.message}`);
       console.error('Toast error:', error);
     },
   });
 
   return {
-    lockClaimToken,
+    lockToken,
   };
 }
 
-export function useBondToRaydium() {
-  const { program } = useMemeProgram();
-  const transactionToast = useTransactionToast();
 
-  const bondToRaydium = useMutation<
-    string,
-    Error,
-    { mint: PublicKey, poolId: PublicKey }
-  >({
-    mutationKey: ['bondToRaydium'],
-    mutationFn: async ({ mint, poolId }) => {
-      try {
-
-        const signature = await program.methods
-          .bondToRaydium(poolId)
-          .accounts({
-            mint,
-            treasury: treasuryKeypair.publicKey,
-          })
-          .signers([treasuryKeypair])
-          .rpc();
-        return signature;
-
-        //return signature;
-      } catch (error) {
-        console.error('Error in bondToRaydium', error);
-        throw error;
-      }
-    },
-    onSuccess: (signature) => {
-      transactionToast(signature);
-      console.log('Bonded to Raydium', signature);
-    },
-    onError: (error) => {
-      toast.error(`Error bonding to Raydium or creating pool: ${error.message}`);
-      console.error('Error bonding to Raydium or creating pool:', error);
-    },
-  });
-
-  return {
-    bondToRaydium,
-  };
-}
 
 /*
 export function useUserAccountsByMintQuery({
@@ -700,7 +645,6 @@ export function useUserAccountQuery({
     programId
   )[0];
 
-  
 
   // Fetch the user account
   const userAccountQuery = useQuery({

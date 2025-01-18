@@ -21,14 +21,11 @@ import { Cluster, clusterApiUrl, Keypair, PublicKey, SendTransactionError } from
 import BN from 'bn.js';
 import toast from 'react-hot-toast';
 import { useTransactionToast } from '../ui/ui-layout';
-import { INITIAL_SOL_AMOUNT, TOKEN_SUPPLY_BEFORE_BONDING, SOL_MINT } from '../meme/meme-helper-functions'
+import {SOL_GOAL_BEFORE_BONNDING, SOL_MINT, SUPPLY_SOLD_BEFORE_BONDING } from '../meme/meme-helper-functions'
 import { getMemeProgramId } from 'anchor/src/meme-exports';
 import { useMemo } from 'react';
 
 const cluster = 'devnet';
-
-const TREASURY_PRIVATE_KEY = process.env.NEXT_PUBLIC_TREASURY_PRIVATE_KEY || "";
-const treasuryKeypair = Keypair.fromSecretKey(bs58.decode(TREASURY_PRIVATE_KEY));
 
 let raydium: Raydium | undefined;
 export function useInitRaydiumSdk({ loadToken }: { loadToken: boolean }) {
@@ -50,7 +47,6 @@ export function useInitRaydiumSdk({ loadToken }: { loadToken: boolean }) {
             try {
                 raydium = await Raydium.load({
                     owner:publicKey,
-                    //owner: treasuryKeypair,
                     connection,
                     cluster,
                     disableFeatureCheck: true,
@@ -69,96 +65,6 @@ export function useInitRaydiumSdk({ loadToken }: { loadToken: boolean }) {
 
     return {
         initRaydiumSdk,
-    };
-}
-
-
-
-export function useCreatePool() {
-    const transactionToast = useTransactionToast();
-    const { connection } = useConnection();
-    const { cluster } = useCluster();
-    const programId = useMemo(() => getMemeProgramId(cluster.network as Cluster), [cluster]);
-    const createPool = useMutation<
-        { txId: string; poolId: string | undefined }, // Updated return type
-        Error,
-        { mint: PublicKey }
-    >({
-        mutationKey: ['createPool'],
-        mutationFn: async ({ mint }) => {
-            try {
-                if (!raydium) {
-                    throw new Error('Raydium SDK not initialized');
-                }
-                console.log('1');
-                const feeConfigs = await raydium.api.getCpmmConfigs();
-
-                console.log('2');
-
-                // If devnet
-                feeConfigs.forEach((config) => {
-                    config.id = getCpmmPdaAmmConfigId(
-                        DEVNET_PROGRAM_ID.CREATE_CPMM_POOL_PROGRAM,
-                        config.index
-                    ).publicKey.toBase58();
-                });
-
-                // Create the pool
-                const { execute, extInfo } = await raydium.cpmm.createPool({
-                    programId: DEVNET_PROGRAM_ID.CREATE_CPMM_POOL_PROGRAM,
-                    poolFeeAccount: DEVNET_PROGRAM_ID.CREATE_CPMM_POOL_FEE_ACC,
-                    mintA: await raydium.token.getTokenInfo(mint.toString()),
-                    mintB: await raydium.token.getTokenInfo(SOL_MINT),
-                    mintAAmount: TOKEN_SUPPLY_BEFORE_BONDING,
-                    mintBAmount: INITIAL_SOL_AMOUNT,
-                    startTime: new BN(0),
-                    feeConfig: feeConfigs[0],
-                    associatedOnly: false,
-                    ownerInfo: {
-                        useSOLBalance: true,
-                    },
-                    txVersion: TxVersion.V0,
-                });
-
-                console.log('4');
-                const createdPoolId = extInfo.address?.poolId?.toString();
-                console.log('Pool created with ID:', createdPoolId);
-
-                // Execute the transaction
-                const { txId } = await execute({ sendAndConfirm: true });
-
-                console.log('Pool created:', {
-                    txId,
-                    poolKeys: Object.keys(extInfo.address).reduce(
-                        (acc, cur) => ({
-                            ...acc,
-                            [cur]: extInfo.address[cur as keyof typeof extInfo.address].toString(),
-                        }),
-                        {}
-                    ),
-                });
-
-                // Return both txId and poolId
-                return { txId, poolId: createdPoolId };
-            } catch (error) {
-                console.error('Error creating pool:', error);
-                throw error; // Ensure the error propagates to `onError`
-            }
-        },
-        onSuccess: ({ txId, poolId }) => {
-            transactionToast(txId);
-            console.log('Transaction Signature:', txId);
-            console.log('Pool ID:', poolId);
-        },
-        onError: (error) => {
-            toast.error(`Error creating pool: ${error.message}`);
-            console.error('Toast error:', error);
-        },
-    });
-
-
-    return {
-        createPool,
     };
 }
 
@@ -254,6 +160,7 @@ export function useRaydiumPoolQuery({
             console.error('Swap error:', error);
         },
     });
+
 
     return {
         raydiumPoolQuery,

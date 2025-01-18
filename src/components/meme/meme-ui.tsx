@@ -2,10 +2,10 @@
 'use client'
 
 import { ChangeEvent, useCallback, useState, useEffect } from 'react'
-import {useMetadataQuery, useBuySellTokenMutation, useUserAccountQuery, useCreateMemeToken, useProcessedAccountsQuery, useBondToRaydium, useMemeAccountQuery, useLockClaimTokenMutation } from './meme-data-access'
+import {useMetadataQuery, useBuyTokenMutation, useUserAccountQuery, useCreateMemeToken, useProcessedAccountsQuery, useMemeAccountQuery, useLockTokenMutation } from './meme-data-access'
 import { useGetBalance, useGetTokenAccounts } from '../account/account-data-access';
 import {useSolPriceQuery} from '../solana/solana-data-access';
-import {fromLamports, calculatePercentage, simplifyBN, fromLamportsDecimals, ToLamportsDecimals, ZERO, EMPTY_PUBLIC_KEY, BILLION, SOL_MINT, INITIAL_PRICE } from './meme-helper-functions';
+import {fromLamports, calculatePercentage, simplifyBN, fromLamportsDecimals, ToLamportsDecimals, ZERO, EMPTY_PUBLIC_KEY, BILLION, SOL_MINT, TOKENS_PER_PAGE, ActionType, SOL_GOAL_BEFORE_BONNDING, MINT_SUPPLY } from './meme-helper-functions';
 import axios from "axios";
 import toast from "react-hot-toast";
 import { useWallet } from '@solana/wallet-adapter-react';
@@ -14,11 +14,13 @@ import { FaTelegramPlane, FaGlobe, } from 'react-icons/fa';
 import { FaXTwitter } from 'react-icons/fa6';
 import { BN } from '@coral-xyz/anchor';
 import { WalletButton } from '../solana/solana-provider'
-import { useCreatePool, useRaydiumPoolQuery, useInitRaydiumSdk } from '../raydium/raydium-data-access'
+import {useRaydiumPoolQuery, useInitRaydiumSdk } from '../raydium/raydium-data-access'
 import { ApiV3PoolInfoStandardItemCpmm, CpmmKeys, CpmmRpcData } from '@raydium-io/raydium-sdk-v2';
 
 import {PrimaryBar, PrimaryButton, PrimaryInput, PrimarySelect} from '../ui/extra-ui/button'
 import Image from 'next/image';
+import { BondButton } from '../admin/admin-ui';
+
 
 
 export function MemeCreate() {
@@ -29,7 +31,7 @@ export function MemeCreate() {
   const [token, setToken] = useState<{
     name: string;
     symbol: string;
-    image: string | null; // Allow null
+    image: string | null;
     description: string;
     twitter_link: string;
     telegram_link: string;
@@ -37,7 +39,7 @@ export function MemeCreate() {
   }>({
     name: "",
     symbol: "",
-    image: null, // Default to null
+    image: null,
     description: "",
     twitter_link: "",
     telegram_link: "",
@@ -47,17 +49,15 @@ export function MemeCreate() {
   const [loading, setLoading] = useState(false);
 
   const { createMemeToken } = useCreateMemeToken();
-
   const { publicKey } = useWallet();
 
   const isFormValid = Object.values(token).every(
     (field) => field !== null && field.trim() !== ""
   );
 
-  //IMAGE UPLOAD IPFS
   const handleImageChange: React.ChangeEventHandler<HTMLInputElement> = async (event) => {
-    const fileList = event.target.files; // FileList | null
-    if (fileList && fileList.length > 0) { // Ensure it’s not null and has files
+    const fileList = event.target.files;
+    if (fileList && fileList.length > 0) {
       const file = fileList[0];
       try {
         const imgUrl = await uploadImagePinata(file);
@@ -92,12 +92,10 @@ export function MemeCreate() {
     } catch (error) {
       console.error("Image upload failed:", error);
       toast.error("Failed to upload image");
-      return null; // Explicitly return null
+      return null;
     }
   };
 
-
-  //METADATA
   const uploadMetadata = async (token: any) => {
     const data = JSON.stringify({
       name: token.name,
@@ -118,15 +116,15 @@ export function MemeCreate() {
           pinata_api_key: "c8919bd933af805cbad6",
           pinata_secret_api_key: "3737c94c30b81183f3046e68e7b55fba955a579be50562b1e5e9baae680aa44b",
           "Content-Type": "application/json",
-        }
+        },
       });
 
       const url = `https://gateway.pinata.cloud/ipfs/${response.data.IpfsHash}`;
       return url;
-
     } catch (error) {
       toast.error("Failed to upload metadata");
       console.error(error);
+      return null;
     }
   };
 
@@ -134,53 +132,44 @@ export function MemeCreate() {
     setToken({ ...token, [fieldName]: e.target.value });
   };
 
-  const handleFormSubmit = useCallback(
-    async () => {
-      setLoading(true); // Set loading state to true at the start
+  const handleFormSubmit = useCallback(async () => {
+    setLoading(true);
+    try {
+      if (!isFormValid) throw new Error("Form not valid");
+      if (!publicKey) throw new Error("Wallet is not connected.");
 
-      try {
-        if (!isFormValid) {
-          throw new Error("Form not valid");
-        }
-        if (!publicKey) {
-          throw new Error("Wallet is not connected.");
-        }
+      const metadataUrl = await uploadMetadata(token);
+      if (!metadataUrl) throw new Error("Failed to upload metadata.");
 
-        // Upload metadata and check if the URL is valid
-        const metadataUrl = await uploadMetadata(token);
-        if (!metadataUrl) {
-          throw new Error("Failed to upload metadata.");
-        }
+      const metadata = {
+        name: token.name,
+        symbol: token.symbol,
+        uri: metadataUrl,
+        decimals: 9,
+      };
 
-        // Prepare metadata object
-        const metadata = {
-          name: token.name,
-          symbol: token.symbol,
-          uri: metadataUrl,
-          decimals: 9,
-        };
+      await createMemeToken.mutateAsync({ metadata });
 
-        // Await the mutation to ensure the process completes before showing success toast
-        await createMemeToken.mutateAsync({ metadata });
-
-        // Show success message
-        toast.success("Meme token created successfully!");
-        closeModal();
-      } catch (error: any) {
-        // Log error and show error message
-        console.error("Error creating meme token:", error);
-        toast.error("Failed to create meme token.");
-      } finally {
-        // Reset loading state
-        setLoading(false);
-      }
-    },
-    [token, createMemeToken, isFormValid, publicKey, ] // Ensure dependencies are included in the dependency array
-  );
+      toast.success("Meme token created successfully!");
+      closeModal();
+    } catch (error: any) {
+      console.error("Error creating meme token:", error);
+      toast.error("Failed to create meme token.");
+    } finally {
+      setLoading(false);
+    }
+  }, [token, createMemeToken, isFormValid, publicKey]);
 
   return (
     <div>
-      <PrimaryButton name='createModal' disabled={false} active={false} onClick={openModal} extraCss="" value="Create"/>
+      <PrimaryButton
+        name="createModal"
+        disabled={false}
+        active={false}
+        onClick={openModal}
+        extraCss=""
+        value="Create"
+      />
 
       {isModalOpen && (
         <div
@@ -188,24 +177,26 @@ export function MemeCreate() {
           onClick={closeModal}
         >
           <div
-            className="relative dualbox  p-6 z-15"
+            className="relative dualbox p-6 z-15"
             onClick={(e) => e.stopPropagation()}
           >
+            {loading && <div className="loading-spinner">Processing...</div>}
+
             {token.image ? (
               <Image
                 src={token.image}
                 alt="token"
-                width={80} // Corresponds to "w-20" in Tailwind (20 * 4px)
-                height={80} // Corresponds to "h-20" in Tailwind (20 * 4px)
+                width={80}
+                height={80}
                 className="object-cover"
               />
             ) : (
               <label htmlFor="file" className="custom-file-upload">
-                <span>image</span>
+                <span>Image</span>
                 <input type="file" id="file" onChange={handleImageChange} />
               </label>
             )}
-
+            
             <PrimaryInput name="name" onChange={(e) => handleFormFieldChange("name", e)} value={token.name} placeholder="name" type="text" extraCss="w-full block mt-4" disabled={false}/>
             <PrimaryInput name="symbol" onChange={(e) => handleFormFieldChange("symbol", e)} value={token.symbol} placeholder="symbol" type="text" extraCss="w-full block mt-4" disabled={false}/>
             <PrimaryInput name="description" onChange={(e) => handleFormFieldChange("description", e)} value={token.description} placeholder="description" type="text" extraCss="w-full block mt-4" disabled={false}/>
@@ -213,9 +204,18 @@ export function MemeCreate() {
             <PrimaryInput name="telegram_link" onChange={(e) => handleFormFieldChange("telegram_link", e)} value={token.telegram_link} placeholder="telegram link" type="text" extraCss="w-full block mt-4" disabled={false}/>
             <PrimaryInput name="website_link" onChange={(e) => handleFormFieldChange("website_link", e)} value={token.website_link} placeholder="website link" type="text" extraCss="w-full block mt-4" disabled={false}/>
 
-            <PrimaryButton name='create_token' disabled={!isFormValid} active={false} onClick={handleFormSubmit} extraCss="mt-4" value="Create Token"/>
+
+            {/* Repeat for other fields */}
+            <PrimaryButton
+              name="create_token"
+              disabled={!isFormValid || loading}
+              active={false}
+              onClick={handleFormSubmit}
+              extraCss="mt-4"
+              value={loading ? "Creating..." : "Create Token"}
+            />
           </div>
-        </div >
+        </div>
       )}
     </div>
   );
@@ -244,7 +244,7 @@ export function MemeList() {
   } else if (processedAccountsQuery.error) {
     content = (
       <div>
-        <p>{processedAccountsQuery.error?.message || "No error with accounts"}</p>
+        <p>{processedAccountsQuery.error.message}</p>
       </div>
     );
   } else if (!processedAccountsQuery || (processedAccountsQuery.data ?? []).length == 0) {
@@ -285,31 +285,16 @@ export function MemeList() {
       <div className="flex justify-center py-4 space-x-4">
         <PrimaryButton name='prev' disabled={currentPage === 1} active={false} onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))} extraCss="btn-xs" value="Previous"/>
         <span>Page {currentPage}</span>
-        <PrimaryButton name='next' disabled={!processedAccountsQuery || (processedAccountsQuery.data ?? []).length < 10} active={false} onClick={() => setCurrentPage((prev) => prev + 1)} extraCss="btn-xs" value="Next"/>
+        <PrimaryButton name='next' disabled={!processedAccountsQuery || (processedAccountsQuery.data ?? []).length < TOKENS_PER_PAGE} active={false} onClick={() => setCurrentPage((prev) => prev + 1)} extraCss="btn-xs" value="Next"/>
       </div>
     </div >
   );
 }
 
 
-
-
-// Define an enum for action types
-export enum ActionType {
-  Buy = "Buy",
-  Sell = "Sell",
-  RaydiumBuy = "RaydiumBuy",
-  RaydiumSell = "RaydiumSell",
-  Lock = "Lock",
-  Claim = "Claim"
-}
-
-
-
-
 export function BalanceCard({ publicKey, memeAccount, memeMetadata, userAccount, tokenDistribution, totalTokens, userTokenBalance, raydiumSwap, tokensToSol, solToTokens, solToUsd, tokensToUsd }: { publicKey: PublicKey, memeAccount: any, memeMetadata: any, userAccount: any, tokenDistribution: any, totalTokens:BN, userTokenBalance:BN, raydiumSwap:any, tokensToSol:any, solToTokens:any, solToUsd:any, tokensToUsd:any }) {
-  const { buySellToken } = useBuySellTokenMutation();
-  const {lockClaimToken} = useLockClaimTokenMutation();
+  const {buyToken} = useBuyTokenMutation();
+  const {lockToken} = useLockTokenMutation();
 
   const [solBalance, setSolBalance] = useState(ZERO);
 
@@ -324,7 +309,7 @@ export function BalanceCard({ publicKey, memeAccount, memeMetadata, userAccount,
 
 
   useEffect(() => {
-    if (memeAccount.bondedTime.lt(new BN(0))) {
+    if (memeAccount.bondedTime.lt(ZERO) && memeAccount.creationTime.gte(ZERO)) {
       handleActionChange(ActionType.Buy);
     } else {
       handleActionChange(ActionType.RaydiumBuy);
@@ -334,14 +319,22 @@ export function BalanceCard({ publicKey, memeAccount, memeMetadata, userAccount,
   const [selectedAction, setSelectedAction] = useState<ActionType>(ActionType.Buy);
 
   const handleActionChange = (action: ActionType) => {
+    if (action === ActionType.Buy) {
+      setShowingSol(true);
+    }
     setSelectedAction(action);
-    console.log(action);
     setAmount(ZERO);
   };
 
   const [amount, setAmount] = useState(ZERO);
   const [showingSol, setShowingSol] = useState(true); // true for showing SOL, false for showing token
+
+
   const toggleSolOrToken = () => {
+    if (selectedAction === ActionType.Buy) {
+      return;
+    }
+
     setShowingSol((prevMode) => {
       const newMode = !prevMode;
       const convertedAmount = newMode
@@ -361,38 +354,23 @@ export function BalanceCard({ publicKey, memeAccount, memeMetadata, userAccount,
       return;
     }
 
-    if (selectedAction === ActionType.Buy || selectedAction === ActionType.RaydiumBuy) {
+    if (selectedAction === ActionType.Buy) { // always sol
+      setAmount(numericValue.cmp(solBalance) === -1 ? numericValue : solBalance);
+
+    } else if (selectedAction === ActionType.RaydiumBuy) {
       if (useShowingSol) {
         setAmount(numericValue.cmp(solBalance) === -1 ? numericValue : solBalance);
       } else {
         setAmount(numericValue.cmp(solToTokens(solBalance)) === -1 ? numericValue : solToTokens(solBalance));
       }
-    } else if (selectedAction === ActionType.Sell) {
-      if (useShowingSol) {
-        setAmount(numericValue.cmp(tokensToSol(userAccount.lockedAmount)) === -1 ? numericValue : tokensToSol(userAccount.lockedAmount));
-      } else {
-        setAmount(numericValue.cmp(userAccount.lockedAmount) === -1 ? numericValue : userAccount.lockedAmount);
-      }
-    } else if (selectedAction === ActionType.RaydiumSell) {
+
+    } else if (selectedAction === ActionType.RaydiumSell || selectedAction === ActionType.Lock) {
       if (useShowingSol) {
         setAmount(numericValue.cmp(tokensToSol(userTokenBalance)) === -1 ? numericValue : tokensToSol(userTokenBalance));
       } else {
         setAmount(numericValue.cmp(userTokenBalance) === -1 ? numericValue : userTokenBalance);
       }
 
-    } else if (selectedAction === ActionType.Lock){
-      if (useShowingSol) {
-        setAmount(numericValue.cmp(tokensToSol(userAccount.claimmable.add(userTokenBalance))) === -1 ? numericValue : tokensToSol(userAccount.claimmable.add(userTokenBalance)));
-      } else {
-        setAmount(numericValue.cmp(userAccount.claimmable.add(userTokenBalance)) === -1 ? numericValue : userAccount.claimmable.add(userTokenBalance));
-      }
-
-    } else if (selectedAction === ActionType.Claim) {
-      if (useShowingSol) {
-        setAmount(numericValue.cmp(tokensToSol(userAccount.claimmable)) === -1 ? numericValue : tokensToSol(userAccount.claimmable));
-      } else {
-        setAmount(numericValue.cmp(userAccount.claimmable) === -1 ? numericValue : userAccount.claimmable);
-      }
     } else {
       setAmount(numericValue);
     }
@@ -410,86 +388,58 @@ export function BalanceCard({ publicKey, memeAccount, memeMetadata, userAccount,
   };
 
 
-  const handleBuySellFormSubmit = useCallback(async () => {
+  const handleBuyFormSubmit = useCallback(async () => {
     try {
-      let amountSentToSolana: BN; //sol lamports
 
       // Validate amount based on selected action
-      if (selectedAction === ActionType.Buy) {
-
-        const solRequiredBN = showingSol ? amount : tokensToSol(amount);
-
-        if (solRequiredBN.gte(solBalance)) {
-          console.log('required', solRequiredBN.toString());
-          console.log('balance', solBalance.toString());
-          throw new Error("SOL balance too low1.");
-        }
-
-        amountSentToSolana = solRequiredBN;
-      } else if (selectedAction === ActionType.Sell) {
-        const tokensRequiredBN = showingSol ? solToTokens(amount) : amount;
-
-        if (tokensRequiredBN.gte(userAccount.lockedAmount)) {
-          throw new Error("You can't claim more than you invested.");
-        }
-
-        amountSentToSolana = showingSol ? amount.neg() : tokensToSol(amount).neg();
-      }
-      else {
+      if (selectedAction !== ActionType.Buy) {
         throw new Error("wrong action type");
       }
 
-      // Perform the buy/sell operation
-      await buySellToken.mutateAsync({ amount: amountSentToSolana, mint: memeAccount.mint });
+      if (amount.gte(solBalance)) {
+        throw new Error("SOL balance too low1.");
+      }
+
+      await buyToken.mutateAsync({ amount, mint: memeAccount.mint });
       toast.success("Success!");
     } catch (error: any) {
       console.error(error);
       toast.error(error.message || "An error occurred.");
     }
-  }, [amount, showingSol, selectedAction, solBalance, memeAccount.mint, buySellToken, userAccount.lockedAmount, solToTokens, tokensToSol]);
+  }, [amount, selectedAction, solBalance, memeAccount.mint, buyToken]);
 
-  const handleLockClaimFormSubmit = useCallback(async () => {
+  const handleLockFormSubmit = useCallback(async () => {
     try {
-      let amountSentToSolana: BN; //token lamports
 
       // Validate amount based on selected action
-      if (selectedAction === ActionType.Lock) {
-        const tokensRequiredBN = showingSol ? solToTokens(amount) : amount;
-
-        if (tokensRequiredBN.gte(userTokenBalance.add(userAccount.claimmable))) {
-          throw new Error("Token balance too low.");
-        }
-
-        amountSentToSolana = tokensRequiredBN;
-      } else if (selectedAction === ActionType.Claim) {
-        const tokensRequiredBN = showingSol ? solToTokens(amount) : amount;
-
-        if (tokensRequiredBN.gte(userAccount.claimmable)) {
-          throw new Error("You can't claim more than you can claim.");
-        }
-
-        amountSentToSolana = tokensRequiredBN.neg()
-      }
-      else {
+      if (selectedAction !== ActionType.Lock) {
         throw new Error("wrong action type");
       }
+
+      const tokensRequiredBN = showingSol ? solToTokens(amount) : amount;
+
+      if (tokensRequiredBN.gte(userTokenBalance)) {
+        throw new Error("Token balance too low.");
+      }
+
 
       // Perform the lock/claim operation
-      await lockClaimToken.mutateAsync({ amount: amountSentToSolana, mint: memeAccount.mint });
+      await lockToken.mutateAsync({ amount: tokensRequiredBN, mint: memeAccount.mint });
       toast.success("Success!");
+
     } catch (error: any) {
       console.error(error);
       toast.error(error.message || "An error occurred.");
     }
-  }, [amount, showingSol, selectedAction, userTokenBalance, userAccount.claimmable, memeAccount.mint, lockClaimToken, solToTokens]);
+  }, [amount, showingSol, selectedAction, userTokenBalance, memeAccount.mint, lockToken, solToTokens]);
   
   
   const handleRaydiumBuySellFormSubmit = useCallback(async () => {
     try {
-          let amountSentToSolana: BN; //sol lamports
+      let amountSentToSolana: BN; //sol lamports
 
         // Validate amount based on selected action
-        if (selectedAction === ActionType.RaydiumBuy) {
+      if (selectedAction === ActionType.RaydiumBuy) {
 
         const solRequiredBN = showingSol ? amount : tokensToSol(amount);
 
@@ -502,10 +452,10 @@ export function BalanceCard({ publicKey, memeAccount, memeMetadata, userAccount,
         const tokensRequiredBN = showingSol ? solToTokens(amount) : amount;
 
         if (tokensRequiredBN.gte(userTokenBalance)) {
-          throw new Error("You can't sell more than you have");
+          throw new Error("Token balance too low.");
         }
 
-        amountSentToSolana = showingSol ? amount.neg() : tokensToSol(amount).neg();
+        amountSentToSolana = showingSol ? amount.neg() : tokensToSol(amount).neg(); // sol lamports
       }
         else {
         throw new Error("wrong action type");
@@ -533,15 +483,13 @@ export function BalanceCard({ publicKey, memeAccount, memeMetadata, userAccount,
       <div className="flex mb-4">
         {memeAccount.bondedTime < ZERO ? (
           <>
-            <PrimaryButton name="selectBuy" disabled={false} active={selectedAction === ActionType.Buy} onClick={() => handleActionChange(ActionType.Buy)} extraCss="w-1/2" value="Buy"/>
-            <PrimaryButton name="selectSell" disabled={false} active={selectedAction === ActionType.Sell} onClick={() => handleActionChange(ActionType.Sell)} extraCss="w-1/2" value="Sell"/>
+            <PrimaryButton name="selectBuy" disabled={true} active={selectedAction === ActionType.Buy} onClick={() => handleActionChange(ActionType.Buy)} extraCss="w-full" value="Buy"/>
           </>
         ) : (
           <>
-            <PrimaryButton name="selectRaydiumBuy" disabled={false} active={selectedAction === ActionType.RaydiumBuy} onClick={() => handleActionChange(ActionType.RaydiumBuy)} extraCss="w-1/4" value="Buy"/>
-            <PrimaryButton name="selectRaydiumSell" disabled={false} active={selectedAction === ActionType.RaydiumSell} onClick={() => handleActionChange(ActionType.RaydiumSell)} extraCss="w-1/4" value="Sell"/> 
-            <PrimaryButton name="selectLock" disabled={false} active={selectedAction === ActionType.Lock} onClick={() => handleActionChange(ActionType.Lock)} extraCss="w-1/4" value="Lock"/> 
-            <PrimaryButton name="selectClaim" disabled={false} active={selectedAction === ActionType.Claim} onClick={() => handleActionChange(ActionType.Claim)} extraCss="w-1/4" value="Claim"/>
+            <PrimaryButton name="selectRaydiumBuy" disabled={false} active={selectedAction === ActionType.RaydiumBuy} onClick={() => handleActionChange(ActionType.RaydiumBuy)} extraCss="w-1/3" value="Buy"/>
+            <PrimaryButton name="selectRaydiumSell" disabled={false} active={selectedAction === ActionType.RaydiumSell} onClick={() => handleActionChange(ActionType.RaydiumSell)} extraCss="w-1/3" value="Sell"/> 
+            <PrimaryButton name="selectLock" disabled={false} active={selectedAction === ActionType.Lock} onClick={() => handleActionChange(ActionType.Lock)} extraCss="w-1/3" value="Lock"/> 
           </>
         )}
       </div>
@@ -563,13 +511,13 @@ export function BalanceCard({ publicKey, memeAccount, memeMetadata, userAccount,
       </div>
 
       <div className="flex flex-col space-y-2 mt-2">
-        {memeAccount.bondedTime < ZERO ? (
+        {(memeAccount.bondedTime.lt(ZERO) && memeAccount.creationTime.gte(ZERO)) ? (
           <>
             <div className="flex items-baseline space-x-2">
               <div className="text-sm font-semibold">
-                {simplifyBN(fromLamports(userAccount.lockedAmount))} {memeMetadata.symbol}
+                {simplifyBN(fromLamports(userAccount.lockedAmount))} SOL
               </div>
-              <div className="text-sm text-gray-500 dark:text-white">~ ${tokensToUsd(userAccount.lockedAmount)}</div>
+              <div className="text-sm text-gray-500 dark:text-white">~ ${solToUsd(userAccount.lockedAmount)}</div>
             </div>
 
             <PrimaryBar
@@ -594,7 +542,6 @@ export function BalanceCard({ publicKey, memeAccount, memeMetadata, userAccount,
               values={[
                 {label:"Locked", percentage:tokenDistribution.lockedPercentage, value:simplifyBN(fromLamports(userAccount.lockedAmount)), color:"bg-purple-800 dark:bg-purple-300"},
                 {label:"Unlocked", percentage:tokenDistribution.unlockedPercentage, value:simplifyBN(fromLamports(userTokenBalance)), color:"bg-purple-600"},
-                {label:"Claimmable", percentage:tokenDistribution.claimmablePercentage, value:simplifyBN(fromLamports(userAccount.claimmable)), color:"bg-purple-300 dark:bg-purple-800"},
               ]}
               labels={true}
             />
@@ -606,9 +553,13 @@ export function BalanceCard({ publicKey, memeAccount, memeMetadata, userAccount,
       <div className="relative flex items-center mb-2 mt-2">
         <PrimaryInput name="amountField" onChange={handleFormFieldChange} value={amount === ZERO ? "" : fromLamportsDecimals(amount)} placeholder={fromLamportsDecimals(solBalance).toString()} type="number" extraCss="w-full" disabled={false}/>
 
-
-        <PrimaryButton name="toggle" disabled={false} active={false} onClick={toggleSolOrToken} extraCss="btn-xs absolute right-2" value={showingSol ? "SOL" : "Tokens"}/>
-        
+       
+        <button
+          onClick={toggleSolOrToken}
+          disabled={selectedAction == ActionType.Buy}
+          className={"text-dark btn btn-xs absolute right-2"}>
+          {showingSol ? "SOL" : "Tokens"}
+        </button>
 
       </div>
       <div className="text-sm text-gray-500 dark:text-white mb-2">~ ${showingSol ? solToUsd(amount) : tokensToUsd(amount)}</div>
@@ -646,23 +597,9 @@ export function BalanceCard({ publicKey, memeAccount, memeMetadata, userAccount,
         </div>
       )}
 
-      {selectedAction === ActionType.Sell && (
-        // Render component or UI for Sell
-        <div>
-          <button 
-          onClick={() => setAmountWithLimits(showingSol ? tokensToSol(userAccount.lockedAmount.div(new BN(2))) : userAccount.lockedAmount.div(new BN(2)))}
-          className={"text-dark btn btn-xs mr-2"}>
-            50%
-          </button>
-          <button 
-          onClick={() => setAmountWithLimits(showingSol ? tokensToSol(userAccount.lockedAmount) : userAccount.lockedAmount)}
-          className={"text-dark btn btn-xs mr-2"}>
-            100%
-          </button>
-        </div>
-      )}
 
-      {(selectedAction === ActionType.RaydiumSell) && (
+
+      {(selectedAction === ActionType.RaydiumSell || selectedAction === ActionType.Lock) && (
         <div>
           <button 
           onClick={() => setAmountWithLimits(showingSol ? tokensToSol(userTokenBalance.div(new BN(2))) : userTokenBalance.div(new BN(2)))}
@@ -677,58 +614,16 @@ export function BalanceCard({ publicKey, memeAccount, memeMetadata, userAccount,
         </div>
       )}
 
-      {selectedAction === ActionType.Lock && (
-        (() => {
-          const totalLockable = userAccount.claimmable.add(userTokenBalance);  // Compute totalLockable here
-
-          return (
-            <div>
-              <button 
-                onClick={() => setAmountWithLimits(showingSol ? tokensToSol(totalLockable.div(new BN(2))) : totalLockable.div(new BN(2)))}
-                className="text-dark btn btn-xs mr-2">
-                50%
-              </button>
-              <button 
-                onClick={() => setAmountWithLimits(showingSol ? tokensToSol(totalLockable) : totalLockable)}
-                className="text-dark btn btn-xs mr-2">
-                100%
-              </button>
-              <button 
-                onClick={() => setAmountWithLimits(showingSol ? tokensToSol(userAccount.claimmable) : userAccount.claimmable)}
-                className="text-dark btn btn-xs mr-2">
-                Lock all claimmable
-              </button>
-              <p className="mt-2 text-xs text-gray-500 dark:text-white">PS: claimmable tokens will be locked first.</p>
-            </div>
-          );
-        })()
-      )}
-
-      {selectedAction === ActionType.Claim&& (
-        // Render component or UI for Sell
-        <div>
-          <button 
-          onClick={() => setAmountWithLimits(showingSol ? tokensToSol(userAccount.claimmable.div(new BN(2))) : userAccount.claimmable.div(new BN(2)))}
-          className={"text-dark btn btn-xs mr-2"}>
-            50%
-          </button>
-          <button 
-          onClick={() => setAmountWithLimits(showingSol ? tokensToSol(userAccount.claimmable) : userAccount.claimmable)}
-          className={"text-dark btn btn-xs mr-2"}>
-            100%
-          </button>
-        </div>
-      )}
 
       </div>
 
         <PrimaryButton name='Transact' disabled={amount === ZERO} active={false} extraCss="" value='Transact' onClick={() => {
-          if (selectedAction === ActionType.Buy || selectedAction === ActionType.Sell) {
-            handleBuySellFormSubmit();
+          if (selectedAction === ActionType.Buy) {
+            handleBuyFormSubmit();
           } else if (selectedAction === ActionType.RaydiumBuy || selectedAction === ActionType.RaydiumSell) {
             handleRaydiumBuySellFormSubmit();
-          } else if (selectedAction === ActionType.Lock || selectedAction === ActionType.Claim) {
-            handleLockClaimFormSubmit();
+          } else if (selectedAction === ActionType.Lock) {
+            handleLockFormSubmit();
           } else {
             console.warn('No handler for selected action');
           }
@@ -781,16 +676,13 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
 
   const [userAccount, setUserAccount] = useState<{
     lockedAmount: BN;
-    claimmable: BN;
   }>({
     lockedAmount: ZERO,
-    claimmable: ZERO,
   });
 
   const [holderData, setHolderData] = useState<Array<{
     user: PublicKey;
     lockedAmount: BN;
-    claimmable: BN;
     tokenBalance: BN;
   }>>([]);
 
@@ -808,7 +700,7 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
 
   const [currentTime, setCurrentTime] = useState(Date.now());
 
-  const [tokenPrice, setTokensPerSol] = useState(INITIAL_PRICE); //tokens per sol
+  const [tokenPrice, setTokensPerSol] = useState(ZERO); //tokens per sol
 
   const [solPrice, setSolPrice] = useState(0); //price per sol
 
@@ -866,9 +758,6 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
     address: publicKey || EMPTY_PUBLIC_KEY,
     mint: memeAccount.mint,
   });
-
-  const { bondToRaydium } = useBondToRaydium();
-  const { createPool } = useCreatePool();
 
   const {raydiumPoolQuery, raydiumSwap} = useRaydiumPoolQuery({poolId: memeAccount.poolId});
   const {solPriceQuery} = useSolPriceQuery();
@@ -967,8 +856,8 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
 
   useEffect(() => {
     if (userAccountQuery.data) {
-      const { lockedAmount, claimmable } = userAccountQuery.data;
-      setUserAccount({ lockedAmount, claimmable });
+      const { lockedAmount } = userAccountQuery.data;
+      setUserAccount({ lockedAmount});
     }
   }, [userAccountQuery.data,]);
 
@@ -980,17 +869,13 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
   }, [getSpecificTokenBalance.data]);
 
 
-  const totalTokens = userAccount.lockedAmount
-  .add(userTokenBalance)
-  .add(userAccount.claimmable);
-
+  const totalTokens = userAccount.lockedAmount.add(userTokenBalance)
   const tokenDistribution = {
     lockedPercentage: calculatePercentage(userAccount.lockedAmount, totalTokens),
     unlockedPercentage: calculatePercentage(userTokenBalance, totalTokens),
-    claimmablePercentage: calculatePercentage(userAccount.claimmable, totalTokens),
   };
 
-  const divisor = memeAccount.bondedTime.isNeg() ? new BN('800000000000000000') : new BN('1000000000000000000');
+  const divisor = (memeAccount.bondedTime.lt(ZERO) && memeAccount.creationTime.gte(ZERO)) ? SOL_GOAL_BEFORE_BONNDING : MINT_SUPPLY;
   const globalPercentage = calculatePercentage(memeAccount.lockedAmount, divisor);
 
 
@@ -1002,27 +887,7 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
   
 
 
-  const bondButton = useCallback(async () => {
-    try {
-
-      const { txId, poolId } = await createPool.mutateAsync({
-        mint: memeAccount.mint,
-      });
-
-      if (!poolId) {
-        throw new Error("poolId is undefined");
-      }
-
-      // Call bondToRaydium first
-      await bondToRaydium.mutateAsync({ mint: memeAccount.mint, poolId: new PublicKey(poolId) });
-      toast.success("Bond to Raydium succeeded!");
-
-      toast.success("Pool created successfully!");
-    } catch (error: any) {
-      console.error(error);
-      toast.error(error.message || "An error occurred.");
-    }
-  }, [memeAccount.mint, bondToRaydium, createPool]); // Ensure dependencies like `mint` are listed here
+ 
 
 
   const renderGridCards = () => {
@@ -1087,9 +952,8 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
                   >
                     <div className="text-sm font-medium"># {account.user.toString()}</div>
                     <div className="text-sm">{account.lockedAmount.toString()}</div>
-                    <div className="text-sm text-gray-500 dark:text-white">{account.claimmable.toString()}</div>
                     <div className="text-sm text-gray-500 dark:text-white">{account.tokenBalance.toString()}</div>
-                    <div className="text-sm text-gray-500 dark:text-white">{account.lockedAmount.add(account.claimmable.add(account.tokenBalance)).toString()}</div>
+                    <div className="text-sm text-gray-500 dark:text-white">{account.lockedAmount.add(account.tokenBalance).toString()}</div>
                   </div>
                 )
               ))
@@ -1110,12 +974,6 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
           gridColumn: hideRight ? "1 / 4" : (hideLeft ? "1 / 3" : "2 / 3")
         }}
       >
-        <button
-          className="btn btn-xs lg:btn-md btn-primary"
-          onClick={bondButton}
-        >
-          bond to ray (debug button)
-        </button>
         <div className="absolute top-2 right-2 text-gray-500 dark:text-white text-xs">{timeAgo(memeAccount.creationTime.toNumber())} ago</div>
         <div className="flex items-start mb-2">
         {memeMetadata.image ? (
@@ -1191,7 +1049,11 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
         <div className="flex flex-col space-y-1 mt-2">
           <div className="flex items-baseline space-x-2">
             <div className="text-sm font-semibold">{globalPercentage.toString()} %</div>
-            <div className="text-sm text-gray-500 dark:text-white">~ ${tokensToUsd(memeAccount.lockedAmount)}</div>
+            {(memeAccount.bondedTime.lt(ZERO) && memeAccount.creationTime.gte(ZERO)) ? (
+              <div className="text-sm text-gray-500 dark:text-white">~ ${solToUsd(memeAccount.lockedAmount)}</div>
+            ) : (
+              <div className="text-sm text-gray-500 dark:text-white">~ ${tokensToUsd(memeAccount.lockedAmount)}</div>
+            )}
           </div>
         </div>
 
@@ -1223,6 +1085,8 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
           <span className="text-sm ml-1">456</span>
         </div>
 
+        <BondButton mint={memeAccount.mint}/>
+
       </div >
     );
     cards.push(
@@ -1238,6 +1102,7 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
           className="w-full h-full object-cover dualbox"
           style={{ backgroundColor: '#FFF', width: '600px', height: '200px' }}
         >
+          price chart will go here.
         </div>
       </div>
     );
@@ -1427,8 +1292,12 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
 
             <div className="flex flex-col space-y-1 mt-2">
               <div className="flex items-baseline space-x-2">
-                <div className="text-sm font-semibold">{globalPercentage.toString()} %</div>
-                <div className="text-sm text-gray-500 dark:text-white">~ ${tokensToUsd(memeAccount.lockedAmount)}</div>
+              <div className="text-sm font-semibold">{globalPercentage.toString()} %</div>
+                {(memeAccount.bondedTime.lt(ZERO) && memeAccount.creationTime.gte(ZERO)) ? (
+                  <div className="text-sm text-gray-500 dark:text-white">~ ${solToUsd(memeAccount.lockedAmount)}</div>
+                ) : (
+                  <div className="text-sm text-gray-500 dark:text-white">~ ${tokensToUsd(memeAccount.lockedAmount)}</div>
+                )}
               </div>
             </div>
 
@@ -1459,15 +1328,15 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
               </svg>
               <span className="text-sm ml-1">456</span>
             </div>
-            {publicKey != null ? (
+            {(publicKey != null && (userAccount.lockedAmount > ZERO || userTokenBalance > ZERO)) ? (
               <div className="flex flex-col space-y-2 mt-2">
-                {memeAccount.bondedTime.lt(ZERO) ? (
+                {(memeAccount.bondedTime.lt(ZERO) && memeAccount.creationTime.gte(ZERO)) ? (
                   <>
                     <div className="flex items-baseline space-x-2">
                       <div className="text-sm font-semibold ">
-                        {simplifyBN(fromLamports(userAccount.lockedAmount))} {memeMetadata.symbol}
+                        {simplifyBN(fromLamports(userAccount.lockedAmount))} SOL
                       </div>
-                      <div className="text-sm text-gray-500 dark:text-white">~ ${tokensToUsd(memeAccount.lockedAmount)}</div>
+                      <div className="text-sm text-gray-500 dark:text-white">~ ${solToUsd(userAccount.lockedAmount)}</div>
                     </div>
 
                     <PrimaryBar
@@ -1492,7 +1361,6 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
                       values={[
                         {label:"Locked", percentage:tokenDistribution.lockedPercentage, value:simplifyBN(fromLamports(userAccount.lockedAmount)), color:"bg-purple-800 dark:bg-purple-300"},
                         {label:"Unlocked", percentage:tokenDistribution.unlockedPercentage, value:simplifyBN(fromLamports(userTokenBalance)), color:"bg-purple-600"},
-                        {label:"Claimmable", percentage:tokenDistribution.claimmablePercentage, value:simplifyBN(fromLamports(userAccount.claimmable)), color:"bg-purple-300 dark:bg-purple-800"},
                       ]}
                       labels={true}
                     />

@@ -6,13 +6,13 @@ import BN from "bn.js";
 import { useCallback, useEffect, useState } from "react";
 import { useGetBalance, useGetTokenAccounts } from "../account/account-data-access";
 import toast from "react-hot-toast";
-import { useCreateUpdateDB, usePreBuyTokenMutation, usePreTokenQuery, usePreUserQuery, mint, SOL_GOAL, usePreLockTokenMutation } from "./pre-data-access";
+import { usePreBuyTokenMutation, usePreTokenQuery, usePreUserQuery, mint, SOL_GOAL, usePreLockTokenMutation } from "./pre-data-access";
 import { useSolPriceQuery } from "../solana/solana-data-access";
 import { WalletButton } from "../solana/solana-provider";
 import { PublicKey } from "@solana/web3.js";
 import { useBondToRaydium, useMemeAccountQuery, useMetadataQuery, useUserAccountQuery } from "../meme/meme-data-access";
 import { useRaydiumPoolQuery } from "../raydium/raydium-data-access";
-import { ActionType } from "../meme/meme-ui";
+import { ActionType } from "../meme/meme-helper-functions"
 
 
 export function PreCard() {
@@ -33,7 +33,7 @@ export function PreCard() {
         bondedTime: ZERO,
         poolId: EMPTY_PUBLIC_KEY,
     });
-    
+
     const [memeMetadata, setMemeMetadata] = useState<{
         name: string;
         symbol: string;
@@ -54,12 +54,9 @@ export function PreCard() {
     
     const [userAccount, setUserAccount] = useState<{
         lockedAmount: BN;
-        claimmable: BN;
     }>({
         lockedAmount: ZERO,
-        claimmable: ZERO,
     });
-
 
 
     const [userTokenBalance, setUserTokenBalance] = useState(ZERO);
@@ -88,8 +85,6 @@ export function PreCard() {
         const result = solToUsd(tokensToSol(tokens));
         return Math.ceil(result * 100) / 100; // Rounds up to 2 decimal places
     };
-    
-    const accountKey = new PublicKey("BVqw4R9cAbcaTmnyBs5uEf3tFA4ZwVBtC1J4sfNaPA4Z");
 
     const { preTokenQuery } = usePreTokenQuery();
     
@@ -127,12 +122,15 @@ export function PreCard() {
                 dev: EMPTY_PUBLIC_KEY,
                 mint: new PublicKey(preTokenQuery.data.mint),
                 lockedAmount: new BN(preTokenQuery.data.locked_amount),
-                creationTime: new BN(ZERO),
+                creationTime: new BN(preTokenQuery.data.creation_time),
                 bondedTime: new BN(preTokenQuery.data.bonded_time),
                 poolId: new PublicKey(preTokenQuery.data.pool_id),
             });
+
+
         }
     }, [preTokenQuery.data]); // Re-run when preTokenQuery changes
+
 
     
     useEffect(() => {
@@ -151,10 +149,8 @@ export function PreCard() {
     
     useEffect(() => {
         if (preUserQuery.data) {
-            const { locked_amount, claimmable } = preUserQuery.data;
             setUserAccount({
                 lockedAmount: new BN(preUserQuery.data.locked_amount),
-                claimmable: new BN (preUserQuery.data.claimmable),
             });
         }
     }, [preUserQuery.data,]);
@@ -175,15 +171,14 @@ export function PreCard() {
     
     const totalTokens = userAccount.lockedAmount
         .add(userTokenBalance)
-        .add(userAccount.claimmable);
     
     const tokenDistribution = {
         lockedPercentage: calculatePercentage(userAccount.lockedAmount, totalTokens),
         unlockedPercentage: calculatePercentage(userTokenBalance, totalTokens),
-        claimmablePercentage: calculatePercentage(userAccount.claimmable, totalTokens),
     };
     
-    const divisor = memeAccount.bondedTime.isNeg() ? new BN('800000000000000000') : new BN('1000000000000000000');
+
+    const divisor = (memeAccount.bondedTime.isNeg() && memeAccount.creationTime.gt(ZERO)) ? new BN('800000000000000000') : new BN('1000000000000000000');
     const globalPercentage = calculatePercentage(memeAccount.lockedAmount, divisor);
 
 
@@ -262,8 +257,8 @@ export function PreCard() {
         }
       };
 
-      const {preBuySellToken} = usePreBuySellTokenMutation();
-      const {preLockClaimToken} = usePreLockClaimTokenMutation();
+      const {preBuyToken} = usePreBuyTokenMutation();
+      const {preLockToken} = usePreLockTokenMutation();
       
     
       const handleFormFieldChange = (event: { target: { value: any; }; }) => {
@@ -277,7 +272,7 @@ export function PreCard() {
       };
     
     
-      const handleBuySellFormSubmit = useCallback(async () => {
+      const handleBuyFormSubmit = useCallback(async () => {
         try {
           let amountSentToSolana: BN; //sol lamports
     
@@ -302,15 +297,15 @@ export function PreCard() {
           }
     
           // Perform the buy/sell operation
-          await preBuySellToken.mutateAsync({ amount: amountSentToSolana });
+          await preBuyToken.mutateAsync({ amount: amountSentToSolana });
           toast.success("Success!");
         } catch (error: any) {
           console.error(error);
           toast.error(error.message || "An error occurred.");
         }
-      }, [amount, selectedAction, solBalance, preBuySellToken, userAccount.lockedAmount]);
+      }, [amount, selectedAction, solBalance, preBuyToken, userAccount.lockedAmount]);
     
-      const handleLockClaimFormSubmit = useCallback(async () => {
+      const handleLockFormSubmit = useCallback(async () => {
         try {
           let amountSentToSolana: BN; //token lamports
     
@@ -337,13 +332,13 @@ export function PreCard() {
           }
     
           // Perform the lock/claim operation
-          await preLockClaimToken.mutateAsync({ amount: amountSentToSolana });
+          await preLockToken.mutateAsync({ amount: amountSentToSolana });
           toast.success("Success!");
         } catch (error: any) {
           console.error(error);
           toast.error(error.message || "An error occurred.");
         }
-      }, [amount, showingSol, selectedAction, userTokenBalance, userAccount.claimmable, preLockClaimToken, solToTokens]);
+      }, [amount, showingSol, selectedAction, userTokenBalance, userAccount.claimmable, preLockToken, solToTokens]);
       
       
       const handleRaydiumBuySellFormSubmit = useCallback(async () => {
@@ -477,10 +472,8 @@ export function PreCard() {
                     {publicKey != null ? (
                         <>
                             <div className="flex mb-4 mt-4">
-                                {memeAccount.bondedTime.gt(ZERO) ? ( // meaning not bonded or on pump
+                                {memeAccount.bondedTime.eq(ZERO) ? ( // meaning not bonded or on pump
                                 <>
-                                    <PrimaryButton name="selectBuy" disabled={false} active={selectedAction === ActionType.Buy} onClick={() => handleActionChange(ActionType.Buy)} extraCss="w-1/2 btn-xs" value="Buy"/>
-                                    <PrimaryButton name="selectSell" disabled={false} active={selectedAction === ActionType.Sell} onClick={() => handleActionChange(ActionType.Sell)} extraCss="w-1/2 btn-xs" value="Sell"/>
                                 </>
                                 ) : ( //on pump or ray
                                 <>
@@ -645,9 +638,9 @@ export function PreCard() {
                                 value="Transact"
                                 onClick={() => {
                                     if (selectedAction === ActionType.Buy || selectedAction === ActionType.Sell) {
-                                      handleBuySellFormSubmit();
-                                    } else if (selectedAction === ActionType.Lock || selectedAction === ActionType.Claim) {
-                                      handleLockClaimFormSubmit();
+                                      handleBuyFormSubmit();
+                                    } else if (selectedAction === ActionType.Lock) {
+                                      handleLockFormSubmit();
                                     } else if (selectedAction === ActionType.RaydiumBuy || selectedAction === ActionType.RaydiumSell) {
                                       handleRaydiumBuySellFormSubmit();
                                     }

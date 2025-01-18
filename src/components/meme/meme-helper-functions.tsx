@@ -2,17 +2,41 @@ import { bs58 } from "@coral-xyz/anchor/dist/cjs/utils/bytes";
 import { Keypair, PublicKey } from "@solana/web3.js";
 import BN from "bn.js";
 
-export const toLamports = (amount: BN): BN => {
-    return amount.mul(BILLION);
-};
+
+{/* constants */}
 
 export const ZERO = new BN(0);
+export const BILLION = new BN(10).pow(new BN(9));
+
 export const EMPTY_PUBLIC_KEY = new PublicKey("11111111111111111111111111111111");
 export const SOL_MINT = new PublicKey('So11111111111111111111111111111111111111112');
 
 export const RAYDIUM_DEVNET_CPMM_PROGRAM_ID = new PublicKey('CPMDWBwJDtYax9qW7AyRuVC19Cc4L4Vcy4n2BHAbHkCW')
+export const TOKEN_METADATA_PROGRAM_ID = new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
+
+export const TREASURY_PUBLIC_KEY = new PublicKey (process.env.NEXT_PUBLIC_TREASURY_PUBLIC_KEY || "");
 
 
+export const SUPPLY_SOLD_BEFORE_BONDING = new BN(800000000).mul(BILLION);
+export const SOL_GOAL_BEFORE_BONNDING = new BN(10).mul(BILLION);
+
+export const MINT_SUPPLY = BILLION.mul(BILLION);
+
+
+export const TOKENS_PER_PAGE = 10;
+
+export enum ActionType {
+    Buy = "Buy",
+    RaydiumBuy = "RaydiumBuy",
+    RaydiumSell = "RaydiumSell",
+    Lock = "Lock",
+};
+
+
+
+export const toLamports = (amount: BN): BN => {
+    return amount.mul(BILLION);
+};
 
 export const ToLamportsDecimals = (num: number): BN => {
     const numStr = num.toString(); // Convert the number to a string to handle decimals
@@ -40,16 +64,6 @@ export const fromLamportsDecimals = (amount: BN): number => {
     }
     return amount.toNumber() / BILLION.toNumber();
 };
-
-export const INITIAL_PRICE: BN = new BN(250000000); // 2.5 million tokens per SOL (mul by 100 temp)
-
-export const BILLION = new BN(10).pow(new BN(9));
-export const TOKEN_SUPPLY_BEFORE_BONDING = new BN(800000000).mul(BILLION);
-export const INITIAL_SOL_AMOUNT = TOKEN_SUPPLY_BEFORE_BONDING.div(INITIAL_PRICE); //320 * billion
-
-
-const SOL_PRICE: BN = new BN(250_000_000_000); // $250 * 10^9 per SOL lamport
-
 
 export function simplifyBN(value: BN): string {
     const thresholds = [
@@ -79,5 +93,11 @@ export const calculatePercentage = (numerator: BN, denominator: BN): number => {
 
     return percentage.toNumber() / 100;
 }
+
+
+
+
+
+
 
 

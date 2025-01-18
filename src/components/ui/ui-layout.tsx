@@ -77,7 +77,7 @@ export function UiLayout({ children }: { children: ReactNode }) {
         </div>
         
 
-        <PreCard/>
+        <MemeList/>
 
 
     

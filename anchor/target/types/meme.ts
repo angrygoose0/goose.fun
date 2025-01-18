@@ -5,7 +5,7 @@
  * IDL can be found at `target/idl/meme.json`.
  */
 export type Meme = {
-  "address": "6uhUTWZRFWtf7WhKLmni9x1K3hiwxDaFP8WnpsZuVDw8",
+  "address": "9nXE1U7FpiuB5V7Bft2sdURwA7QZsnKHpvp8v21RZSub",
   "metadata": {
     "name": "meme",
     "version": "0.1.0",
@@ -56,39 +56,6 @@ export type Meme = {
           }
         },
         {
-          "name": "userAccount",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  117,
-                  115,
-                  101,
-                  114,
-                  95,
-                  97,
-                  99,
-                  99,
-                  111,
-                  117,
-                  110,
-                  116
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "mint"
-              },
-              {
-                "kind": "arg",
-                "path": "user"
-              }
-            ]
-          }
-        },
-        {
           "name": "mint",
           "writable": true
         },
@@ -96,198 +63,6 @@ export type Meme = {
           "name": "treasury",
           "writable": true,
           "signer": true
-        },
-        {
-          "name": "treasuryTokenAccount",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "account",
-                "path": "treasury"
-              },
-              {
-                "kind": "const",
-                "value": [
-                  6,
-                  221,
-                  246,
-                  225,
-                  215,
-                  101,
-                  161,
-                  147,
-                  217,
-                  203,
-                  225,
-                  70,
-                  206,
-                  235,
-                  121,
-                  172,
-                  28,
-                  180,
-                  133,
-                  237,
-                  95,
-                  91,
-                  55,
-                  145,
-                  58,
-                  140,
-                  245,
-                  133,
-                  126,
-                  255,
-                  0,
-                  169
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "mint"
-              }
-            ],
-            "program": {
-              "kind": "const",
-              "value": [
-                140,
-                151,
-                37,
-                143,
-                78,
-                36,
-                137,
-                241,
-                187,
-                61,
-                16,
-                41,
-                20,
-                142,
-                13,
-                131,
-                11,
-                90,
-                19,
-                153,
-                218,
-                255,
-                16,
-                132,
-                4,
-                142,
-                123,
-                216,
-                219,
-                233,
-                248,
-                89
-              ]
-            }
-          }
-        },
-        {
-          "name": "userTokenAccount",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "arg",
-                "path": "user"
-              },
-              {
-                "kind": "const",
-                "value": [
-                  6,
-                  221,
-                  246,
-                  225,
-                  215,
-                  101,
-                  161,
-                  147,
-                  217,
-                  203,
-                  225,
-                  70,
-                  206,
-                  235,
-                  121,
-                  172,
-                  28,
-                  180,
-                  133,
-                  237,
-                  95,
-                  91,
-                  55,
-                  145,
-                  58,
-                  140,
-                  245,
-                  133,
-                  126,
-                  255,
-                  0,
-                  169
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "mint"
-              }
-            ],
-            "program": {
-              "kind": "const",
-              "value": [
-                140,
-                151,
-                37,
-                143,
-                78,
-                36,
-                137,
-                241,
-                187,
-                61,
-                16,
-                41,
-                20,
-                142,
-                13,
-                131,
-                11,
-                90,
-                19,
-                153,
-                218,
-                255,
-                16,
-                132,
-                4,
-                142,
-                123,
-                216,
-                219,
-                233,
-                248,
-                89
-              ]
-            }
-          }
-        },
-        {
-          "name": "systemProgram",
-          "address": "11111111111111111111111111111111"
-        },
-        {
-          "name": "tokenProgram",
-          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
-        },
-        {
-          "name": "associatedTokenProgram",
-          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
         }
       ],
       "args": [
@@ -437,8 +212,7 @@ export type Meme = {
         },
         {
           "name": "treasury",
-          "writable": true,
-          "signer": true
+          "writable": true
         },
         {
           "name": "signer",
@@ -912,8 +686,7 @@ export type Meme = {
         },
         {
           "name": "treasury",
-          "writable": true,
-          "signer": true
+          "writable": true
         },
         {
           "name": "memeAccount",
@@ -1308,26 +1081,21 @@ export type Meme = {
     },
     {
       "code": 6008,
-      "name": "alreadyBonded",
-      "msg": "Already Bonded"
+      "name": "unauthorized",
+      "msg": "unathorized"
     },
     {
       "code": 6009,
-      "name": "unauthorized",
-      "msg": "Unauthorized wallet"
-    },
-    {
-      "code": 6010,
       "name": "serializationError",
       "msg": "Serialization failed"
     },
     {
-      "code": 6011,
+      "code": 6010,
       "name": "deserializationError",
       "msg": "Deserialization failed"
     },
     {
-      "code": 6012,
+      "code": 6011,
       "name": "tokenAccountNotFound",
       "msg": "Token account not found"
     }
@@ -1406,10 +1174,6 @@ export type Meme = {
           },
           {
             "name": "lockedAmount",
-            "type": "u64"
-          },
-          {
-            "name": "claimmable",
             "type": "u64"
           }
         ]
