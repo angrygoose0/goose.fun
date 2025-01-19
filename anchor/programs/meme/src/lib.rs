@@ -32,7 +32,7 @@ pub mod meme {
         pubkey!("CLTFWDW9qp1sEFXnNhaQBnyzfErZcjmyt2h6RA8QLFj7");
         
     pub const SUPPLY_SOLD_BEFORE_BONDING: u64 = 800_000_000_000_000_000;
-    pub const SOL_GOAL_BEFORE_BONDING: u64 = 320_000_000_000; // 320 sol
+    pub const SOL_GOAL_BEFORE_BONDING: u64 = 1_000_000_000; // 100 sol     1 sol temp
     
 
     pub const MINT_DECIMALS: u8 = 9;
@@ -255,6 +255,11 @@ pub mod meme {
             CustomError::HasBonded,
         );
 
+        require!(
+            meme_account.locked_amount >= SOL_GOAL_BEFORE_BONDING,
+            CustomError::NotEnoughSol,
+        )
+
         meme_account.bonded_time = Clock::get()?.unix_timestamp as i64;
         meme_account.pool_id = Some(pool_id);
 
@@ -266,7 +271,7 @@ pub mod meme {
             let mut data = account.try_borrow_mut_data()?;
             let mut user_account = UserAccount::try_deserialize(&mut data.as_ref()).expect("Error Deserializing Data");
             
-            if user_account.mint == ctx.accounts.mint.key() {
+            if user_account.mint != ctx.accounts.mint.key() {
                 continue;
             }
             user_account.locked_amount *= tokens_per_sol;
@@ -441,6 +446,8 @@ pub enum CustomError {
     DeserializationError,
     #[msg("Token account not found")]
     TokenAccountNotFound,
+    #[msg("SOL goal not reached.")]
+    NotEnoughSol,
     
 }
 

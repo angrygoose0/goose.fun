@@ -3,9 +3,9 @@
 
 import { ChangeEvent, useCallback, useState, useEffect } from 'react'
 import {useMetadataQuery, useBuyTokenMutation, useUserAccountQuery, useCreateMemeToken, useProcessedAccountsQuery, useMemeAccountQuery, useLockTokenMutation } from './meme-data-access'
-import { useGetBalance, useGetTokenAccounts } from '../account/account-data-access';
+import { useGetBalance, useGetTokenAccounts, useGetTokenBalance } from '../account/account-data-access';
 import {useSolPriceQuery} from '../solana/solana-data-access';
-import {fromLamports, calculatePercentage, simplifyBN, fromLamportsDecimals, ToLamportsDecimals, ZERO, EMPTY_PUBLIC_KEY, BILLION, SOL_MINT, TOKENS_PER_PAGE, ActionType, SOL_GOAL_BEFORE_BONNDING, MINT_SUPPLY } from './meme-helper-functions';
+import {fromLamports, calculatePercentage, simplifyBN, fromLamportsDecimals, ToLamportsDecimals, ZERO, EMPTY_PUBLIC_KEY, BILLION, SOL_MINT, TOKENS_PER_PAGE, ActionType, SOL_GOAL_BEFORE_BONDING, MINT_SUPPLY } from './meme-helper-functions';
 import axios from "axios";
 import toast from "react-hot-toast";
 import { useWallet } from '@solana/wallet-adapter-react';
@@ -754,7 +754,7 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
     mint: memeAccount.mint,
   });
   const { userAccountQuery } = useUserAccountQuery({ publicKey: publicKey || EMPTY_PUBLIC_KEY, mint:memeAccount.mint });
-  const { getSpecificTokenBalance } = useGetTokenAccounts({
+  const { getSpecificTokenBalance } = useGetTokenBalance({
     address: publicKey || EMPTY_PUBLIC_KEY,
     mint: memeAccount.mint,
   });
@@ -875,7 +875,7 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
     unlockedPercentage: calculatePercentage(userTokenBalance, totalTokens),
   };
 
-  const divisor = (memeAccount.bondedTime.lt(ZERO) && memeAccount.creationTime.gte(ZERO)) ? SOL_GOAL_BEFORE_BONNDING : MINT_SUPPLY;
+  const divisor = (memeAccount.bondedTime.lt(ZERO) && memeAccount.creationTime.gte(ZERO)) ? SOL_GOAL_BEFORE_BONDING : MINT_SUPPLY;
   const globalPercentage = calculatePercentage(memeAccount.lockedAmount, divisor);
 
 
@@ -883,11 +883,6 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
 
   //const { userAccountsByMintQuery } = useUserAccountsByMintQuery({ mint });
   //const holderData = userAccountsByMintQuery.data ?? null;
-
-  
-
-
- 
 
 
   const renderGridCards = () => {
@@ -974,6 +969,7 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
           gridColumn: hideRight ? "1 / 4" : (hideLeft ? "1 / 3" : "2 / 3")
         }}
       >
+        {tokenPrice.toString()}
         <div className="absolute top-2 right-2 text-gray-500 dark:text-white text-xs">{timeAgo(memeAccount.creationTime.toNumber())} ago</div>
         <div className="flex items-start mb-2">
         {memeMetadata.image ? (
@@ -1084,8 +1080,10 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
           </svg>
           <span className="text-sm ml-1">456</span>
         </div>
+        
 
-        <BondButton mint={memeAccount.mint}/>
+        {(memeAccount.poolId === EMPTY_PUBLIC_KEY) ? (null) : (null)}  
+        <BondButton mint={memeAccount.mint} solCollected={memeAccount.lockedAmount}/>
 
       </div >
     );
@@ -1213,7 +1211,7 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
           className="max-w-lg mx-auto mt-10 cursor-pointer"
           onClick={() => setIsVisible(false)}
         >
-          <div className="relative dualbox  p-6">
+          <div className="relative dualbox hover:bg-purple-100 p-6">
             <div className="absolute top-2 right-2 text-gray-500 dark:text-white text-xs">
               {timeAgo(memeAccount.creationTime.toNumber())} ago
             </div>
@@ -1292,6 +1290,7 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
 
             <div className="flex flex-col space-y-1 mt-2">
               <div className="flex items-baseline space-x-2">
+                {memeAccount.lockedAmount.toString()}
               <div className="text-sm font-semibold">{globalPercentage.toString()} %</div>
                 {(memeAccount.bondedTime.lt(ZERO) && memeAccount.creationTime.gte(ZERO)) ? (
                   <div className="text-sm text-gray-500 dark:text-white">~ ${solToUsd(memeAccount.lockedAmount)}</div>

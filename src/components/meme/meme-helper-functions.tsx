@@ -17,10 +17,13 @@ export const TOKEN_METADATA_PROGRAM_ID = new PublicKey("metaqbxxUerdq28cj1RbAWkY
 export const TREASURY_PUBLIC_KEY = new PublicKey (process.env.NEXT_PUBLIC_TREASURY_PUBLIC_KEY || "");
 
 
-export const SUPPLY_SOLD_BEFORE_BONDING = new BN(800000000).mul(BILLION);
-export const SOL_GOAL_BEFORE_BONNDING = new BN(10).mul(BILLION);
-
 export const MINT_SUPPLY = BILLION.mul(BILLION);
+export const SUPPLY_SOLD_BEFORE_BONDING = new BN(800000000).mul(BILLION);
+export const SUPPLY_SENT_TO_RAYDIUM = MINT_SUPPLY.sub(SUPPLY_SOLD_BEFORE_BONDING)
+
+export const SOL_GOAL_BEFORE_BONDING = new BN(1).mul(BILLION); //100 sol,   1 sol for testing
+
+
 
 
 export const TOKENS_PER_PAGE = 10;

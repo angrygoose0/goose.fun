@@ -21,7 +21,7 @@ import { Cluster, clusterApiUrl, Keypair, PublicKey, SendTransactionError } from
 import BN from 'bn.js';
 import toast from 'react-hot-toast';
 import { useTransactionToast } from '../ui/ui-layout';
-import {SOL_GOAL_BEFORE_BONNDING, SOL_MINT, SUPPLY_SOLD_BEFORE_BONDING } from '../meme/meme-helper-functions'
+import {SOL_GOAL_BEFORE_BONDING, SOL_MINT, SUPPLY_SOLD_BEFORE_BONDING } from '../meme/meme-helper-functions'
 import { getMemeProgramId } from 'anchor/src/meme-exports';
 import { useMemo } from 'react';
 

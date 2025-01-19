@@ -14,6 +14,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { useTransactionToast } from '../ui/ui-layout'
+import { associatedAddress } from '@coral-xyz/anchor/dist/cjs/utils/token'
 
 
 export function useGetBalance({ address }: { address: PublicKey | null }) {
@@ -49,6 +50,49 @@ export function useGetSignatures({ address }: { address: PublicKey }) {
   })
 }
 
+export function useGetTokenBalance({address, mint} : { address: PublicKey, mint: PublicKey }) {
+  const { connection } = useConnection();
+
+  const getSpecificTokenBalance = useQuery({
+    queryKey: ['get-token-balance', { address, mint }],
+    queryFn: async () => {
+
+      const userTokenAccount = await associatedAddress({
+        mint: mint,
+        owner: address,
+      })
+
+      const info = await connection.getTokenAccountBalance(userTokenAccount);
+      if (info.value.uiAmount == null) {
+        return {
+          uiAmount: 0,
+          balance: 0,
+          decimals: 0,
+        };
+      }
+
+      return {
+        uiAmount: info.value.uiAmount,
+        balance: info.value.amount,
+        decimals: info.value.decimals,
+      };
+
+      // Return 0 balance if no matching account is found
+      
+    },
+    // Ensure the query is considered fresh for 5 minutes
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    // Automatically refetch data every 10 minutes
+    refetchInterval: 10 * 60 * 1000, // 10 minutes
+    // Fetch on mount to ensure data is available when the component loads
+    refetchOnMount: true,
+    // Optionally fetch in the background when the user revisits the page/tab
+    refetchOnWindowFocus: false,
+  });
+
+  return { getSpecificTokenBalance}
+}
+
 export function useGetTokenAccounts({ address, mint }: { address: PublicKey, mint?: PublicKey }) {
   const { connection } = useConnection();
 
@@ -71,50 +115,10 @@ export function useGetTokenAccounts({ address, mint }: { address: PublicKey, min
     },
   });
 
-  // Fetch specific token balance
-  const getSpecificTokenBalance = useQuery({
-    queryKey: ['get-token-balance', { address, mint }],
-    queryFn: async () => {
-      if (!address || !mint) {
-        // This ensures TypeScript knows `address` and `mint` are non-null at runtime
-        throw new Error('Address and mint must be defined');
-      }
-
-      const tokenAccounts = await connection.getParsedTokenAccountsByOwner(address, {
-        mint,
-      });
-
-      if (tokenAccounts.value.length > 0) {
-        const account = tokenAccounts.value[0];
-        const { tokenAmount } = account.account.data.parsed.info;
-        return {
-          uiAmount: tokenAmount.uiAmount,
-          balance: tokenAmount.amount,
-          decimals: tokenAmount.decimals,
-        };
-      }
-
-      // Return 0 balance if no matching account is found
-      return {
-        uiAmount: 0,
-        balance: 0,
-        decimals: 0,
-      };
-    },
-    // Ensure the query is considered fresh for 5 minutes
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    // Automatically refetch data every 10 minutes
-    refetchInterval: 10 * 60 * 1000, // 10 minutes
-    // Fetch on mount to ensure data is available when the component loads
-    refetchOnMount: true,
-    // Optionally fetch in the background when the user revisits the page/tab
-    refetchOnWindowFocus: false,
-  });
 
 
   return {
     getAllTokenAccounts,
-    getSpecificTokenBalance,
   };
 }
 
