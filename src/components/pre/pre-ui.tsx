@@ -1,10 +1,10 @@
 import { useWallet } from "@solana/wallet-adapter-react";
 import Image from 'next/image';
 import { PrimaryBar, PrimaryButton, PrimaryInput } from "../ui/extra-ui/button";
-import { BILLION, fromLamportsDecimals, ToLamportsDecimals, ZERO, calculatePercentage, EMPTY_PUBLIC_KEY, SOL_MINT, fromLamports, simplifyBN} from "../meme/meme-helper-functions";
+import { BILLION, fromLamportsDecimals, ToLamportsDecimals, ZERO, calculatePercentage, EMPTY_PUBLIC_KEY, SOL_MINT, fromLamports, simplifyBN, SOL_GOAL_BEFORE_BONDING, MINT_SUPPLY} from "../meme/meme-helper-functions";
 import BN from "bn.js";
 import { useCallback, useEffect, useState } from "react";
-import { useGetBalance, useGetTokenAccounts } from "../account/account-data-access";
+import { useGetBalance, useGetTokenAccounts, useGetTokenBalance } from "../account/account-data-access";
 import toast from "react-hot-toast";
 import { usePreBuyTokenMutation, usePreTokenQuery, usePreUserQuery, mint, SOL_GOAL, usePreLockTokenMutation } from "./pre-data-access";
 import { useSolPriceQuery } from "../solana/solana-data-access";
@@ -94,10 +94,10 @@ export function PreCard() {
 
     const { preUserQuery} = usePreUserQuery();
 
-    const { getSpecificTokenBalance } = useGetTokenAccounts({
+    const { getSpecificTokenBalance } = useGetTokenBalance({
         address: publicKey || EMPTY_PUBLIC_KEY,
         mint: memeAccount.mint,
-    });
+      });
     const {balanceQuery} = useGetBalance({ address: publicKey })
     
     const {raydiumPoolQuery, raydiumSwap} = useRaydiumPoolQuery({poolId: memeAccount.poolId});
@@ -169,16 +169,13 @@ export function PreCard() {
       }, [balanceQuery.data]);
     
     
-    const totalTokens = userAccount.lockedAmount
-        .add(userTokenBalance)
-    
+    const totalTokens = userAccount.lockedAmount.add(userTokenBalance)
     const tokenDistribution = {
-        lockedPercentage: calculatePercentage(userAccount.lockedAmount, totalTokens),
-        unlockedPercentage: calculatePercentage(userTokenBalance, totalTokens),
+    lockedPercentage: calculatePercentage(userAccount.lockedAmount, totalTokens),
+    unlockedPercentage: calculatePercentage(userTokenBalance, totalTokens),
     };
-    
 
-    const divisor = (memeAccount.bondedTime.isNeg() && memeAccount.creationTime.gt(ZERO)) ? new BN('800000000000000000') : new BN('1000000000000000000');
+    const divisor = (memeAccount.bondedTime.lt(ZERO) && memeAccount.creationTime.gte(ZERO)) ? SOL_GOAL_BEFORE_BONDING : MINT_SUPPLY;
     const globalPercentage = calculatePercentage(memeAccount.lockedAmount, divisor);
 
 
@@ -186,33 +183,34 @@ export function PreCard() {
     const [selectedAction, setSelectedAction] = useState<ActionType>(ActionType.Buy);
 
     const handleActionChange = (action: ActionType) => {
+        if (action === ActionType.Buy) {
+          setShowingSol(true);
+        }
         setSelectedAction(action);
         setAmount(ZERO);
-
-        if (action === ActionType.Buy || action === ActionType.Sell) {
-            setShowingSol(true);
-        }
-      };
+    };
     
-      const [amount, setAmount] = useState(ZERO);
-      const [showingSol, setShowingSol] = useState(true); // true for showing SOL, false for showing token
-      const toggleSolOrToken = () => {
-        if (selectedAction === ActionType.Buy || selectedAction === ActionType.Sell) {
-            return; // Do nothing if selectedAction is Buy
+    const [amount, setAmount] = useState(ZERO);
+    const [showingSol, setShowingSol] = useState(true); // true for showing SOL, false for showing token
+
+
+    const toggleSolOrToken = () => {
+        if (selectedAction === ActionType.Buy) {
+        return;
         }
 
         setShowingSol((prevMode) => {
-          const newMode = !prevMode;
-          const convertedAmount = newMode
+        const newMode = !prevMode;
+        const convertedAmount = newMode
             ? tokensToSol(amount) // Convert Tokens to SOL
             : solToTokens(amount); // Convert SOL to Tokens
-          setAmountWithLimits(convertedAmount, newMode); // Use limits to ensure the value is valid
-          return newMode; // Toggle the mode
+        setAmountWithLimits(convertedAmount, newMode); // Use limits to ensure the value is valid
+        return newMode; // Toggle the mode
         });
-      };
+    };
 
 
-      const setAmountWithLimits = (numericValue: BN, showingSolOverride?: boolean) => {
+    const setAmountWithLimits = (numericValue: BN, showingSolOverride?: boolean) => {
         const useShowingSol = showingSolOverride !== undefined ? showingSolOverride : showingSol;
     
         if (numericValue < ZERO) {
@@ -220,42 +218,27 @@ export function PreCard() {
           return;
         }
     
-        if (selectedAction === ActionType.Buy || selectedAction === ActionType.RaydiumBuy) {
+        if (selectedAction === ActionType.Buy) { // always sol
+          setAmount(numericValue.cmp(solBalance) === -1 ? numericValue : solBalance);
+    
+        } else if (selectedAction === ActionType.RaydiumBuy) {
           if (useShowingSol) {
             setAmount(numericValue.cmp(solBalance) === -1 ? numericValue : solBalance);
           } else {
             setAmount(numericValue.cmp(solToTokens(solBalance)) === -1 ? numericValue : solToTokens(solBalance));
           }
-        } else if (selectedAction === ActionType.Sell) {
-          if (useShowingSol) {
-            setAmount(numericValue.cmp(userAccount.lockedAmount) === -1 ? numericValue : userAccount.lockedAmount);
-          } else {
-            setAmount(numericValue.cmp(solToTokens(userAccount.lockedAmount)) === -1 ? numericValue : solToTokens(userAccount.lockedAmount));
-          }
-        } else if (selectedAction === ActionType.RaydiumSell) {
+    
+        } else if (selectedAction === ActionType.RaydiumSell || selectedAction === ActionType.Lock) {
           if (useShowingSol) {
             setAmount(numericValue.cmp(tokensToSol(userTokenBalance)) === -1 ? numericValue : tokensToSol(userTokenBalance));
           } else {
             setAmount(numericValue.cmp(userTokenBalance) === -1 ? numericValue : userTokenBalance);
           }
     
-        } else if (selectedAction === ActionType.Lock){
-          if (useShowingSol) {
-            setAmount(numericValue.cmp(tokensToSol(userAccount.claimmable.add(userTokenBalance))) === -1 ? numericValue : tokensToSol(userAccount.claimmable.add(userTokenBalance)));
-          } else {
-            setAmount(numericValue.cmp(userAccount.claimmable.add(userTokenBalance)) === -1 ? numericValue : userAccount.claimmable.add(userTokenBalance));
-          }
-    
-        } else if (selectedAction === ActionType.Claim) {
-          if (useShowingSol) {
-            setAmount(numericValue.cmp(tokensToSol(userAccount.claimmable)) === -1 ? numericValue : tokensToSol(userAccount.claimmable));
-          } else {
-            setAmount(numericValue.cmp(userAccount.claimmable) === -1 ? numericValue : userAccount.claimmable);
-          }
         } else {
           setAmount(numericValue);
         }
-      };
+    };
 
       const {preBuyToken} = usePreBuyTokenMutation();
       const {preLockToken} = usePreLockTokenMutation();
@@ -270,102 +253,82 @@ export function PreCard() {
         }
         setAmountWithLimits(ToLamportsDecimals(value));
       };
+
+      
     
     
-      const handleBuyFormSubmit = useCallback(async () => {
+    const handleBuyFormSubmit = useCallback(async () => {
+        try {
+    
+          // Validate amount based on selected action
+          if (selectedAction !== ActionType.Buy) {
+            throw new Error("wrong action type");
+          }
+    
+          if (amount.gte(solBalance)) {
+            throw new Error("SOL balance too low1.");
+          }
+    
+          await buyToken.mutateAsync({ amount, mint: memeAccount.mint });
+          toast.success("Success!");
+        } catch (error: any) {
+          console.error(error);
+          toast.error(error.message || "An error occurred.");
+        }
+    }, [amount, selectedAction, solBalance, memeAccount.mint, buyToken]);
+    
+    const handleLockFormSubmit = useCallback(async () => {
+        try {
+    
+          // Validate amount based on selected action
+          if (selectedAction !== ActionType.Lock) {
+            throw new Error("wrong action type");
+          }
+    
+          const tokensRequiredBN = showingSol ? solToTokens(amount) : amount;
+    
+          if (tokensRequiredBN.gte(userTokenBalance)) {
+            throw new Error("Token balance too low.");
+          }
+    
+    
+          // Perform the lock/claim operation
+          await lockToken.mutateAsync({ amount: tokensRequiredBN, mint: memeAccount.mint });
+          toast.success("Success!");
+    
+        } catch (error: any) {
+          console.error(error);
+          toast.error(error.message || "An error occurred.");
+        }
+      }, [amount, showingSol, selectedAction, userTokenBalance, memeAccount.mint, lockToken, solToTokens]);
+      
+      
+    const handleRaydiumBuySellFormSubmit = useCallback(async () => {
         try {
           let amountSentToSolana: BN; //sol lamports
     
-          // Validate amount based on selected action
-          if (selectedAction === ActionType.Buy) {
+            // Validate amount based on selected action
+          if (selectedAction === ActionType.RaydiumBuy) {
     
-            if (amount.gte(solBalance)) {
-              throw new Error("SOL balance too low1.");
+            const solRequiredBN = showingSol ? amount : tokensToSol(amount);
+    
+            if (solRequiredBN.gte(solBalance)) {
+              throw new Error("SOL balance too low.");
             }
     
-            amountSentToSolana = amount;
-          } else if (selectedAction === ActionType.Sell) {
-    
-            if (amount.gte(userAccount.lockedAmount)) {
-              throw new Error("You can't claim more than you invested.");
-            }
-    
-            amountSentToSolana = amount.neg();
-          }
-          else {
-            throw new Error("wrong action type");
-          }
-    
-          // Perform the buy/sell operation
-          await preBuyToken.mutateAsync({ amount: amountSentToSolana });
-          toast.success("Success!");
-        } catch (error: any) {
-          console.error(error);
-          toast.error(error.message || "An error occurred.");
-        }
-      }, [amount, selectedAction, solBalance, preBuyToken, userAccount.lockedAmount]);
-    
-      const handleLockFormSubmit = useCallback(async () => {
-        try {
-          let amountSentToSolana: BN; //token lamports
-    
-          // Validate amount based on selected action
-          if (selectedAction === ActionType.Lock) {
+            amountSentToSolana = solRequiredBN;
+          } else if (selectedAction === ActionType.RaydiumSell) {
             const tokensRequiredBN = showingSol ? solToTokens(amount) : amount;
     
-            if (tokensRequiredBN.gte(userTokenBalance.add(userAccount.claimmable))) {
+            if (tokensRequiredBN.gte(userTokenBalance)) {
               throw new Error("Token balance too low.");
             }
     
-            amountSentToSolana = tokensRequiredBN;
-          } else if (selectedAction === ActionType.Claim) {
-            const tokensRequiredBN = showingSol ? solToTokens(amount) : amount;
-    
-            if (tokensRequiredBN.gte(userAccount.claimmable)) {
-              throw new Error("You can't claim more than you can claim.");
-            }
-    
-            amountSentToSolana = tokensRequiredBN.neg()
+            amountSentToSolana = showingSol ? amount.neg() : tokensToSol(amount).neg(); // sol lamports
           }
-          else {
+            else {
             throw new Error("wrong action type");
           }
-    
-          // Perform the lock/claim operation
-          await preLockToken.mutateAsync({ amount: amountSentToSolana });
-          toast.success("Success!");
-        } catch (error: any) {
-          console.error(error);
-          toast.error(error.message || "An error occurred.");
-        }
-      }, [amount, showingSol, selectedAction, userTokenBalance, userAccount.claimmable, preLockToken, solToTokens]);
-      
-      
-      const handleRaydiumBuySellFormSubmit = useCallback(async () => {
-        try {
-            let amountSentToSolana: BN; //sol lamports
-    
-            // Validate amount based on selected action
-            if (selectedAction === ActionType.RaydiumBuy) {
-    
-                const solRequiredBN = showingSol ? amount : tokensToSol(amount);
-        
-                if (solRequiredBN.gte(solBalance)) {
-                throw new Error("SOL balance too low.");
-                }
-        
-                amountSentToSolana = solRequiredBN;
-            } else if (selectedAction === ActionType.RaydiumSell) {
-                const tokensRequiredBN = showingSol ? solToTokens(amount) : amount;
-        
-                if (tokensRequiredBN.gte(userTokenBalance)) {
-                throw new Error("You can't sell more than you have");
-                }
-        
-                amountSentToSolana = showingSol ? amount.neg() : tokensToSol(amount).neg();
-            } else {
-                throw new Error("wrong action type");
-            }
     
             // Perform the buy/sell operation
             await raydiumSwap.mutateAsync({inputMint:SOL_MINT, inputAmount: amountSentToSolana,});
@@ -374,7 +337,7 @@ export function PreCard() {
               console.error(error);
             toast.error(error.message || "An error occurred.");
         }
-      }, [amount, showingSol, selectedAction, solBalance, userTokenBalance, raydiumSwap, tokensToSol, solToTokens]);
+    }, [amount, showingSol, selectedAction, solBalance, userTokenBalance, raydiumSwap, tokensToSol, solToTokens]);
     
   
     return (

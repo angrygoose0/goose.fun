@@ -148,7 +148,7 @@ pub mod meme {
         require!(amount != 0, CustomError::InvalidAmount);
     
         user_account.user = ctx.accounts.signer.key();
-        user_account.user = ctx.accounts.mint.key();
+        user_account.mint = ctx.accounts.mint.key();
     
         require!(
             !(meme_account.bonded_time < 0 && meme_account.creation_time >= 0),
@@ -207,7 +207,6 @@ pub mod meme {
             CustomError::HasBonded,
         );
 
-
         user_account.locked_amount = user_account
             .locked_amount
             .checked_add(amount)
@@ -219,7 +218,6 @@ pub mod meme {
             .ok_or(CustomError::Overflow)?;
 
         //if everything good, user gives sol lamports amount to treasury
-
         let transfer_instruction = system_instruction::transfer(
             &ctx.accounts.signer.key(),
             &ctx.accounts.treasury.key(),
@@ -281,7 +279,7 @@ pub mod meme {
         Ok(())
     }
 
-
+    
     pub fn unlock_meme_phase<'info>(
         ctx: Context<UnlockPhase>,
         _user: Pubkey,
@@ -320,13 +318,10 @@ pub mod meme {
                 deduction,
                 MINT_DECIMALS,
             )?;
-
             meme_account.locked_amount -= deduction;
         }  
-    
         Ok(())
     }
-
 }
 
 

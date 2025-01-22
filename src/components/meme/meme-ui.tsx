@@ -515,7 +515,7 @@ export function BalanceCard({ publicKey, memeAccount, memeMetadata, userAccount,
           <>
             <div className="flex items-baseline space-x-2">
               <div className="text-sm font-semibold">
-                {simplifyBN(fromLamports(userAccount.lockedAmount))} SOL
+                {fromLamportsDecimals(userAccount.lockedAmount)} SOL
               </div>
               <div className="text-sm text-gray-500 dark:text-white">~ ${solToUsd(userAccount.lockedAmount)}</div>
             </div>
@@ -523,7 +523,7 @@ export function BalanceCard({ publicKey, memeAccount, memeMetadata, userAccount,
             <PrimaryBar
               extraCss=""
               values={[
-                {label:"Invested", percentage:100, value:simplifyBN(fromLamports(userAccount.lockedAmount)), color:"bg-purple-300"},
+                {label:"Invested", percentage:100, value:fromLamportsDecimals(userAccount.lockedAmount).toString(), color:"bg-purple-300"},
               ]}
               labels={true}
             />
@@ -540,8 +540,8 @@ export function BalanceCard({ publicKey, memeAccount, memeMetadata, userAccount,
             <PrimaryBar
               extraCss=""
               values={[
-                {label:"Locked", percentage:tokenDistribution.lockedPercentage, value:simplifyBN(fromLamports(userAccount.lockedAmount)), color:"bg-purple-800 dark:bg-purple-300"},
-                {label:"Unlocked", percentage:tokenDistribution.unlockedPercentage, value:simplifyBN(fromLamports(userTokenBalance)), color:"bg-purple-600"},
+                {label:"Locked", percentage:tokenDistribution.lockedPercentage, value:simplifyBN(fromLamports(userAccount.lockedAmount)), color:"bg-purple-600"},
+                {label:"Unlocked", percentage:tokenDistribution.unlockedPercentage, value:simplifyBN(fromLamports(userTokenBalance)), color:"bg-purple-300"},
               ]}
               labels={true}
             />
@@ -969,7 +969,6 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
           gridColumn: hideRight ? "1 / 4" : (hideLeft ? "1 / 3" : "2 / 3")
         }}
       >
-        {tokenPrice.toString()}
         <div className="absolute top-2 right-2 text-gray-500 dark:text-white text-xs">{timeAgo(memeAccount.creationTime.toNumber())} ago</div>
         <div className="flex items-start mb-2">
         {memeMetadata.image ? (
@@ -1211,7 +1210,13 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
           className="max-w-lg mx-auto mt-10 cursor-pointer"
           onClick={() => setIsVisible(false)}
         >
-          <div className="relative dualbox hover:bg-purple-100 p-6">
+          
+          <div
+          className={`relative dualbox hover:bg-purple-200 p-6 ${
+            !(memeAccount.bondedTime.lt(ZERO) && memeAccount.creationTime.gte(ZERO))
+              && 'highlight-shadow'
+          }`}
+        >
             <div className="absolute top-2 right-2 text-gray-500 dark:text-white text-xs">
               {timeAgo(memeAccount.creationTime.toNumber())} ago
             </div>
@@ -1290,14 +1295,13 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
 
             <div className="flex flex-col space-y-1 mt-2">
               <div className="flex items-baseline space-x-2">
-                {memeAccount.lockedAmount.toString()}
-              <div className="text-sm font-semibold">{globalPercentage.toString()} %</div>
-                {(memeAccount.bondedTime.lt(ZERO) && memeAccount.creationTime.gte(ZERO)) ? (
-                  <div className="text-sm text-gray-500 dark:text-white">~ ${solToUsd(memeAccount.lockedAmount)}</div>
-                ) : (
-                  <div className="text-sm text-gray-500 dark:text-white">~ ${tokensToUsd(memeAccount.lockedAmount)}</div>
-                )}
-              </div>
+                <div className="text-sm font-semibold">{globalPercentage.toString()} %</div>
+                  {(memeAccount.bondedTime.lt(ZERO) && memeAccount.creationTime.gte(ZERO)) ? (
+                    <div className="text-sm text-gray-500 dark:text-white">~ ${solToUsd(memeAccount.lockedAmount)}</div>
+                  ) : (
+                    <div className="text-sm text-gray-500 dark:text-white">~ ${tokensToUsd(memeAccount.lockedAmount)}</div>
+                  )}
+                </div>
             </div>
 
             <PrimaryBar
@@ -1333,7 +1337,7 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
                   <>
                     <div className="flex items-baseline space-x-2">
                       <div className="text-sm font-semibold ">
-                        {simplifyBN(fromLamports(userAccount.lockedAmount))} SOL
+                        {fromLamportsDecimals(userAccount.lockedAmount)} SOL
                       </div>
                       <div className="text-sm text-gray-500 dark:text-white">~ ${solToUsd(userAccount.lockedAmount)}</div>
                     </div>
@@ -1341,7 +1345,7 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
                     <PrimaryBar
                       extraCss=""
                       values={[
-                        {label:"Invested", percentage:100, value:simplifyBN(fromLamports(userAccount.lockedAmount)), color:"bg-purple-300"},
+                        {label:"Invested", percentage:100, value:`${fromLamportsDecimals(userAccount.lockedAmount)} SOL`, color:"bg-purple-300"},
                       ]}
                       labels={true}
                     />
@@ -1358,8 +1362,8 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
                     <PrimaryBar
                       extraCss=""
                       values={[
-                        {label:"Locked", percentage:tokenDistribution.lockedPercentage, value:simplifyBN(fromLamports(userAccount.lockedAmount)), color:"bg-purple-800 dark:bg-purple-300"},
-                        {label:"Unlocked", percentage:tokenDistribution.unlockedPercentage, value:simplifyBN(fromLamports(userTokenBalance)), color:"bg-purple-600"},
+                        {label:"Locked", percentage:tokenDistribution.lockedPercentage, value:simplifyBN(fromLamports(userAccount.lockedAmount)), color:"bg-purple-600"},
+                        {label:"Unlocked", percentage:tokenDistribution.unlockedPercentage, value:simplifyBN(fromLamports(userTokenBalance)), color:"bg-purple-300"},
                       ]}
                       labels={true}
                     />

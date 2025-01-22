@@ -45,3 +45,8 @@ body {
         box-shadow: 0 10px 15px -3px rgba(255, 255, 255, 0.1), 0 4px 6px -2px rgba(255, 255, 255, 0.05); /* shadow-lg for dark mode */
     }
 }
+
+.highlight-shadow {
+    box-shadow: 0 8px 12px rgba(200, 160, 255, 0.6) !important;
+}
+

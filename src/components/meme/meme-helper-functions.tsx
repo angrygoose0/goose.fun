@@ -14,7 +14,7 @@ export const SOL_MINT = new PublicKey('So111111111111111111111111111111111111111
 export const RAYDIUM_DEVNET_CPMM_PROGRAM_ID = new PublicKey('CPMDWBwJDtYax9qW7AyRuVC19Cc4L4Vcy4n2BHAbHkCW')
 export const TOKEN_METADATA_PROGRAM_ID = new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
 
-export const TREASURY_PUBLIC_KEY = new PublicKey (process.env.NEXT_PUBLIC_TREASURY_PUBLIC_KEY || "");
+export const TREASURY_PUBLIC_KEY = new PublicKey(process.env.NEXT_PUBLIC_TREASURY_PUBLIC_KEY || "");
 
 
 export const MINT_SUPPLY = BILLION.mul(BILLION);

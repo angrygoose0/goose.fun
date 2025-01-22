@@ -9,7 +9,7 @@ export const PrimaryButton = (
             name={name} 
             disabled={disabled} 
             onClick={onClick} 
-            className={`${active ? 'bg-purple-200' : ''} dualbox shadow-lg btn rounded-none hover:bg-purple-100 hover:border-black dark:hover:border-white focus:outline-none} ${extraCss}`} 
+            className={`${active && 'bg-purple-200'} dualbox shadow-lg btn rounded-none hover:bg-purple-100 hover:border-black dark:hover:border-white focus:outline-none} ${extraCss}`} 
         >
             {value}    
         </button>
