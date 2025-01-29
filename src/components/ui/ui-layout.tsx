@@ -6,14 +6,13 @@ import * as React from 'react'
 import { ReactNode, Suspense, useEffect, useRef, useState } from 'react'
 import toast, { Toaster } from 'react-hot-toast'
 
-
+//import { MemeCreate, MemeList } from '../meme/meme-ui'
 import { ExplorerLink } from '../cluster/cluster-ui'
 import { WalletButton } from '../solana/solana-provider'
 import { PrimaryButton } from './extra-ui/button'
 import {PreCard} from'../pre/pre-ui'
 import { FaGlobe, FaTelegramPlane } from 'react-icons/fa'
 import { FaXTwitter } from 'react-icons/fa6'
-import { MemeCreate, MemeList } from '../meme/meme-ui'
 import { ClusterUiSelect } from '../cluster/cluster-ui'
 
 export function UiLayout({ children }: { children: ReactNode }) {
@@ -22,7 +21,7 @@ export function UiLayout({ children }: { children: ReactNode }) {
     <div className="h-full flex">
 
       <div className="fixed top-4 left-4 flex space-x-4 z-50">
-        <MemeCreate />
+        {/*<MemeCreate />*/}
 
       </div>
       {/* Floating Buttons */}
@@ -77,7 +76,8 @@ export function UiLayout({ children }: { children: ReactNode }) {
         </div>
         
 
-        <MemeList/>
+        {/*<MemeList/>*/}
+        <PreCard/>
 
 
     

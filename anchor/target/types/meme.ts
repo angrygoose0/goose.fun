@@ -5,7 +5,7 @@
  * IDL can be found at `target/idl/meme.json`.
  */
 export type Meme = {
-  "address": "9nXE1U7FpiuB5V7Bft2sdURwA7QZsnKHpvp8v21RZSub",
+  "address": "2yDwQCquPedRZwUcFdtatn3wpP3GZhcbcQvUS1vhHHDy",
   "metadata": {
     "name": "meme",
     "version": "0.1.0",
@@ -794,7 +794,7 @@ export type Meme = {
                 "path": "mint"
               },
               {
-                "kind": "arg",
+                "kind": "account",
                 "path": "user"
               }
             ]
@@ -806,6 +806,11 @@ export type Meme = {
         },
         {
           "name": "treasury",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "signer",
           "writable": true,
           "signer": true
         },
@@ -900,12 +905,16 @@ export type Meme = {
           }
         },
         {
+          "name": "user",
+          "writable": true
+        },
+        {
           "name": "userTokenAccount",
           "writable": true,
           "pda": {
             "seeds": [
               {
-                "kind": "arg",
+                "kind": "account",
                 "path": "user"
               },
               {
@@ -1002,12 +1011,7 @@ export type Meme = {
           "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
         }
       ],
-      "args": [
-        {
-          "name": "user",
-          "type": "pubkey"
-        }
-      ]
+      "args": []
     }
   ],
   "accounts": [
@@ -1098,6 +1102,11 @@ export type Meme = {
       "code": 6011,
       "name": "tokenAccountNotFound",
       "msg": "Token account not found"
+    },
+    {
+      "code": 6012,
+      "name": "notEnoughSol",
+      "msg": "SOL goal not reached."
     }
   ],
   "types": [

@@ -124,6 +124,8 @@ export function useCreateMemeToken() {
           .add(initTokenInstruction)
           .add(mintTokenInstruction);
 
+          
+
         const simulationResult = await connection.simulateTransaction(transaction);
         console.log('Simulation Result:', simulationResult);
 

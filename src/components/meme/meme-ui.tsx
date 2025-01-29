@@ -15,11 +15,11 @@ import { FaXTwitter } from 'react-icons/fa6';
 import { BN } from '@coral-xyz/anchor';
 import { WalletButton } from '../solana/solana-provider'
 import {useRaydiumPoolQuery, useInitRaydiumSdk } from '../raydium/raydium-data-access'
-import { ApiV3PoolInfoStandardItemCpmm, CpmmKeys, CpmmRpcData } from '@raydium-io/raydium-sdk-v2';
+import { AccountType, ApiV3PoolInfoStandardItemCpmm, CpmmKeys, CpmmRpcData } from '@raydium-io/raydium-sdk-v2';
 
 import {PrimaryBar, PrimaryButton, PrimaryInput, PrimarySelect} from '../ui/extra-ui/button'
 import Image from 'next/image';
-import { BondButton } from '../admin/admin-ui';
+import { BondButton, UnlockButton } from '../admin/admin-ui';
 
 
 
@@ -314,7 +314,7 @@ export function BalanceCard({ publicKey, memeAccount, memeMetadata, userAccount,
     } else {
       handleActionChange(ActionType.RaydiumBuy);
     }
-  }, [memeAccount.bondedTime]);
+  }, [memeAccount.bondedTime, memeAccount.creationTime]);
 
   const [selectedAction, setSelectedAction] = useState<ActionType>(ActionType.Buy);
 
@@ -349,7 +349,7 @@ export function BalanceCard({ publicKey, memeAccount, memeMetadata, userAccount,
   const setAmountWithLimits = (numericValue: BN, showingSolOverride?: boolean) => {
     const useShowingSol = showingSolOverride !== undefined ? showingSolOverride : showingSol;
 
-    if (numericValue < ZERO) {
+    if (numericValue.lte(ZERO)) {
       setAmount(ZERO);
       return;
     }
@@ -436,7 +436,8 @@ export function BalanceCard({ publicKey, memeAccount, memeMetadata, userAccount,
   
   const handleRaydiumBuySellFormSubmit = useCallback(async () => {
     try {
-      let amountSentToSolana: BN; //sol lamports
+      let amountSentToRaydium: BN; //sol lamports
+      let inputMint: PublicKey;
 
         // Validate amount based on selected action
       if (selectedAction === ActionType.RaydiumBuy) {
@@ -447,7 +448,8 @@ export function BalanceCard({ publicKey, memeAccount, memeMetadata, userAccount,
           throw new Error("SOL balance too low.");
         }
 
-        amountSentToSolana = solRequiredBN;
+        amountSentToRaydium = solRequiredBN;
+        inputMint = SOL_MINT;
       } else if (selectedAction === ActionType.RaydiumSell) {
         const tokensRequiredBN = showingSol ? solToTokens(amount) : amount;
 
@@ -455,20 +457,21 @@ export function BalanceCard({ publicKey, memeAccount, memeMetadata, userAccount,
           throw new Error("Token balance too low.");
         }
 
-        amountSentToSolana = showingSol ? amount.neg() : tokensToSol(amount).neg(); // sol lamports
-      }
-        else {
+        amountSentToRaydium = showingSol ? solToTokens(amount) : amount; // sol lamports
+        inputMint = memeAccount.mint;
+      } else {
         throw new Error("wrong action type");
       }
 
         // Perform the buy/sell operation
-        await raydiumSwap.mutateAsync({inputMint:SOL_MINT, inputAmount: amountSentToSolana,});
+        await raydiumSwap.mutateAsync({inputMint, inputAmount: amountSentToRaydium,});
         toast.success("Success!");
     } catch (error: any) {
           console.error(error);
         toast.error(error.message || "An error occurred.");
     }
-  }, [amount, showingSol, selectedAction, solBalance, userTokenBalance, raydiumSwap, tokensToSol, solToTokens]);
+  }, [amount, showingSol, selectedAction, solBalance, userTokenBalance, raydiumSwap, tokensToSol, solToTokens, memeAccount.mint]);
+
 
 
   return (
@@ -481,7 +484,7 @@ export function BalanceCard({ publicKey, memeAccount, memeMetadata, userAccount,
       }}
     >
       <div className="flex mb-4">
-        {memeAccount.bondedTime < ZERO ? (
+        {(memeAccount.bondedTime.lt(ZERO) && memeAccount.creationTime.gte(ZERO)) ? (
           <>
             <PrimaryButton name="selectBuy" disabled={true} active={selectedAction === ActionType.Buy} onClick={() => handleActionChange(ActionType.Buy)} extraCss="w-full" value="Buy"/>
           </>
@@ -551,9 +554,29 @@ export function BalanceCard({ publicKey, memeAccount, memeMetadata, userAccount,
 
 
       <div className="relative flex items-center mb-2 mt-2">
-        <PrimaryInput name="amountField" onChange={handleFormFieldChange} value={amount === ZERO ? "" : fromLamportsDecimals(amount)} placeholder={fromLamportsDecimals(solBalance).toString()} type="number" extraCss="w-full" disabled={false}/>
+        <PrimaryInput
+          name="amountField"
+          onChange={handleFormFieldChange}
+          onFocus={()=> {}}
+          value={amount === ZERO ? "" : fromLamportsDecimals(amount)}
+          placeholder={
+            showingSol
+              ? (selectedAction === ActionType.Buy || selectedAction === ActionType.RaydiumBuy) 
+                ? fromLamportsDecimals(solBalance).toString()
+                : (selectedAction === ActionType.RaydiumSell || selectedAction === ActionType.Lock)
+                ? fromLamportsDecimals((tokensToSol(userTokenBalance))).toString()
+                : ""
+              : (selectedAction === ActionType.Buy || selectedAction === ActionType.RaydiumBuy) 
+                ? fromLamportsDecimals(solToTokens(solBalance)).toString()
+                : (selectedAction === ActionType.RaydiumSell || selectedAction === ActionType.Lock)
+                ? fromLamportsDecimals(userTokenBalance).toString()
+                : ""
+          }
+          type="number"
+          extraCss="w-full"
+          disabled={false}
+        />
 
-       
         <button
           onClick={toggleSolOrToken}
           disabled={selectedAction == ActionType.Buy}
@@ -701,31 +724,30 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
   const [currentTime, setCurrentTime] = useState(Date.now());
 
   const [tokenPrice, setTokensPerSol] = useState(ZERO); //tokens per sol
-
   const [solPrice, setSolPrice] = useState(0); //price per sol
 
   
 
-  const tokensToSol = (tokens: BN): BN => {
-    const sol = tokens === ZERO || tokenPrice === ZERO 
-    ? ZERO :
-    tokens.div(tokenPrice);
-    return sol;
-  };
+  const tokensToSol = useCallback((tokens: BN): BN => {
+    return tokens === ZERO || tokenPrice === ZERO 
+        ? ZERO 
+        : tokens.div(tokenPrice);
+  }, [tokenPrice]); // Recreates only when tokenPrice changes
 
-  const solToTokens = (sol: BN): BN => {
-    return sol.mul(tokenPrice);
-  }
-  
-  const solToUsd = (sol: BN): number => {
-    const result = fromLamportsDecimals(sol) * solPrice;
-    return Math.ceil(result * 100) / 100; // Rounds up to 2 decimal places
-  };
-  
-  const tokensToUsd = (tokens: BN): number => {
-    const result = solToUsd(tokensToSol(tokens));
-    return Math.ceil(result * 100) / 100; // Rounds up to 2 decimal places
-  };
+  const solToTokens = useCallback((sol: BN): BN => {
+      return sol.mul(tokenPrice);
+  }, [tokenPrice]); // Recreates only when tokenPrice changes
+
+  const solToUsd = useCallback((sol: BN): number => {
+      const result = fromLamportsDecimals(sol) * solPrice;
+      return Math.ceil(result * 100) / 100; // Rounds up to 2 decimal places
+  }, [solPrice]); // If solPrice is state, add it as a dependency
+
+  const tokensToUsd = useCallback((tokens: BN): number => {
+      const result = solToUsd(tokensToSol(tokens));
+      return Math.ceil(result * 100) / 100; // Rounds up to 2 decimal places
+  }, [tokensToSol, solToUsd]); // Depends on both functions
+
 
   const timeAgo = (from: number): string => {
     const now = Math.floor(currentTime / 1000); // Current time in seconds
@@ -760,6 +782,7 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
   });
 
   const {raydiumPoolQuery, raydiumSwap} = useRaydiumPoolQuery({poolId: memeAccount.poolId});
+  console.log('raydium',raydiumPoolQuery.data);
   const {solPriceQuery} = useSolPriceQuery();
 
   useEffect(() => {
@@ -769,6 +792,7 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
         poolKeys: raydiumPoolQuery.data.poolKeys,
         rpcData: raydiumPoolQuery.data.rpcData,
       });
+      console.log(raydiumPoolQuery.data.poolInfo.price, 'tokenPrice');
       setTokensPerSol(new BN(raydiumPoolQuery.data.poolInfo.price));
     }
   }, [raydiumPoolQuery.data]);
@@ -995,6 +1019,7 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
             <h2 className="text-xl font-bold">
               <span className="font-bold">{memeMetadata.symbol}</span>
               <span className="font-normal"> {memeMetadata.name}
+              <span className="text-gray-500 dark:text-white text-sm ml-2">{accountKey.toString()}</span>
                 <span className="text-gray-500 dark:text-white text-xs ml-2">{memeAccount.mint.toString()}</span>
                 
               </span>
@@ -1082,7 +1107,8 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
         
 
         {(memeAccount.poolId === EMPTY_PUBLIC_KEY) ? (null) : (null)}  
-        <BondButton mint={memeAccount.mint} solCollected={memeAccount.lockedAmount}/>
+        <BondButton accountKey={accountKey}/>
+        <UnlockButton accountKey={accountKey}/>
 
       </div >
     );

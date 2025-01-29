@@ -20,7 +20,7 @@ use anchor_spl::{
 
 
 // 2. Declare Program ID (SolPG will automatically update this when you deploy)
-declare_id!("9nXE1U7FpiuB5V7Bft2sdURwA7QZsnKHpvp8v21RZSub");
+declare_id!("2yDwQCquPedRZwUcFdtatn3wpP3GZhcbcQvUS1vhHHDy");
 
 
 
@@ -29,7 +29,7 @@ pub mod meme {
     use super::*;
 
     pub const TREASURY_PUBLIC_KEY: Pubkey =
-        pubkey!("CLTFWDW9qp1sEFXnNhaQBnyzfErZcjmyt2h6RA8QLFj7");
+        pubkey!("FEGmEpDsfmv5dUWjUQcw3u8nq2v2eEDaRf5WeiAzFNTa");
         
     pub const SUPPLY_SOLD_BEFORE_BONDING: u64 = 800_000_000_000_000_000;
     pub const SOL_GOAL_BEFORE_BONDING: u64 = 1_000_000_000; // 100 sol     1 sol temp
@@ -253,10 +253,6 @@ pub mod meme {
             CustomError::HasBonded,
         );
 
-        require!(
-            meme_account.locked_amount >= SOL_GOAL_BEFORE_BONDING,
-            CustomError::NotEnoughSol,
-        )
 
         meme_account.bonded_time = Clock::get()?.unix_timestamp as i64;
         meme_account.pool_id = Some(pool_id);
@@ -282,7 +278,6 @@ pub mod meme {
     
     pub fn unlock_meme_phase<'info>(
         ctx: Context<UnlockPhase>,
-        _user: Pubkey,
     ) -> Result<()> {
         require!(
             ctx.accounts.treasury.key() == TREASURY_PUBLIC_KEY,
@@ -487,6 +482,7 @@ pub struct LockAfterBonding<'info> {
         bump,
     )]
     pub meme_account: Box<Account<'info, MemeAccount>>,
+
     #[account(mut)]
     pub signer: Signer<'info>,
 
@@ -507,11 +503,15 @@ pub struct LockAfterBonding<'info> {
     pub treasury_token_account: Account<'info, TokenAccount>,
 
     #[account(
-        mut,
+        init_if_needed,
+        payer = signer,
         associated_token::mint = mint,
         associated_token::authority = signer,
     )]
     pub user_token_account: Account<'info, TokenAccount>,
+
+    
+
 
     pub token_program: Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,
@@ -552,9 +552,6 @@ pub struct BuyBeforeBonding<'info> {
 }
 
 #[derive(Accounts)]
-#[instruction(
-    user: Pubkey,
-)]
 pub struct UnlockPhase<'info> {
     #[account(
         mut,
@@ -565,7 +562,7 @@ pub struct UnlockPhase<'info> {
 
     #[account(
         mut,
-        seeds = [b"user_account", mint.key().as_ref(), user.as_ref()],
+        seeds = [b"user_account", mint.key().as_ref(), user.key().as_ref()],
         bump,
     )]
     pub user_account: Account<'info, UserAccount>,
@@ -578,6 +575,9 @@ pub struct UnlockPhase<'info> {
     #[account(mut, signer)]
     pub treasury: SystemAccount<'info>,
 
+    #[account(mut)]
+    pub signer: Signer<'info>,
+
     #[account(
         mut,
         associated_token::mint = mint,
@@ -585,8 +585,12 @@ pub struct UnlockPhase<'info> {
     )]
     pub treasury_token_account: Account<'info, TokenAccount>,
 
+    #[account(mut)]
+    pub user: SystemAccount<'info>,
+
     #[account(
-        mut,
+        init_if_needed,
+        payer = signer,
         associated_token::mint = mint,
         associated_token::authority = user,
     )]
@@ -596,6 +600,7 @@ pub struct UnlockPhase<'info> {
     pub token_program: Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,
 }
+
 
 #[derive(Accounts)]
 pub struct BondToRaydium<'info> {

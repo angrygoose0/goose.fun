@@ -1,5 +1,5 @@
 {
-  "address": "9nXE1U7FpiuB5V7Bft2sdURwA7QZsnKHpvp8v21RZSub",
+  "address": "2yDwQCquPedRZwUcFdtatn3wpP3GZhcbcQvUS1vhHHDy",
   "metadata": {
     "name": "meme",
     "version": "0.1.0",
@@ -788,7 +788,7 @@
                 "path": "mint"
               },
               {
-                "kind": "arg",
+                "kind": "account",
                 "path": "user"
               }
             ]
@@ -800,6 +800,11 @@
         },
         {
           "name": "treasury",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "signer",
           "writable": true,
           "signer": true
         },
@@ -894,12 +899,16 @@
           }
         },
         {
+          "name": "user",
+          "writable": true
+        },
+        {
           "name": "user_token_account",
           "writable": true,
           "pda": {
             "seeds": [
               {
-                "kind": "arg",
+                "kind": "account",
                 "path": "user"
               },
               {
@@ -996,12 +1005,7 @@
           "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
         }
       ],
-      "args": [
-        {
-          "name": "_user",
-          "type": "pubkey"
-        }
-      ]
+      "args": []
     }
   ],
   "accounts": [
@@ -1092,6 +1096,11 @@
       "code": 6011,
       "name": "TokenAccountNotFound",
       "msg": "Token account not found"
+    },
+    {
+      "code": 6012,
+      "name": "NotEnoughSol",
+      "msg": "SOL goal not reached."
     }
   ],
   "types": [
