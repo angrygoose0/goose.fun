@@ -1,11 +1,8 @@
-Dockerfile
-.dockerignore
-
 # Node.js dependencies
 node_modules
-npm-debug.log
-yarn-debug.log
-yarn-error.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 *.log
 
 # Environment files
@@ -15,9 +12,17 @@ yarn-error.log
 
 # Build and cache outputs
 .next
+.next/cache
 out
 build
 coverage
+
+# Rust & Solana build artifacts
+target/debug/
+target/deploy/
+target/release/
+target/sbf-solana-solana/
+target/.rustc_info.json
 
 # Source control
 .git
@@ -31,7 +36,4 @@ coverage
 *.swp
 secrets.txt
 abc.txt
-
-# Docker-specific
-Dockerfile
-.dockerignore
+application.txt
