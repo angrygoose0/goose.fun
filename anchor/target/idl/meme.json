@@ -206,7 +206,8 @@
         },
         {
           "name": "treasury",
-          "writable": true
+          "writable": true,
+          "signer": true
         },
         {
           "name": "signer",
@@ -680,7 +681,8 @@
         },
         {
           "name": "treasury",
-          "writable": true
+          "writable": true,
+          "signer": true
         },
         {
           "name": "meme_account",

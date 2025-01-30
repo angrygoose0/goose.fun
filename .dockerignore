@@ -35,6 +35,3 @@ abc.txt
 # Docker-specific
 Dockerfile
 .dockerignore
-
-# Smart contract-related
-anchor/

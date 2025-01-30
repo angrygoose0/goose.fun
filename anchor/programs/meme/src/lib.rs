@@ -350,7 +350,7 @@ pub struct InitToken<'info>{
     pub mint: Account<'info, Mint>,
 
 
-    #[account(mut)]
+    #[account(mut, signer)]
     pub treasury: SystemAccount<'info>,
 
     #[account(mut)]
@@ -394,7 +394,7 @@ pub struct MintTokens<'info>{
     )]
     pub treasury_token_account: Account<'info, TokenAccount>,
 
-    #[account(mut)]
+    #[account(mut, signer)]
     pub treasury: SystemAccount<'info>,
 
 

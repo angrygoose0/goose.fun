@@ -291,7 +291,6 @@ export function MemeList() {
   );
 }
 
-
 export function BalanceCard({ publicKey, memeAccount, memeMetadata, userAccount, tokenDistribution, totalTokens, userTokenBalance, raydiumSwap, tokensToSol, solToTokens, solToUsd, tokensToUsd }: { publicKey: PublicKey, memeAccount: any, memeMetadata: any, userAccount: any, tokenDistribution: any, totalTokens:BN, userTokenBalance:BN, raydiumSwap:any, tokensToSol:any, solToTokens:any, solToUsd:any, tokensToUsd:any }) {
   const {buyToken} = useBuyTokenMutation();
   const {lockToken} = useLockTokenMutation();

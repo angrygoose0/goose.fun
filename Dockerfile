@@ -21,10 +21,7 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-RUN --mount=type=secret,id=NEXT_PUBLIC_TREASURY_PRIVATE_KEY,env=NEXT_PUBLIC_TREASURY_PRIVATE_KEY \
-    --mount=type=secret,id=NEXT_PUBLIC_TURSO_AUTH_TOKEN,env=NEXT_PUBLIC_TURSO_AUTH_TOKEN \
-    --mount=type=secret,id=NEXT_PUBLIC_TURSO_DATABASE_URL,env=NEXT_PUBLIC_TURSO_DATABASE_URL \
-    --mount=type=secret,id=NEXT_PUBLIC_HELIUS_API_KEY,env=NEXT_PUBLIC_HELIUS_API_KEY \
+RUN --mount=type=secret,id=NEXT_PUBLIC_HELIUS_API_KEY,env=NEXT_PUBLIC_HELIUS_API_KEY \
     if [ -f yarn.lock ]; then yarn run build; \
     elif [ -f package-lock.json ]; then npm run build; \
     elif [ -f pnpm-lock.yaml ]; then corepack enable pnpm && pnpm run build; \

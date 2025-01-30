@@ -212,7 +212,8 @@ export type Meme = {
         },
         {
           "name": "treasury",
-          "writable": true
+          "writable": true,
+          "signer": true
         },
         {
           "name": "signer",
@@ -686,7 +687,8 @@ export type Meme = {
         },
         {
           "name": "treasury",
-          "writable": true
+          "writable": true,
+          "signer": true
         },
         {
           "name": "memeAccount",

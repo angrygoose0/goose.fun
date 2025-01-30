@@ -10,7 +10,7 @@ import { useSolPriceQuery } from "../solana/solana-data-access";
 import { WalletButton } from "../solana/solana-provider";
 import { PublicKey } from "@solana/web3.js";
 import {useBuyTokenMutation, useLockTokenMutation, useMemeAccountQuery, useMetadataQuery, useUserAccountQuery } from "../meme/meme-data-access";
-import { useRaydiumPoolQuery } from "../raydium/raydium-data-access";
+import { useInitRaydiumSdk, useRaydiumPoolQuery } from "../raydium/raydium-data-access";
 import { ActionType } from "../meme/meme-helper-functions"
 import { ApiV3PoolInfoStandardItemCpmm, CpmmKeys, CpmmRpcData } from "@raydium-io/raydium-sdk-v2";
 
@@ -168,15 +168,18 @@ export function PreCard() {
       rpcData: null,
     });
     
+    const { initRaydiumSdk } = useInitRaydiumSdk({ loadToken: true });
     const {raydiumPoolQuery, raydiumSwap} = useRaydiumPoolQuery({poolId: memeAccount.poolId});
 
     useEffect(() => {
       if (raydiumPoolQuery.data) {
+        /*
         setRaydiumPoolData({
           poolInfo: raydiumPoolQuery.data.poolInfo,
           poolKeys: raydiumPoolQuery.data.poolKeys,
           rpcData: raydiumPoolQuery.data.rpcData,
         });
+        */
         setTokensPerSol(new BN(raydiumPoolQuery.data.poolInfo.price));
       }
     }, [raydiumPoolQuery.data]);
@@ -390,8 +393,8 @@ export function PreCard() {
             <div className="flex items-baseline space-x-2">
               <div className="text-sm font-semibold">{globalPercentage}%</div>
               <div className="text-sm text-gray-500 dark:text-white">
-                market cap: $
-                {(memeAccount.bondedTime.lt(ZERO) && memeAccount.creationTime.gte(ZERO)) ? (solToUsd(memeAccount.lockedAmount)): tokensToUsd(MINT_SUPPLY).toString()}
+                ~ $
+                {(memeAccount.bondedTime.lt(ZERO) && memeAccount.creationTime.gte(ZERO)) ? (solToUsd(memeAccount.lockedAmount)): tokensToUsd(memeAccount.lockedAmount).toString()}
               </div>
             </div>
     
@@ -408,7 +411,8 @@ export function PreCard() {
                         
             <>
                 {!(memeAccount.bondedTime.lt(ZERO) && memeAccount.creationTime.gte(ZERO)) ? ( //bonded or on pump
-                    <div className="flex flex-col space-y-2 mt-4">
+                    <div className="flex flex-col space-y-2 mt-8">
+                        <div className="text-sm font-semibold">User balance:</div>
                         {/* When bondedTime is negative so hasn't bonded */}
                         <div className="flex items-baseline space-x-2">
                             <div className="text-sm font-semibold">
