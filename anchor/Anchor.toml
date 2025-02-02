@@ -6,7 +6,7 @@ resolution = true
 skip-lint = false
 
 [programs.mainnet]
-meme = "8aNwyXEHUSbWa8CVU5WJ9ASR5w7wpGy6mQ3Tfxfwdrad"
+meme = "goosN8rYWnXxiPH9JqvRdu8eKYn2z2Y2B1P6GHaZsvk"
 
 [registry]
 url = "https://api.apr.dev"

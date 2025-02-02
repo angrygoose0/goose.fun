@@ -14,7 +14,7 @@ export const SOL_MINT = new PublicKey('So111111111111111111111111111111111111111
 export const RAYDIUM_DEVNET_CPMM_PROGRAM_ID = new PublicKey('CPMDWBwJDtYax9qW7AyRuVC19Cc4L4Vcy4n2BHAbHkCW')
 export const TOKEN_METADATA_PROGRAM_ID = new PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
 
-export const TREASURY_PUBLIC_KEY = new PublicKey("3J1Co5o6ysvQ32Tv8Xk6N8tz4inKvB8taV3qMGdkDgzb");
+export const TREASURY_PUBLIC_KEY = new PublicKey("SAFE3yY1gvuD78yaXqxnSKuUf5fYCxLb2TVzpuPdkHM.json");
 
 
 export const MINT_SUPPLY = BILLION.mul(BILLION);
@@ -23,7 +23,7 @@ export const SUPPLY_SENT_TO_RAYDIUM = MINT_SUPPLY.sub(SUPPLY_SOLD_BEFORE_BONDING
 
 export const SOL_GOAL_BEFORE_BONDING = new BN(100).mul(BILLION); //100 sol,   1 sol for testing
 
-export const MINT_SEED = "033b9ed4d60b84c5de019e9e116e0db3"
+export const MINT_SEED = "68427e81871b35a530a030067c87b29d"
 
 
 

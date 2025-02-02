@@ -5,7 +5,7 @@ const fs = require("fs");
 
 // Configuration
 const MINT_SUFFIX = "goos"; // Change to your desired suffix
-const programId = new PublicKey("8aNwyXEHUSbWa8CVU5WJ9ASR5w7wpGy6mQ3Tfxfwdrad");
+const programId = new PublicKey("goosN8rYWnXxiPH9JqvRdu8eKYn2z2Y2B1P6GHaZsvk");
 const JSON_FILE = "found_mints.json";
 const NUM_WORKERS = require("os").cpus().length; // Use all CPU cores
 

@@ -21,7 +21,7 @@ use anchor_spl::{
 
 
 // 2. Declare Program ID (SolPG will automatically update this when you deploy)
-declare_id!("8aNwyXEHUSbWa8CVU5WJ9ASR5w7wpGy6mQ3Tfxfwdrad");
+declare_id!("goosN8rYWnXxiPH9JqvRdu8eKYn2z2Y2B1P6GHaZsvk");
 
 
 
@@ -30,7 +30,7 @@ pub mod meme {
     use super::*;
 
     pub const TREASURY_PUBLIC_KEY: Pubkey =
-        pubkey!("3J1Co5o6ysvQ32Tv8Xk6N8tz4inKvB8taV3qMGdkDgzb");
+        pubkey!("SAFE3yY1gvuD78yaXqxnSKuUf5fYCxLb2TVzpuPdkHM");
         
     pub const SUPPLY_SOLD_BEFORE_BONDING: u64 = 800_000_000_000_000_000;
     pub const SOL_GOAL_BEFORE_BONDING: u64 = 100_000_000_000; // 100 sol     1 sol temp

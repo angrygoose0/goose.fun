@@ -37,3 +37,5 @@ anchor/target/.rustc_info.json
 secrets.txt
 abc.txt
 application.txt
+
+treasury-keypair.json
