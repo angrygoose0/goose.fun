@@ -18,11 +18,11 @@ build
 coverage
 
 # Rust & Solana build artifacts
-target/debug/
-target/deploy/
-target/release/
-target/sbf-solana-solana/
-target/.rustc_info.json
+anchor/target/debug/
+anchor/target/deploy/
+anchor/target/release/
+anchor/target/sbf-solana-solana/
+anchor/target/.rustc_info.json
 
 # Source control
 .git
