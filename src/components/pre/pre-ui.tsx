@@ -401,7 +401,7 @@ export function PreCard() {
             <PrimaryBar
               extraCss="mt-1 w-[820px]"
               values={[
-                  { label: `${(memeAccount.bondedTime.lt(ZERO) && memeAccount.creationTime.gte(ZERO)) ? "SOL" : memeMetadata.symbol}`, percentage: globalPercentage, value: simplifyBN(fromLamports(memeAccount.lockedAmount)), color: "bg-black dark:bg-white" },
+                  { label: `${(memeAccount.bondedTime.lt(ZERO) && memeAccount.creationTime.gte(ZERO)) ? "SOL" : memeMetadata.symbol}`, percentage: globalPercentage, value: (memeAccount.bondedTime.lt(ZERO) && memeAccount.creationTime.gte(ZERO)) ? fromLamportsDecimals(memeAccount.lockedAmount) : simplifyBN(fromLamports(memeAccount.lockedAmount)), color: "bg-black dark:bg-white" },
               ]}
               labels={true}
             />
