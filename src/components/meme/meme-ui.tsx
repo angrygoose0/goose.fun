@@ -781,7 +781,6 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
   });
 
   const {raydiumPoolQuery, raydiumSwap} = useRaydiumPoolQuery({poolId: memeAccount.poolId});
-  console.log('raydium',raydiumPoolQuery.data);
   const {solPriceQuery} = useSolPriceQuery();
 
   useEffect(() => {
@@ -791,7 +790,6 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
         poolKeys: raydiumPoolQuery.data.poolKeys,
         rpcData: raydiumPoolQuery.data.rpcData,
       });
-      console.log(raydiumPoolQuery.data.poolInfo.price, 'tokenPrice');
       setTokensPerSol(new BN(raydiumPoolQuery.data.poolInfo.price));
     }
   }, [raydiumPoolQuery.data]);

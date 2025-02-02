@@ -7,10 +7,11 @@ use anchor_lang::{
     },
 };
 
+
 use anchor_spl::{
     associated_token::{AssociatedToken},
     token::{
-        transfer_checked, mint_to, Mint, MintTo, Token, TokenAccount, TransferChecked,
+        transfer_checked, mint_to, Mint, MintTo, Token, TokenAccount, TransferChecked, SetAuthority, spl_token::instruction::AuthorityType, set_authority,
     },
     metadata::{
         mpl_token_metadata::types::DataV2,
@@ -20,7 +21,7 @@ use anchor_spl::{
 
 
 // 2. Declare Program ID (SolPG will automatically update this when you deploy)
-declare_id!("2yDwQCquPedRZwUcFdtatn3wpP3GZhcbcQvUS1vhHHDy");
+declare_id!("8aNwyXEHUSbWa8CVU5WJ9ASR5w7wpGy6mQ3Tfxfwdrad");
 
 
 
@@ -29,17 +30,21 @@ pub mod meme {
     use super::*;
 
     pub const TREASURY_PUBLIC_KEY: Pubkey =
-        pubkey!("FEGmEpDsfmv5dUWjUQcw3u8nq2v2eEDaRf5WeiAzFNTa");
+        pubkey!("3J1Co5o6ysvQ32Tv8Xk6N8tz4inKvB8taV3qMGdkDgzb");
         
     pub const SUPPLY_SOLD_BEFORE_BONDING: u64 = 800_000_000_000_000_000;
-    pub const SOL_GOAL_BEFORE_BONDING: u64 = 1_000_000_000; // 100 sol     1 sol temp
+    pub const SOL_GOAL_BEFORE_BONDING: u64 = 100_000_000_000; // 100 sol     1 sol temp
     
 
     pub const MINT_DECIMALS: u8 = 9;
     pub const MINT_SUPPLY: u64 = 1_000_000_000_000_000_000; // 10^9 times 10^9
 
     pub const UNLOCK_FREQUENCY:u8 = 24; //hours
-    pub const UNLOCK_AMOUNT:u64 = 10; //10%
+    pub const UNLOCK_AMOUNT:u8 = 10; //10%
+
+    const FEE_PERCENTAGE: u8 = 100; // divide by 100 so 1%
+    const RAYDIUM_FEE_PERCENTAGE: u8 = 20; //20%
+
 
 
     pub fn init_meme_token(
@@ -119,6 +124,21 @@ pub mod meme {
             MINT_SUPPLY,
         )?;
 
+        
+
+        set_authority(
+            CpiContext::new_with_signer(
+                ctx.accounts.token_program.to_account_info(),
+                SetAuthority {
+                    account_or_mint: ctx.accounts.mint.to_account_info(),
+                    current_authority: ctx.accounts.mint.to_account_info(),
+                },
+                &signer,
+            ),
+            AuthorityType::MintTokens,
+            None,
+        )?;
+
         // Create meme_account account
         let meme_account = &mut ctx.accounts.meme_account;
         meme_account.dev = ctx.accounts.signer.key();
@@ -155,15 +175,17 @@ pub mod meme {
             CustomError::NotBonded,
         );
 
+        let amount_after_fee = amount - (amount * FEE_PERCENTAGE as u64 / 10000) as u64;
+
 
         user_account.locked_amount = user_account
             .locked_amount
-            .checked_add(amount)
+            .checked_add(amount_after_fee)
             .ok_or(CustomError::Overflow)?;
 
         meme_account.locked_amount = meme_account
             .locked_amount
-            .checked_add(amount)
+            .checked_add(amount_after_fee)
             .ok_or(CustomError::Overflow)?;
 
         // User sends SPL tokens to treasury
@@ -207,14 +229,16 @@ pub mod meme {
             CustomError::HasBonded,
         );
 
+        let amount_after_fee = amount - (amount * (FEE_PERCENTAGE as u64) / 10000) as u64;
+
         user_account.locked_amount = user_account
             .locked_amount
-            .checked_add(amount)
+            .checked_add(amount_after_fee)
             .ok_or(CustomError::Overflow)?;
 
         meme_account.locked_amount = meme_account
             .locked_amount
-            .checked_add(amount)
+            .checked_add(amount_after_fee)
             .ok_or(CustomError::Overflow)?;
 
         //if everything good, user gives sol lamports amount to treasury
@@ -257,7 +281,9 @@ pub mod meme {
         meme_account.bonded_time = Clock::get()?.unix_timestamp as i64;
         meme_account.pool_id = Some(pool_id);
 
-        let tokens_per_sol: u64 = SUPPLY_SOLD_BEFORE_BONDING / meme_account.locked_amount;
+        let sol_going_into_raydium = meme_account.locked_amount - (meme_account.locked_amount * (RAYDIUM_FEE_PERCENTAGE as u64) / 100) as u64;
+
+        let tokens_per_sol: u64 = SUPPLY_SOLD_BEFORE_BONDING / sol_going_into_raydium;
 
         meme_account.locked_amount *= tokens_per_sol;
 
@@ -300,6 +326,8 @@ pub mod meme {
             user_account.locked_amount = 0;
         } else {
             user_account.locked_amount -= deduction;
+
+            let deduction_after_fee = deduction - (deduction * (FEE_PERCENTAGE as u64) / 10000) as u64;
             transfer_checked(
                 CpiContext::new(
                     ctx.accounts.token_program.to_account_info(),
@@ -310,7 +338,7 @@ pub mod meme {
                         mint: ctx.accounts.mint.to_account_info(),
                     }
                 ),
-                deduction,
+                deduction_after_fee,
                 MINT_DECIMALS,
             )?;
             meme_account.locked_amount -= deduction;

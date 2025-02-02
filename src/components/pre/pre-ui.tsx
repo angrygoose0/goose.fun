@@ -17,7 +17,7 @@ import { ApiV3PoolInfoStandardItemCpmm, CpmmKeys, CpmmRpcData } from "@raydium-i
 
 export function PreCard() {
     const { publicKey } = useWallet();
-    const accountKey = new PublicKey("BP3tpDPF3uMhKReeUi3ffUtVANMFXU9iqBx1wZuFXYce");
+    const accountKey = new PublicKey("2x9BVKZ23KqFzgBWxKUR3YhaQUbTN1ZH1SkErd25SmRM");
 
     const [memeAccount, setMemeAccount] = useState<{
         dev: PublicKey;

@@ -1,4 +1,4 @@
-{/*
+/*
 'use client'
 
 import { clusterApiUrl, Connection } from '@solana/web3.js'
@@ -113,4 +113,5 @@ function getClusterUrlParam(cluster: Cluster): string {
   return suffix.length ? `?cluster=${suffix}` : ''
 }
 
-*/}
+
+*/

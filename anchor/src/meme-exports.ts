@@ -21,7 +21,7 @@ export function getMemeProgramId(cluster: Cluster) {
     case 'devnet':
     case 'testnet':
       // This is the program ID for the Meme program on devnet and testnet.
-      return new PublicKey('2yDwQCquPedRZwUcFdtatn3wpP3GZhcbcQvUS1vhHHDy')
+      return new PublicKey('8aNwyXEHUSbWa8CVU5WJ9ASR5w7wpGy6mQ3Tfxfwdrad')
     case 'mainnet-beta':
     default:
       return MEME_PROGRAM_ID

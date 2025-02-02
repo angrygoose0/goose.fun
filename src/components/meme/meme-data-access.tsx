@@ -2,6 +2,7 @@
 'use client'
 
 import { getMemeProgram, getMemeProgramId } from '@project/anchor';
+import * as crypto from 'crypto';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { AccountInfo, SystemProgram, Cluster, Transaction, Keypair, PublicKey, SYSVAR_RENT_PUBKEY, ComputeBudgetProgram } from '@solana/web3.js';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -20,7 +21,7 @@ import { sha256 } from "js-sha256";
 import axios from 'axios';
 import bs58 from 'bs58';
 import { create } from 'domain';
-import {RAYDIUM_DEVNET_CPMM_PROGRAM_ID, TOKEN_METADATA_PROGRAM_ID, TOKENS_PER_PAGE, TREASURY_PUBLIC_KEY, ZERO} from './meme-helper-functions';
+import {MINT_SEED, RAYDIUM_DEVNET_CPMM_PROGRAM_ID, TOKEN_METADATA_PROGRAM_ID, TOKENS_PER_PAGE, TREASURY_PUBLIC_KEY, ZERO} from './meme-helper-functions';
 import { sleep } from '@raydium-io/raydium-sdk-v2';
 
 
@@ -71,23 +72,21 @@ export function useCreateMemeToken() {
           decimals: metadata.decimals,
         };
 
-        // Generate random seed (you can use any random data here)
-        const randomSeed = Math.random().toString();
 
         const mintSeeds = [
           Buffer.from("mint"),
-          Buffer.from(randomSeed),
+          Buffer.from(MINT_SEED),
         ];
+          
+          const mint = PublicKey.findProgramAddressSync(mintSeeds, programId)[0];
 
-        const mint = PublicKey.findProgramAddressSync(
-          mintSeeds,
-          programId,
-        )[0];
+        // Generate random seed (you can use any random data here)
+
 
         const metadataAddress = getMetadataAddress(mint);
 
         const initTokenInstruction = await program.methods
-          .initMemeToken(tokenMetadata, randomSeed)
+          .initMemeToken(tokenMetadata, MINT_SEED)
           .accounts({
             metadata: metadataAddress,
             treasury: TREASURY_PUBLIC_KEY,
@@ -101,7 +100,7 @@ export function useCreateMemeToken() {
           .instruction();
 
         const mintTokenInstruction = await program.methods
-          .mintMemeToken(randomSeed)
+          .mintMemeToken(MINT_SEED)
           .accounts({
             treasury: TREASURY_PUBLIC_KEY,
             signer: publicKey,
@@ -233,7 +232,6 @@ export function useProcessedAccountsQuery({
         filters,
       });
 
-      console.log('accounts', accounts);
 
       // Parse `creation_time` and sort accounts
       const accountsWithSpecific = accounts.map(({ pubkey, account }) => {
@@ -252,7 +250,6 @@ export function useProcessedAccountsQuery({
 
       const accountPublicKeys = paginatedAccounts.map((account) => account.pubkey);
 
-      console.log('accountPublicKeys', accountPublicKeys);
 
       return accountPublicKeys;
     },

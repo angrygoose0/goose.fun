@@ -14,7 +14,6 @@ import {
 } from '@raydium-io/raydium-sdk-v2';
 import { TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID, NATIVE_MINT } from '@solana/spl-token';
 import bs58 from 'bs58';
-import { useCluster } from '../cluster/cluster-data-access';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Cluster, clusterApiUrl, Keypair, PublicKey, SendTransactionError } from '@solana/web3.js';
@@ -25,11 +24,10 @@ import {SOL_GOAL_BEFORE_BONDING, SOL_MINT, SUPPLY_SOLD_BEFORE_BONDING } from '..
 import { getMemeProgramId } from 'anchor/src/meme-exports';
 import { useMemo } from 'react';
 
-const cluster = 'devnet';
+const cluster = 'mainnet';
 
 let raydium: Raydium | undefined;
 export function useInitRaydiumSdk({ loadToken }: { loadToken: boolean }) {
-    //const { cluster } = useCluster();
     const { connection } = useConnection();
     const {publicKey, signAllTransactions} = useWallet();
 
@@ -81,6 +79,7 @@ export function useRaydiumPoolQuery({
         queryKey: ['raydiumPoolQuery', poolId],
         queryFn: async () => {
             if (!raydium) {
+                console.error('Raydium SDK not initialized');
                 throw new Error("Raydium SDK is not initialized.");
             }
             const data = await raydium.cpmm.getPoolInfoFromRpc(poolId.toString());
@@ -110,8 +109,6 @@ export function useRaydiumPoolQuery({
                 poolInfo = poolData.poolInfo;
                 poolKeys = poolData.poolKeys;
                 rpcData = poolData.rpcData;
-
-                console.log('Pool Info:', poolInfo);
 
                 if (
                     inputMint.toString() !== poolInfo.mintA.address &&

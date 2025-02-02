@@ -16,7 +16,7 @@ export function useBondToRaydium() {
     const { program } = useMemeProgram();
     const transactionToast = useTransactionToast();
     const {connection} = useConnection();
-    const cluster = 'devnet';
+    const cluster = 'mainnet';
     const programId = useMemo(() => getMemeProgramId(cluster as Cluster), [cluster]);
 
     const { publicKey, signAllTransactions } = useWallet();
@@ -37,6 +37,8 @@ export function useBondToRaydium() {
             const memeAccount = await program.account.memeAccount.fetch(accountKey);
             console.log('lockedamount', memeAccount.lockedAmount.toString());
 
+            const sol_going_into_raydium = memeAccount.lockedAmount.sub((memeAccount.lockedAmount.mul(new BN(20))).div(new BN(100)))
+
             const raydium = await Raydium.load({
                 owner: TREASURY_PUBLIC_KEY,
                 connection,
@@ -50,12 +52,11 @@ export function useBondToRaydium() {
             const feeConfigs = await raydium.api.getCpmmConfigs();
 
             // If devnet
-            feeConfigs.forEach((config) => {
-                config.id = getCpmmPdaAmmConfigId(
-                    DEVNET_PROGRAM_ID.CREATE_CPMM_POOL_PROGRAM,
-                    config.index
-                ).publicKey.toBase58();
-            });
+            if (raydium.cluster === 'devnet') {
+              feeConfigs.forEach((config) => {
+                config.id = getCpmmPdaAmmConfigId(DEVNET_PROGRAM_ID.CREATE_CPMM_POOL_PROGRAM, config.index).publicKey.toBase58()
+              })
+            }
 
             // Create the pool
             const {extInfo, execute} = await raydium.cpmm.createPool({
@@ -64,7 +65,7 @@ export function useBondToRaydium() {
                 mintA: await raydium.token.getTokenInfo(memeAccount.mint),
                 mintB: await raydium.token.getTokenInfo(SOL_MINT),
                 mintAAmount: SUPPLY_SENT_TO_RAYDIUM,
-                mintBAmount: memeAccount.lockedAmount,
+                mintBAmount: sol_going_into_raydium,
                 startTime: ZERO,
                 feeConfig: feeConfigs[0],
                 associatedOnly: false,
@@ -162,7 +163,7 @@ export function useUnlockPhase() {
     const { program } = useMemeProgram();
     const transactionToast = useTransactionToast();
     const {connection} = useConnection();
-    const cluster = 'devnet';
+    const cluster = 'mainnet';
 
     const programId = useMemo(() => getMemeProgramId(cluster as Cluster), [cluster]);
 

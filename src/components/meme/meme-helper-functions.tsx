@@ -21,8 +21,9 @@ export const MINT_SUPPLY = BILLION.mul(BILLION);
 export const SUPPLY_SOLD_BEFORE_BONDING = new BN(800000000).mul(BILLION);
 export const SUPPLY_SENT_TO_RAYDIUM = MINT_SUPPLY.sub(SUPPLY_SOLD_BEFORE_BONDING)
 
-export const SOL_GOAL_BEFORE_BONDING = new BN(1).mul(BILLION); //100 sol,   1 sol for testing
+export const SOL_GOAL_BEFORE_BONDING = new BN(100).mul(BILLION); //100 sol,   1 sol for testing
 
+export const MINT_SEED = "033b9ed4d60b84c5de019e9e116e0db3"
 
 
 

@@ -1,5 +1,6 @@
 
-{/*
+
+/*
 'use client'
 
 import { useConnection } from '@solana/wallet-adapter-react'
@@ -171,4 +172,5 @@ export function ClusterUiTable() {
     </div>
   )
 }
-  */}
+
+*/
