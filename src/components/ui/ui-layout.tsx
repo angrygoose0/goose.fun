@@ -35,7 +35,7 @@ export function UiLayout({ children }: { children: ReactNode }) {
         <div className="hero mt-[64px]">
           <div className="hero-content text-center">
             <div className="max-w-2xl">
-              <h1 className="text-5xl font-bold">Goose.fun</h1>
+              <h1 className="text-5xl font-bold">Geese.fun</h1>
               <div className="flex justify-center items-center mt-2 space-x-2">
                             {/* Telegram Icon */}
                 <a
