@@ -258,7 +258,7 @@ export function HowItWorks() {
             className="relative dualbox p-6 z-15 w-96"
             onClick={(e) => e.stopPropagation()}
           >
-            <h1 className="text-xl font-bold text-center text-gray-800 mb-8">
+            <h1 className="text-xl font-bold text-center mb-8">
               How it Works:
             </h1>
             <div className="space-y-4">
