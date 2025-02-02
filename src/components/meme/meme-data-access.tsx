@@ -123,20 +123,10 @@ export function useCreateMemeToken() {
           .add(initTokenInstruction)
           .add(mintTokenInstruction);
 
-          
-
-        const simulationResult = await connection.simulateTransaction(transaction);
-        console.log('Simulation Result:', simulationResult);
-
-        if (simulationResult.value.err) {
-            console.error('Simulation Error:', simulationResult.value.err);
-            throw new Error('Transaction simulation failed');
-        }
       
                 
         const signature = await sendTransaction(transaction, connection, {
         });
-        console.log('signature', signature);
 
         return signature;
 
@@ -149,11 +139,9 @@ export function useCreateMemeToken() {
 
     onSuccess: (signature) => {
       transactionToast(signature);
-      console.log(signature);
     },
     onError: (error) => {
       toast.error(`Error creating entry: ${error.message}`);
-      console.error("Toast error:", error);
     },
 
   });
@@ -282,39 +270,7 @@ export function useMemeProgram() {
   };
 }
 
-export function useMetadataQuery({
-  mint,
-}: {
-  mint: PublicKey;
-}) {
-  const { connection } = useConnection();
-  const metaplex = Metaplex.make(connection);
 
-  const metadataQuery = useQuery({
-    queryKey: ['metadata', { mint }],
-    queryFn: async () => {
-      const metadataAddress = getMetadataAddress(mint);
-
-      const accountInfo = await connection.getAccountInfo(metadataAddress);
-      if (!accountInfo) {
-        throw new Error('Metadata account not found');
-      }
-
-      const token = await metaplex.nfts().findByMint({ mintAddress: mint });
-
-      const response = await fetch(token.uri);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch metadata JSON from ${token.uri}`);
-      }
-      return response.json();
-    },
-    enabled: !!mint, // Run only if mint is provided
-  });
-
-  return {
-    metadataQuery,
-  };
-}
 
 export function useBuyTokenMutation() {
   const { program } = useMemeProgram();
@@ -382,7 +338,6 @@ export function useBuyTokenMutation() {
 
     onSuccess: (signature) => {
       transactionToast(signature);
-      console.log(signature);
     },
     onError: (error) => {
       toast.error(`Error buy/selling token: ${error.message}`);
@@ -460,7 +415,6 @@ export function useLockTokenMutation() {
 
     onSuccess: (signature) => {
       transactionToast(signature);
-      console.log(signature);
     },
     onError: (error) => {
       toast.error(`Error locking tokens: ${error.message}`);
@@ -619,6 +573,46 @@ export function useUserAccountsByMintQuery({
 }
 */
 
+export function useMetadataQuery({
+  mint,
+}: {
+  mint: PublicKey;
+}) {
+  const { connection } = useConnection();
+  const metaplex = Metaplex.make(connection);
+
+  const metadataQuery = useQuery({
+    queryKey: ['metadata', { mint }],
+    queryFn: async () => {
+      const metadataAddress = getMetadataAddress(mint);
+
+      const accountInfo = await connection.getAccountInfo(metadataAddress);
+      if (!accountInfo) {
+        throw new Error('Metadata account not found');
+      }
+
+      const token = await metaplex.nfts().findByMint({ mintAddress: mint });
+
+      const response = await fetch(token.uri);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch metadata JSON from ${token.uri}`);
+      }
+      return response.json();
+    },
+    enabled: !!mint, // Run only if mint is provided
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    // Automatically refetch data every 10 minutes
+    refetchInterval: 10 * 60 * 1000, // 10 minutes
+    // Fetch on mount to ensure data is available when the component loads
+    refetchOnMount: true,
+    // Optionally fetch in the background when the user revisits the page/tab
+    refetchOnWindowFocus: false,
+  });
+
+  return {
+    metadataQuery,
+  };
+}
 
 export function useUserAccountQuery({
   publicKey,

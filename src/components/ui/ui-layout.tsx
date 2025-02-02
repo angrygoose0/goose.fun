@@ -21,7 +21,6 @@ export function UiLayout({ children }: { children: ReactNode }) {
     <div className="h-full flex">
 
       <div className="fixed top-4 left-4 flex space-x-4 z-50">
-        <MemeCreate />
         <HowItWorks />
 
       </div>
@@ -75,7 +74,6 @@ export function UiLayout({ children }: { children: ReactNode }) {
           
         </div>
       
-        <MemeList/>
         <PreCard/>
 
 
