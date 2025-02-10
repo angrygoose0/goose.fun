@@ -5,14 +5,14 @@ anchor_version = "0.30.1"
 resolution = true
 skip-lint = false
 
-[programs.mainnet]
+[programs.devnet]
 meme = "goosN8rYWnXxiPH9JqvRdu8eKYn2z2Y2B1P6GHaZsvk"
 
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "Mainnet"
+cluster = "Devnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]

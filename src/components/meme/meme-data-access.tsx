@@ -123,6 +123,15 @@ export function useCreateMemeToken() {
           .add(initTokenInstruction)
           .add(mintTokenInstruction);
 
+          const simulationResult = await connection.simulateTransaction(transaction);
+          console.log('Simulation Result:', simulationResult);
+  
+          if (simulationResult.value.err) {
+              console.error('Simulation Error:', simulationResult.value.err);
+              throw new Error('Transaction simulation failed');
+          }
+        
+
       
                 
         const signature = await sendTransaction(transaction, connection, {

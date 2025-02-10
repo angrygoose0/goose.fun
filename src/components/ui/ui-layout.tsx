@@ -13,7 +13,7 @@ import { PrimaryButton } from './extra-ui/button'
 import {PreCard} from'../pre/pre-ui'
 import { FaGlobe, FaTelegramPlane } from 'react-icons/fa'
 import { FaXTwitter } from 'react-icons/fa6'
-//import { ClusterUiSelect } from '../cluster/cluster-ui'
+import { ClusterUiSelect } from '../cluster/cluster-ui'
 
 export function UiLayout({ children }: { children: ReactNode }) {
 
@@ -22,11 +22,13 @@ export function UiLayout({ children }: { children: ReactNode }) {
 
       <div className="fixed top-4 left-4 flex space-x-4 z-50">
         <HowItWorks />
+        <MemeCreate/>
 
       </div>
       {/* Floating Buttons */}
       <div className="fixed top-4 right-4 flex space-x-4 z-50">
         <WalletButton />
+        <ClusterUiSelect/>
       </div>
 
       {/* Main Content */}
@@ -75,6 +77,7 @@ export function UiLayout({ children }: { children: ReactNode }) {
         </div>
       
         <PreCard/>
+        <MemeList/>
 
 
     

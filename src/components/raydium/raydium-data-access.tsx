@@ -24,7 +24,7 @@ import {SOL_GOAL_BEFORE_BONDING, SOL_MINT, SUPPLY_SOLD_BEFORE_BONDING } from '..
 import { getMemeProgramId } from 'anchor/src/meme-exports';
 import { useMemo } from 'react';
 
-const cluster = 'mainnet';
+const cluster = 'devnet';
 
 let raydium: Raydium | undefined;
 export function useInitRaydiumSdk({ loadToken }: { loadToken: boolean }) {

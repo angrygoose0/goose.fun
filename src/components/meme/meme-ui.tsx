@@ -552,6 +552,7 @@ export function BalanceCard({ publicKey, memeAccount, memeMetadata, userAccount,
       </div>
 
 
+
       <div className="relative flex items-center mb-2 mt-2">
         <PrimaryInput
           name="amountField"
@@ -747,7 +748,7 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
       return Math.ceil(result * 100) / 100; // Rounds up to 2 decimal places
   }, [tokensToSol, solToUsd]); // Depends on both functions
 
-
+  
   const timeAgo = (from: number): string => {
     const now = Math.floor(currentTime / 1000); // Current time in seconds
     const diff = now - from;
@@ -1016,7 +1017,7 @@ export function TokenCard({ accountKey }: { accountKey: PublicKey }) {
             <h2 className="text-xl font-bold">
               <span className="font-bold">{memeMetadata.symbol}</span>
               <span className="font-normal"> {memeMetadata.name}
-              <span className="text-gray-500 dark:text-white text-sm ml-2">{accountKey.toString()}</span>
+              <span className="text-gray-500 dark:text-white text-sm ml-2">{memeAccount.poolId.toString()}</span>
                 <span className="text-gray-500 dark:text-white text-xs ml-2">{memeAccount.mint.toString()}</span>
                 
               </span>

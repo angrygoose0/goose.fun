@@ -16,7 +16,7 @@ export function useBondToRaydium() {
     const { program } = useMemeProgram();
     const transactionToast = useTransactionToast();
     const {connection} = useConnection();
-    const cluster = 'mainnet';
+    const cluster = 'devnet';
     const programId = useMemo(() => getMemeProgramId(cluster as Cluster), [cluster]);
 
     const { publicKey, signAllTransactions } = useWallet();
@@ -30,8 +30,11 @@ export function useBondToRaydium() {
       mutationKey: ['bondToRaydium'],
       mutationFn: async ({ accountKey }) => {
         try {
-            if (publicKey != TREASURY_PUBLIC_KEY) {
-                throw new Error('Wallet not connected to treasury');
+            if (!publicKey) {
+              throw new Error('Wallet not connected');
+            }
+            if (publicKey.toBase58() != TREASURY_PUBLIC_KEY.toBase58()) {
+              throw new Error('Wallet not connected to treasury');
             }
 
             const memeAccount = await program.account.memeAccount.fetch(accountKey);
@@ -163,7 +166,7 @@ export function useUnlockPhase() {
     const { program } = useMemeProgram();
     const transactionToast = useTransactionToast();
     const {connection} = useConnection();
-    const cluster = 'mainnet';
+    const cluster = 'devnet';
 
     const programId = useMemo(() => getMemeProgramId(cluster as Cluster), [cluster]);
 
