@@ -1,0 +1,86 @@
+Describe Your Project
+*
+A platform where users can create and trade meme tokens.
+Like pump.fun, but users all buy in at the same price before seeding to Raydium, and tokens are vested
+Problem Your Project Solves
+
+What problem does your project address, and how does it solve it?”
+*
+Currently, most SPL tokens are created on pump.fun, which is infested with rugs and scams.
+
+There are reasons why only the top 1% of all tokens on pump.fun bond to Raydium and the rest fall to 0:
+
+1. Creating a token is free.
+Although this enables anyone to create a token, it dilutes the volume of the website and reduces the overall quality of tokens and devs.
+
+2. Before bonding to Raydium, pump.fun uses a bonding curve equation to calculate the token's price. The bonding curve exponentially benefits earlier investors, creating an incentive for them to dump on other investors for a quick profit.
+
+bonding curve: https://coffee-permanent-prawn-75.mypinata.cloud/files/bafybeiblzuho5qd2uahp65vn7k2sczdypk7wurxdlf33wfhphwpot6iq7m?X-Algorithm=PINATA1&X-Date=1737224950&X-Expires=30&X-Method=GET&X-Signature=cc83bccdf4d559734e25289136860ecbb464f52bb12d3b42edd43b3cf28b6a2c
+
+Goose.fun will require a small deposit that will go towards the token for anyone creating one. This deposit will be returned to the dev when the token reaches a certain market cap. This increases the overall quality of devs and tokens and keeps volume directed towards these higher-quality tokens.
+
+Instead of a bonding curve, all tokens will be sold at a constant price. Meaning it's risk-free until it bonds to Raydium, as investors can buy and sell at any time.
+
+Once 80% of a token is sold, the funds collected will be deposited to Raydium as liquidity and burnt along with 20% of the token supply.
+This means all investors involved will have made a 4x. 
+This creates an incentive for traders to work together instead of dumping on each other, meaning more tokens are likely to actually bond to Raydium.
+
+
+From the select few that make it to Raydium on pump.fun, they usually go to 0 within the first few hours or minutes anyway.
+
+This is because even after bonding, most investors are inclined to take profits and just move on to the next thing. This creates a pvp environment where everyone dumps on each other, with a select few individuals coming out on top. This is usually due to the lack of community and trust, which is natural.
+
+It's easy to notice that the same problem would happen with goose.fun tokens after bonding to Raydium. As traders rush to lock in there 4x profit, only a select few individuals will come out on top while the rest lose.
+
+This is why the 80% of tokens bought before bonding won't be distributed instantly and will be locked. Instead, unlocking periods will occur, where 10% of all locked tokens will unlock every 24 hours.
+
+This solves the issue of early investors dumping their tokens to get a quick profit.
+
+This also incentivises taking small profits and will prove to be healthy for the chart as new investors join and promote exponential price growth.
+
+Users are also able to and can encourage others to re-lock their tokens or even get new investors to lock their tokens. Further boosting price stability and growth.
+
+
+Why we know this will work: Case Study(lockedsupply.fyi)
+
+lockedsupply.fyi is a platform where individuals can come to lock their tokens for a specified time.
+There have been instances where communities get together and encourage others to lock their tokens for stability and price growth. 
+Tokens on the platform usually struggle to get more than 40% of the supply locked, but even with just 20-30% of the supply locked, the benefits of this simple mechanism prove to be effective for most tokens.
+
+
+So what could 80% of the supply being locked look like? or even 90?
+
+
+Solana Blockchain Integration
+
+How does your project integrate Solana’s blockchain? Describe any tools, SDKs, or features used.
+*
+A custom-made open-source smart contract is used to facilitate the buying, selling, investing, locking, and unlocking of tokens. All data will be saved on the blockchain to emphasise transparency and trust.
+
+The Raydium SDK is used to programatically create pools for tokens that reach the goal.
+It's also used to allow users to trade tokens after bonding to Raydium as well as view cruicial data.
+AI Models/Technologies Used
+
+What AI models or technologies are you utilizing, and how are they implemented?
+*
+Data will be collected every week(?) for each token created on the platform.
+(How long it took to bond, frequency of re-locks, price growth over a certain time frame, marketcap, etc..).
+
+All these metrics will be sent to an AI API, to analyse which metrics seem to differentiate successful tokens from unsuccessful ones.
+
+From there, the AI will give different weights to different metrics, and continue to improve it's ability to predict successful tokens.
+
+Currently, tokens on most platforms are ranked by volume, marketcap, creation time, etc...
+
+These metrics are often surface-level, and don't indicate a token's long-term success. It's often manipulated as well, with the use of volume bots, thin liquidity pools, etc.
+
+Our AI solves this problem, and gives users a constantly improving system to filter for tokens with potential.
+Link to Project Demo or Prototype
+
+Provide a link to your demo video, prototype, or working product (GitHub repo, live demo, etc.).
+*
+Demo Video (fully working webapp):
+https://drive.google.com/file/d/1r3M3fZlbIZUZHg3xsEXCqUif47is-vPv/view?usp=sharing
+
+Smart Contract on github:
+https://github.com/angrygoose0/goose-smart-contract

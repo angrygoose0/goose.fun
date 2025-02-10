@@ -36,10 +36,6 @@ yarn-error.log*
 next-env.d.ts
 tmp
 
-secrets.txt
-abc.txt
 
-application.txt
 
-treasury-keypair.json
 
